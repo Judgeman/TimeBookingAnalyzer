@@ -1,7 +1,8 @@
 import { useState } from "react";
-import type { LocationShare, PeriodBreakdown } from "../../types/results";
+import type { PeriodBreakdown } from "../../types/results";
 import { formatHours, formatMonth, formatNumber, formatPercent } from "../../lib/format";
 import { OTHER_LABEL, type ColorMap } from "./chartColors";
+import { homeOfficeShares, toRows } from "./locationRows";
 import { PieChart, type PieSlice } from "./PieChart";
 import { styles } from "./styles";
 
@@ -13,53 +14,6 @@ interface Props {
 }
 
 const YEAR = "ytd";
-
-/** Orte, die als Home Office gelten (für die Kennzahl oben). */
-const HOME_OFFICE = /home|remote|mobil/i;
-
-interface Row {
-  key: string;
-  label: string;
-  hours: number;
-  share: number;
-  days: number;
-  color: string;
-}
-
-/** Fasst Orte außerhalb der Farbzuordnung zu „Sonstige“ zusammen. */
-function toRows(shares: LocationShare[], colorMap: ColorMap): Row[] {
-  const total = shares.reduce((sum, s) => sum + s.hours, 0);
-  const rows: Row[] = [];
-  let other: Row | null = null;
-  for (const s of shares) {
-    if (colorMap.folded.has(s.location) || !colorMap.colors.has(s.location)) {
-      other ??= {
-        key: OTHER_LABEL,
-        label: OTHER_LABEL,
-        hours: 0,
-        share: 0,
-        days: 0,
-        color: colorMap.colors.get(OTHER_LABEL) ?? "#008300",
-      };
-      other.hours += s.hours;
-      other.days += s.days;
-    } else {
-      rows.push({
-        key: s.location,
-        label: s.location,
-        hours: s.hours,
-        share: s.share,
-        days: s.days,
-        color: colorMap.colors.get(s.location)!,
-      });
-    }
-  }
-  if (other) {
-    other.share = total > 0 ? (other.hours / total) * 100 : 0;
-    rows.push(other);
-  }
-  return rows;
-}
 
 /**
  * Arbeitsort-Auswertung: Anteile der gearbeiteten Stunden je Ort als Torte
@@ -85,7 +39,7 @@ export function LocationView({ name, data, colorMap, isTeam }: Props) {
   const setActive = (key: string | null) => setHover(key === null ? null : { scope, key });
   const dayLabel = isTeam ? "Personentage" : "Tage";
 
-  const homeOffice = shares.filter((s) => HOME_OFFICE.test(s.location));
+  const homeOffice = homeOfficeShares(shares);
   const homeHours = homeOffice.reduce((sum, s) => sum + s.hours, 0);
   const homeDays = homeOffice.reduce((sum, s) => sum + s.days, 0);
 

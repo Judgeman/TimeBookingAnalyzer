@@ -384,6 +384,49 @@ mod tests {
     }
 
     #[test]
+    fn rows_without_name_or_with_bad_mult_are_skipped() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("export.xlsx");
+        let mut workbook = Workbook::new();
+        let ws = workbook.add_worksheet();
+        ws.set_name("Details").unwrap();
+        ws.write_string(0, 0, "Erika Mustermann").unwrap();
+        ws.write_string(0, 2, "2026-10-05").unwrap();
+        ws.write_number(0, 5, 8.0).unwrap();
+        // Zeile 2: Datum, aber kein Name
+        ws.write_string(1, 2, "2026-10-06").unwrap();
+        ws.write_number(1, 5, 8.0).unwrap();
+        // Zeile 3: ungültiger Mult
+        ws.write_string(2, 0, "Erika Mustermann").unwrap();
+        ws.write_string(2, 2, "2026-10-07").unwrap();
+        ws.write_number(2, 5, 8.0).unwrap();
+        ws.write_string(2, 8, "doppelt").unwrap();
+        workbook.save(&path).unwrap();
+
+        let outcome = read_export(&path, &ExportFormat::default()).unwrap();
+        assert_eq!(outcome.entries.len(), 1);
+        let reasons: Vec<(usize, &str)> = outcome
+            .skipped
+            .iter()
+            .map(|s| (s.row, s.reason.as_str()))
+            .collect();
+        assert_eq!(reasons[0], (2, "Spalte A (Name) ist leer"));
+        assert_eq!(reasons[1].0, 3);
+        assert!(reasons[1].1.starts_with("Spalte I (Mult)"), "{reasons:?}");
+    }
+
+    #[test]
+    fn empty_sheet_is_reported() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("leer.xlsx");
+        let mut workbook = Workbook::new();
+        workbook.add_worksheet().set_name("Details").unwrap();
+        workbook.save(&path).unwrap();
+        let err = read_export(&path, &ExportFormat::default()).unwrap_err();
+        assert!(err.contains("ist leer"), "{err}");
+    }
+
+    #[test]
     fn missing_file_is_reported() {
         let err =
             read_export(Path::new("/nicht/vorhanden.xlsx"), &ExportFormat::default()).unwrap_err();

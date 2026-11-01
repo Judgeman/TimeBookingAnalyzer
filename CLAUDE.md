@@ -43,6 +43,12 @@ src/                        # React Frontend
   lib/
     api.ts                  # Typisierte Wrapper um invoke()
     format.ts               # Zahl-/Datumsformatierung (de-DE)
+    dates.ts                # Eingabe freier Tage (TT.MM.JJJJ / ISO) parsen
+  test/
+    setup.ts                # Vitest: jest-dom, cleanup
+    fixture.ts              # sampleResult(): echtes Rust-Ergebnis der Beispieldaten
+    fixtures/sample-result.json  # von Rust erzeugt (Vertragstest, s. u.)
+  **/*.test.ts(x)           # Vitest-Unit-/Komponententests neben dem Code
   types/
     config.ts               # TypeScript-Typen für Projektkonfiguration
     results.ts              # TypeScript-Typen für Command-Ergebnisse
@@ -78,6 +84,8 @@ src-tauri/
     generate_sample_export.rs  # erzeugt sample-data/Beispiel-Export_2026-10-31.xlsx
 
 sample-data/                # Fiktive Testdaten (Export + passende Projektkonfiguration)
+e2e/                        # E2E-Tests der Desktop-App (tauri-driver, node:test), s. e2e/README.md
+.github/workflows/ci.yml    # CI: Rust (fmt/clippy/Tests/Abdeckung), Frontend, E2E
 ```
 
 ## Entwicklung
@@ -86,10 +94,27 @@ sample-data/                # Fiktive Testdaten (Export + passende Projektkonfig
 npm install
 npm run tauri dev          # App im Dev-Modus starten
 npm run build              # Typecheck + Frontend-Build
+npm test                   # Frontend-Tests (Vitest)
+npm run test:coverage      # … mit Abdeckung (Mindestwerte in vite.config.ts)
+npm run build:e2e && npm run test:e2e   # E2E-Tests der echten App (Linux headless: xvfb-run -a)
 cd src-tauri && cargo test # Rust-Tests (Parser, Config, Speicher, Berechnung)
-cd src-tauri && cargo clippy --all-targets
+cd src-tauri && cargo clippy --all-targets -- -D warnings
+cd src-tauri && cargo llvm-cov --lib --summary-only         # Rust-Abdeckung
 cd src-tauri && cargo run --example generate_sample_export  # Beispiel-Export neu erzeugen
+cd src-tauri && UPDATE_FIXTURES=1 cargo test frontend_fixture  # Vertrags-Fixture neu erzeugen
 ```
+
+### Tests
+- **Rust**: Unit-Tests je Modul + `calculation/tests.rs` (handgerechnetes Szenario) +
+  Beispieldaten-Test in `commands/parse_export.rs`. CI verlangt ≥ 90 % Zeilen.
+- **Vertragstest Rust ↔ Frontend**: `frontend_fixture_is_up_to_date` (Rust) vergleicht das
+  Ergebnis der Beispieldaten mit `src/test/fixtures/sample-result.json`; `src/test/fixture.test.ts`
+  prüft die Datei beim Typecheck gegen `AuswertungResult`. Ändert sich das Datenmodell oder
+  die Berechnung → Fixture neu erzeugen (Befehl oben) und TS-Typen anpassen.
+- **Frontend**: Vitest + Testing Library (jsdom); `App.test.tsx` testet die ganze App mit
+  nachgebildetem Tauri-Backend. Mindestabdeckung 90 % Zeilen/Anweisungen, 85 % Zweige/Funktionen.
+- **E2E**: `e2e/` – echte App über `tauri-driver` mit isoliertem Datenverzeichnis.
+- Neue Funktionen immer mit Tests in allen betroffenen Ebenen ergänzen.
 
 ---
 

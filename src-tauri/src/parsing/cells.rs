@@ -277,6 +277,52 @@ mod tests {
     }
 
     #[test]
+    fn text_and_description_of_other_cell_types() {
+        use calamine::CellErrorType;
+        assert_eq!(cell_text(Some(&Data::Int(42))), "42");
+        assert_eq!(cell_text(Some(&Data::Bool(true))), "true");
+        assert_eq!(cell_text(Some(&Data::Error(CellErrorType::NA))), "");
+        let date = Data::DateTime(ExcelDateTime::new(
+            46300.0,
+            ExcelDateTimeType::DateTime,
+            false,
+        ));
+        assert_eq!(cell_text(Some(&date)), "2026-10-05");
+        let time = Data::DateTime(ExcelDateTime::new(0.5, ExcelDateTimeType::TimeDelta, false));
+        assert_eq!(cell_text(Some(&time)), "0.5");
+
+        assert_eq!(describe(None), "leer");
+        assert_eq!(describe(Some(&s("Datum"))), "„Datum“");
+        let long = "x".repeat(50);
+        assert_eq!(describe(Some(&s(&long))), format!("„{}…“", "x".repeat(40)));
+    }
+
+    #[test]
+    fn rejects_unusable_dates_hours_and_mult() {
+        assert!(cell_date(Some(&Data::Int(5_000_000))).is_err());
+        assert!(
+            cell_date(Some(&Data::Bool(true)))
+                .unwrap_err()
+                .contains("kein gültiges Datum")
+        );
+        assert_eq!(cell_date(Some(&Data::Int(46300))), Ok(date(2026, 10, 5)));
+        assert!(cell_hours(Some(&Data::Bool(true))).is_err());
+        assert!(cell_hours(Some(&s("  h "))).is_err());
+        assert!(cell_hours(Some(&s("1:2:3:4"))).is_err());
+        assert_eq!(
+            cell_hours(Some(&Data::DurationIso("P1DT2H".into()))),
+            Ok(26.0)
+        );
+        assert!(cell_hours(Some(&Data::DurationIso("PT8X".into()))).is_err());
+        assert!(cell_hours(Some(&Data::DurationIso("P2H".into()))).is_err());
+        assert_eq!(cell_mult(Some(&Data::Int(2))), Ok(2.0));
+        let excel = Data::DateTime(ExcelDateTime::new(0.5, ExcelDateTimeType::DateTime, false));
+        assert_eq!(cell_mult(Some(&excel)), Ok(0.5));
+        assert!(cell_mult(Some(&Data::Bool(false))).is_err());
+        assert!(cell_mult(Some(&s("viel%"))).is_err());
+    }
+
+    #[test]
     fn column_letters() {
         assert_eq!(column_letter(0), "A");
         assert_eq!(column_letter(13), "N");

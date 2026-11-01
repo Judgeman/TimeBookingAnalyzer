@@ -1,0 +1,62 @@
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it } from "vitest";
+import { sampleResult } from "../../test/fixture";
+import type { InvoiceSummary } from "../../types/results";
+import { InvoiceView } from "./InvoiceView";
+
+const text = () => document.body.textContent!.replace(/ | /g, " ");
+
+describe("InvoiceView", () => {
+  it("zeigt Summen, USt. je Satz und Netto pro Person und Monat", () => {
+    const r = sampleResult();
+    render(
+      <InvoiceView invoice={r.invoice} persons={r.persons.map((p) => p.name)} cutoffDate={r.cutoff_date} />,
+    );
+    expect(text()).toContain("292.985,00 €");
+    expect(text()).toContain("55.612,27 €");
+    expect(text()).toContain("348.597,27 €");
+    expect(text()).toContain("USt. 7 % / 19 %");
+    expect(text()).toContain("7 %: 32,03 €");
+
+    const table = screen.getByText("Netto pro Person und Monat").nextElementSibling as HTMLElement;
+    const october = within(table).getByText("Oktober 2026").closest("tr")!;
+    expect(october.textContent!.replace(/ /g, " ")).toContain("17.036,25 €");
+  });
+
+  it("öffnet Monatsdetails mit Leistung, Satz-Anteil und USt.-Gruppen", async () => {
+    const user = userEvent.setup();
+    const r = sampleResult();
+    // Eine Position mit halbem Satz, eine ohne Satz
+    const sep = r.invoice.months.find((m) => m.month === "2026-09")!;
+    sep.lines.push(
+      { person: "Max Mustermann", service: "Reisezeit", base_rate: 95, rate_percent: 50, rate: 47.5, hours: 2, net: 95, vat_percent: 19 },
+      { person: "Max Mustermann", service: "Delivery", base_rate: null, rate_percent: 100, rate: null, hours: 1, net: 0, vat_percent: 19 },
+    );
+    render(<InvoiceView invoice={r.invoice} persons={["Erika Mustermann", "Max Mustermann"]} cutoffDate="2026-10-31" />);
+
+    await user.click(screen.getByText("September 2026", { selector: "summary span" }));
+    expect(screen.getAllByText("Schulung").length).toBeGreaterThan(0);
+    expect(text()).toContain("zzgl. USt. 7 % auf 157,50 €");
+    expect(text()).toContain("(50 % von 95,00 €)");
+    expect(screen.getByText("kein Satz hinterlegt")).toBeInTheDocument();
+  });
+
+  it("markiert den laufenden Monat und meldet fehlende Stunden", () => {
+    const r = sampleResult();
+    r.invoice.months[r.invoice.months.length - 1].partial = true;
+    const { unmount } = render(
+      <InvoiceView invoice={r.invoice} persons={["Erika Mustermann"]} cutoffDate="2026-10-15" />,
+    );
+    expect(screen.getAllByText("bis 15.10.2026").length).toBeGreaterThan(0);
+    unmount();
+
+    const empty: InvoiceSummary = {
+      vat_percent: 19,
+      months: [],
+      total: { hours: 0, net: 0, vat_groups: [], vat: 0, gross: 0 },
+    };
+    render(<InvoiceView invoice={empty} persons={[]} cutoffDate="2026-10-31" />);
+    expect(screen.getByText(/keine abrechenbaren Stunden/)).toBeInTheDocument();
+  });
+});

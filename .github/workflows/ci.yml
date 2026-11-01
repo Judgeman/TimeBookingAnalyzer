@@ -1,0 +1,144 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # Systempakete für Tauri unter Linux
+  TAURI_LINUX_DEPS: libwebkit2gtk-4.1-dev librsvg2-dev libayatana-appindicator3-dev
+
+jobs:
+  rust:
+    name: Rust (fmt, clippy, Tests, Abdeckung)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Systempakete
+        run: sudo apt-get update && sudo apt-get install -y $TAURI_LINUX_DEPS
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt, llvm-tools-preview
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+
+      - name: Platzhalter für frontendDist
+        run: mkdir -p dist
+
+      - name: Formatierung
+        working-directory: src-tauri
+        run: cargo fmt --check
+
+      - name: Clippy
+        working-directory: src-tauri
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Tests mit Abdeckung (mind. 90 % Zeilen)
+        working-directory: src-tauri
+        run: cargo llvm-cov --lib --fail-under-lines 90 --lcov --output-path lcov.info
+
+      - name: Abdeckung in die Zusammenfassung
+        if: always()
+        working-directory: src-tauri
+        run: |
+          {
+            echo "### Rust-Abdeckung"
+            echo '```'
+            cargo llvm-cov report --summary-only
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-rust
+          path: src-tauri/lcov.info
+
+  frontend:
+    name: Frontend (Typecheck, Build, Tests, Abdeckung)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck und Build
+        run: npm run build
+
+      - name: Tests mit Abdeckung (Mindestwerte in vite.config.ts)
+        run: npm run test:coverage -- --coverage.reporter=text --coverage.reporter=lcov --coverage.reporter=html --coverage.reporter=text-summary | tee coverage-frontend.txt
+
+      - name: Abdeckung in die Zusammenfassung
+        if: always()
+        run: |
+          {
+            echo "### Frontend-Abdeckung"
+            echo '```'
+            sed -n '/Coverage summary/,/====/p' coverage-frontend.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-frontend
+          path: coverage/frontend
+
+  e2e:
+    name: E2E (Desktop-App unter Xvfb)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Systempakete
+        run: sudo apt-get update && sudo apt-get install -y $TAURI_LINUX_DEPS webkit2gtk-driver xvfb
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: tauri-driver
+        run: command -v tauri-driver || cargo install tauri-driver --locked
+
+      - name: App bauen (Debug, Frontend eingebettet)
+        run: npm run build:e2e
+
+      - name: E2E-Tests
+        run: xvfb-run -a npm run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-screenshots
+          path: e2e/artifacts

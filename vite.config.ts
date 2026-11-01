@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -28,6 +29,22 @@ export default defineConfig(() => ({
     watch: {
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],
+    },
+  },
+
+  // Unit- und Komponententests (npm test / npm run test:coverage)
+  test: {
+    environment: "jsdom",
+    setupFiles: ["src/test/setup.ts"],
+    include: ["src/**/*.test.{ts,tsx}"],
+    coverage: {
+      provider: "v8" as const,
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: ["src/**/*.test.{ts,tsx}", "src/test/**", "src/main.tsx", "src/vite-env.d.ts"],
+      reporter: ["text", "html", "lcov"],
+      reportsDirectory: "coverage/frontend",
+      // Mindestabdeckung – CI schlägt fehl, wenn sie unterschritten wird.
+      thresholds: { lines: 90, statements: 90, functions: 85, branches: 85 },
     },
   },
 }));

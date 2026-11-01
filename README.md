@@ -16,6 +16,7 @@ konfigurierbaren Projekt-Regeln. Details zu Regeln und Datenmodell: [CLAUDE.md](
 - [x] Rechnung: Netto pro Person und Monat, USt. je Steuersatz, Brutto, Positionen je Leistung
 - [x] Abrechnungsregeln (billable, Mult, Satz-Anteil, USt.), Arbeitszeit-Ausnahmen je Person
 - [x] Projekt-Editor mit Formularen für Team, Arbeitszeiten, Regeln, Feiertage
+- [x] Tests: Rust-Unit-Tests, Vitest (Unit/Komponenten/Integration), E2E, Vertragstest, CI
 - [ ] Spalten-Mapping per Drag & Drop auf eine Beispielzeile
 
 ## Voraussetzungen
@@ -34,11 +35,23 @@ npm install
 npm run tauri dev
 ```
 
-Tests und Lint für das Rust-Backend:
+Tests:
 
 ```bash
-cd src-tauri && cargo test && cargo clippy --all-targets
+cd src-tauri && cargo test && cargo clippy --all-targets -- -D warnings
 ```
+
+```bash
+npm test
+```
+
+```bash
+npm run build:e2e && npm run test:e2e
+```
+
+E2E-Voraussetzungen (u. a. `tauri-driver`) stehen in [`e2e/README.md`](e2e/README.md).
+Bei jedem Push laufen alle Tests, Lint und Abdeckungsberichte in GitHub Actions
+(`.github/workflows/ci.yml`).
 
 Zum Ausprobieren gibt es fiktive Beispieldaten in [`sample-data/`](sample-data/README.md)
 (Export + passende Projektkonfiguration).

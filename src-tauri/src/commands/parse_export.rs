@@ -93,6 +93,34 @@ mod tests {
             .join(file)
     }
 
+    /// Vertragstest Rust ↔ Frontend: Das Auswertungsergebnis der Beispieldaten
+    /// liegt als JSON in `src/test/fixtures/sample-result.json`; die
+    /// Frontend-Tests prüfen es gegen die TypeScript-Typen. Ändert sich das
+    /// Ergebnis, schlägt dieser Test fehl – neu erzeugen mit
+    /// `UPDATE_FIXTURES=1 cargo test frontend_fixture`.
+    #[test]
+    fn frontend_fixture_is_up_to_date() {
+        let json = std::fs::read_to_string(sample("beispiel-projekt.json")).unwrap();
+        let config: ProjectConfig = serde_json::from_str(&json).unwrap();
+        let result =
+            parse_export_file(&sample("Beispiel-Export_2026-10-31.xlsx"), &config, None).unwrap();
+        let actual = serde_json::to_string_pretty(&result).unwrap() + "\n";
+        let fixture =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/test/fixtures/sample-result.json");
+
+        if std::env::var_os("UPDATE_FIXTURES").is_some() {
+            std::fs::create_dir_all(fixture.parent().unwrap()).unwrap();
+            std::fs::write(&fixture, &actual).unwrap();
+            return;
+        }
+        let expected = std::fs::read_to_string(&fixture).unwrap_or_default();
+        assert!(
+            expected == actual,
+            "{} ist veraltet – mit `UPDATE_FIXTURES=1 cargo test frontend_fixture` neu erzeugen.",
+            fixture.display()
+        );
+    }
+
     /// Hält die fiktiven Beispieldaten in `sample-data/` und den Parser synchron.
     #[test]
     fn parses_bundled_sample_export() {
