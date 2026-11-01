@@ -46,6 +46,7 @@
     }
   },
   "vat_percent": 19.0,
+  "missing_threshold_percent": 50.0,
   "billing_rules": [
     {
       "name": "Delivery",

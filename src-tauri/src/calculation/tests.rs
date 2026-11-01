@@ -57,6 +57,7 @@ fn config() -> ProjectConfig {
         export_format: ExportFormat::default(),
         vat_percent: 19.0,
         billing_rules: default_billing_rules(),
+        missing_threshold_percent: 50.0,
     }
 }
 
@@ -468,4 +469,78 @@ fn hours_per_work_location() {
         .find(|s| s.location == "(ohne Angabe)")
         .unwrap();
     assert_eq!((team_unknown.hours, team_unknown.days), (22.0, 3)); // Erika 6 h + Max 16 h
+}
+
+#[test]
+fn missing_bookings_below_threshold() {
+    let result = run(); // geprüft bis 16.01. (Stand des Exports)
+    assert_eq!(result.missing_checked_until, d(2026, 1, 16));
+
+    let erika: Vec<(NaiveDate, f64, f64, f64)> = result
+        .missing
+        .iter()
+        .filter(|m| m.person == ERIKA)
+        .map(|m| (m.date, m.expected_hours, m.booked_hours, m.coverage_percent))
+        .collect();
+    // 05.01. Urlaub, 12.01. krank, 13.01. Sales 6/6 h, 14.01. 4/6 h (Mult 0 zählt als gebucht)
+    assert_eq!(
+        erika,
+        vec![
+            (d(2026, 1, 8), 8.0, 0.0, 0.0),
+            (d(2026, 1, 9), 8.0, 0.0, 0.0),
+            (d(2026, 1, 15), 6.0, 0.0, 0.0),
+            (d(2026, 1, 16), 6.0, 0.0, 0.0),
+        ]
+    );
+    let periods = &result.persons[0].periods;
+    assert_eq!(periods.ytd.missing_days, 4.0);
+    assert_eq!(periods.by_week["2026-W02"].missing_days, 2.0);
+    assert_eq!(periods.by_week["2026-W03"].missing_days, 2.0);
+    // Max bucht nur am 02. und 05.01.
+    assert_eq!(result.persons[1].periods.ytd.missing_days, 9.0);
+    assert_eq!(result.team.ytd.missing_days, 13.0);
+}
+
+#[test]
+fn missing_bookings_respect_partial_bookings_threshold_and_export_date() {
+    let mut entries = entries();
+    entries.push(e(ERIKA, d(2026, 1, 15), 2.0, 1.0, P100, DELIVERY)); // 2 von 6 h
+    entries.push(e(ERIKA, d(2026, 1, 16), 3.0, 1.0, P100, DELIVERY)); // genau 50 %
+    let mut cfg = config();
+    let result = evaluate(&cfg, &entries, d(2026, 1, 16), Some(d(2026, 1, 16)));
+    let erika: Vec<(NaiveDate, f64)> = result
+        .missing
+        .iter()
+        .filter(|m| m.person == ERIKA)
+        .map(|m| (m.date, m.coverage_percent))
+        .collect();
+    assert_eq!(
+        erika,
+        vec![
+            (d(2026, 1, 8), 0.0),
+            (d(2026, 1, 9), 0.0),
+            (d(2026, 1, 15), 33.33)
+        ]
+    );
+
+    // Schwelle 70 %: 14.01. (4 von 6 h = 66,67 %) fehlt jetzt auch
+    cfg.missing_threshold_percent = 70.0;
+    let result = evaluate(&cfg, &entries, d(2026, 1, 16), Some(d(2026, 1, 16)));
+    assert!(
+        result
+            .missing
+            .iter()
+            .any(|m| m.person == ERIKA && m.date == d(2026, 1, 14) && m.coverage_percent == 66.67)
+    );
+
+    // Stichtag nach dem Export-Stand: nur bis zum Stand prüfen
+    let result = evaluate(&config(), &entries, d(2026, 1, 16), Some(d(2026, 1, 9)));
+    assert_eq!(result.missing_checked_until, d(2026, 1, 9));
+    let dates: Vec<NaiveDate> = result
+        .missing
+        .iter()
+        .filter(|m| m.person == ERIKA)
+        .map(|m| m.date)
+        .collect();
+    assert_eq!(dates, vec![d(2026, 1, 8), d(2026, 1, 9)]);
 }

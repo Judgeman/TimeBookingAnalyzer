@@ -11,6 +11,8 @@ export interface PeriodRow {
   data: PeriodData;
   /** Hervorgehobene Buchungen in diesem Zeitraum (Tooltip-Zeilen). */
   flags?: string[];
+  /** Fehlende Buchungen in diesem Zeitraum (Tooltip-Zeilen). */
+  missing?: string[];
   /** Aufklappbare Unterzeilen (z. B. Kalenderwochen eines Monats). */
   children?: PeriodRow[];
 }
@@ -82,6 +84,7 @@ export function PeriodTable({ rows, total, totalLabel, periodLabel }: Props) {
                     <span className="font-medium">{row.label}</span>
                     {row.detail && <span className="ml-2 text-xs text-slate-500">{row.detail}</span>}
                     <FlagMarker flags={row.flags} />
+                    <MissingMarker missing={row.missing} />
                   </td>
                   <MetricCells data={row.data} />
                 </tr>
@@ -94,6 +97,7 @@ export function PeriodTable({ rows, total, totalLabel, periodLabel }: Props) {
                           <span className="ml-2 text-xs text-slate-500">{child.detail}</span>
                         )}
                         <FlagMarker flags={child.flags} />
+                        <MissingMarker missing={child.missing} />
                       </td>
                       <MetricCells data={child.data} />
                     </tr>
@@ -121,6 +125,18 @@ function FlagMarker({ flags }: { flags?: string[] }) {
       title={flags.join("\n")}
     >
       ⚑ {flags.length}
+    </span>
+  );
+}
+
+function MissingMarker({ missing }: { missing?: string[] }) {
+  if (!missing?.length) return null;
+  return (
+    <span
+      className="ml-2 cursor-help rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-800"
+      title={missing.join("\n")}
+    >
+      ! {missing.length} fehlende Buchung{missing.length === 1 ? "" : "en"}
     </span>
   );
 }

@@ -16,6 +16,8 @@ export interface ProjectConfig {
   vat_percent: number;
   /** Abrechnungsregeln; die erste passende gilt. */
   billing_rules: BillingRule[];
+  /** Werktag mit weniger als diesem Anteil (%) der Soll-Stunden = fehlende Buchung. */
+  missing_threshold_percent: number;
 }
 
 export interface TeamMember {
@@ -163,5 +165,6 @@ export function newProject(): ProjectConfig {
     export_format: defaultExportFormat(),
     vat_percent: 19,
     billing_rules: defaultBillingRules(),
+    missing_threshold_percent: 50,
   };
 }

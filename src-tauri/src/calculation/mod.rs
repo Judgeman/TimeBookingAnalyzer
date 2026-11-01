@@ -20,7 +20,8 @@ use chrono::{Datelike, NaiveDate, Weekday};
 use crate::models::config::{ProjectConfig, TeamMember};
 use crate::models::entry::TimeEntry;
 use crate::models::results::{
-    AbsenceKind, FlaggedBooking, InvoiceSummary, PeriodBreakdown, PeriodData, PersonResult,
+    AbsenceKind, FlaggedBooking, InvoiceSummary, MissingBooking, PeriodBreakdown, PeriodData,
+    PersonResult,
 };
 use gearb::Absence;
 use holidays::Holiday;
@@ -35,6 +36,8 @@ pub struct Evaluation {
     pub holidays: Vec<Holiday>,
     pub warnings: Vec<String>,
     pub flagged: Vec<FlaggedBooking>,
+    pub missing: Vec<MissingBooking>,
+    pub missing_checked_until: NaiveDate,
 }
 
 /// Wertet alle Teammitglieder vom 1. Januar des Stichtag-Jahres bis zum
@@ -107,6 +110,12 @@ pub fn evaluate(
 
     warnings.extend(missing_working_hours(config, &days, &is_workday));
 
+    // Fehlende Buchungen nur bis zum Stand des Exports prüfen – danach kann
+    // der Export noch nichts enthalten.
+    let export_until = export_date.or_else(|| entries.iter().map(|e| e.date).max());
+    let missing_checked_until = export_until.map_or(cutoff, |d| d.min(cutoff));
+    let threshold = config.missing_threshold_percent / 100.0;
+
     // Anzeigenamen der Arbeitsorte: erste Schreibweise im Export.
     let mut location_names: HashMap<String, String> = HashMap::new();
     for entries_of_day in by_person.iter().flat_map(|days| days.values()) {
@@ -120,6 +129,7 @@ pub fn evaluate(
     let mut team = BreakdownAcc::default();
     let mut persons = Vec::with_capacity(config.team.len());
     let mut flagged = Vec::new();
+    let mut missing = Vec::new();
 
     for (index, member) in config.team.iter().enumerate() {
         let mut breakdown = BreakdownAcc::default();
@@ -133,6 +143,8 @@ pub fn evaluate(
                 ..Acc::default()
             };
             let (mut raw_vacation, mut raw_sick) = (0.0, 0.0);
+            // Gebuchte Arbeitszeit ohne Mult (für die Prüfung auf fehlende Buchungen).
+            let mut booked_work = 0.0;
             let mut day_locations: BTreeMap<String, f64> = BTreeMap::new();
 
             for entry in by_person[index].get(&date).into_iter().flatten() {
@@ -140,6 +152,7 @@ pub fn evaluate(
                     Some(Absence::Vacation) => raw_vacation += entry.hours,
                     Some(Absence::Sick) => raw_sick += entry.hours,
                     None => {
+                        booked_work += entry.hours;
                         let worked = gearb::worked_hours(entry);
                         day.gearb += worked;
                         if worked > 0.0 {
@@ -218,6 +231,23 @@ pub fn evaluate(
                 }
             }
 
+            if let Some(expected) = hpd.filter(|h| *h > 0.0)
+                && workday
+                && date <= missing_checked_until
+            {
+                let booked = booked_work + day.vac_h + day.sick_h;
+                if booked < expected * threshold - 1e-9 {
+                    day.missing_days = 1.0;
+                    missing.push(MissingBooking {
+                        person: member.name.clone(),
+                        date,
+                        expected_hours: round2(expected),
+                        booked_hours: round2(booked),
+                        coverage_percent: round2(booked / expected * 100.0),
+                    });
+                }
+            }
+
             breakdown.add_day(date, &day);
             breakdown.locations.add_day(date, &day_locations);
         }
@@ -247,6 +277,8 @@ pub fn evaluate(
         holidays: holiday_list,
         warnings,
         flagged,
+        missing,
+        missing_checked_until,
     }
 }
 
@@ -340,6 +372,7 @@ struct Acc {
     bill_h: f64,
     bill_eur: f64,
     nonbill_h: f64,
+    missing_days: f64,
 }
 
 impl AddAssign<&Acc> for Acc {
@@ -353,6 +386,7 @@ impl AddAssign<&Acc> for Acc {
         self.bill_h += o.bill_h;
         self.bill_eur += o.bill_eur;
         self.nonbill_h += o.nonbill_h;
+        self.missing_days += o.missing_days;
     }
 }
 
@@ -373,6 +407,7 @@ impl Acc {
             nonbill_h: round2(self.nonbill_h),
             plus: round2(plus),
             plus_krank: round2(plus - self.sick_h),
+            missing_days: self.missing_days,
         }
     }
 }

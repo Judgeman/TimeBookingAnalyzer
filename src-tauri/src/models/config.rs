@@ -33,10 +33,18 @@ pub struct ProjectConfig {
     /// Die erste passende Regel gilt.
     #[serde(default = "default_billing_rules")]
     pub billing_rules: Vec<BillingRule>,
+    /// Ein Werktag gilt als „fehlende Buchung“, wenn weniger als dieser Anteil
+    /// (in Prozent) der Soll-Stunden gebucht ist.
+    #[serde(default = "default_missing_threshold")]
+    pub missing_threshold_percent: f64,
 }
 
 fn default_vat_percent() -> f64 {
     19.0
+}
+
+fn default_missing_threshold() -> f64 {
+    50.0
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -259,6 +267,12 @@ impl ProjectConfig {
                 self.holidays.region
             ));
         }
+        if !(0.0..=100.0).contains(&self.missing_threshold_percent) {
+            errors.push(format!(
+                "Schwelle für fehlende Buchungen {} % liegt nicht zwischen 0 und 100.",
+                self.missing_threshold_percent
+            ));
+        }
         if !(0.0..=100.0).contains(&self.vat_percent) {
             errors.push(format!(
                 "Umsatzsteuersatz {} % liegt nicht zwischen 0 und 100.",
@@ -401,6 +415,7 @@ mod tests {
         assert_eq!(config.holidays.region, "HE");
         assert_eq!(config.vat_percent, 19.0);
         assert_eq!(config.billing_rules, default_billing_rules());
+        assert_eq!(config.missing_threshold_percent, 50.0);
     }
 
     #[test]

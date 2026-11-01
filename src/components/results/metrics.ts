@@ -39,11 +39,13 @@ export const METRICS: Metric[] = [
     help: "Gearbeitet − Soll netto" },
   { key: "plus_krank", label: "Plus/Minus (Krank = Fehlzeit)", short: "Plus (Kr.)", kind: "signed",
     help: "Plus − Krank (h): Krankheit wird nicht gutgeschrieben" },
+  { key: "missing_days", label: "Fehlende Buchungen (Tage)", short: "Fehlend", kind: "days",
+    help: "Werktage, an denen weniger als die Schwelle (Standard 50 %) der Soll-Stunden gebucht ist (Arbeitszeit ohne Mult + Urlaub/Krank)" },
 ];
 
-/** Kompakte Auswahl für Monats-/Wochentabellen (Tage stehen im Tooltip). */
+/** Kompakte Auswahl für Monats-/Wochentabellen (Tage im Tooltip, fehlende Buchungen als Kennzeichen). */
 export const TABLE_METRICS: Metric[] = METRICS.filter(
-  (m) => m.key !== "vac_days" && m.key !== "sick_days",
+  (m) => m.key !== "vac_days" && m.key !== "sick_days" && m.key !== "missing_days",
 );
 
 export function formatMetric(metric: Metric, value: number): string {
@@ -60,6 +62,7 @@ export function formatMetric(metric: Metric, value: number): string {
 }
 
 export function metricTone(metric: Metric, value: number): string {
+  if (metric.key === "missing_days") return value > 0 ? "text-red-700 font-medium" : "";
   if (metric.kind !== "signed" || value === 0) return "";
   return value > 0 ? "text-emerald-700" : "text-red-700";
 }

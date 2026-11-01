@@ -172,6 +172,7 @@ mod tests {
             export_format: ExportFormat::default(),
             vat_percent: 19.0,
             billing_rules: default_billing_rules(),
+            missing_threshold_percent: 50.0,
         }
     }
 

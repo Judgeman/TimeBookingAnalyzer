@@ -130,6 +130,7 @@ Jedes Projekt wird als JSON-Datei gespeichert:
     "custom": []
   },
   "vat_percent": 19.0,
+  "missing_threshold_percent": 50.0,
   "billing_rules": [
     { "name": "Delivery", "kost2art": "Delivery (billable)", "match_mode": "exact",
       "element": "", "billable_hours": true, "invoice": true, "apply_mult": false,
@@ -246,6 +247,12 @@ plus_krank = plus - sick_h_norm
 - **Stundenkonto** (UI, aus PeriodData): zu leisten = Soll netto, Saldo = `plus`
   (negativ = Person schuldet Stunden); Variante „Krankheit als Fehlzeit“: zu leisten =
   Soll brutto − Urlaub, Saldo = `plus_krank`; Erfüllung = gearb ÷ zu leisten.
+- **Fehlende Buchung**: Werktag (Mo–Fr ohne Feiertag) mit h/Tag > 0, an dem
+  gebucht = Arbeitszeit **ohne** Mult (alle Nicht-Abwesenheits-Buchungen, auch Mult 0)
+  + angerechneter Urlaub/Krank < `missing_threshold_percent` (Standard 50 %) der
+  Soll-Stunden. Geprüft bis min(Stichtag, Stand des Exports) → `missing_checked_until`.
+  Zählt als `missing_days` je Zeitraum; Liste `missing` (Soll, gebucht, Anteil).
+  Personen, die erst später anfangen: Arbeitszeit davor auf 0 h/Tag setzen.
 - **Arbeitsort** (`location.rs`): Basis = gearbeitete Stunden (wie `gearb`: × Mult,
   Mult > 0, ohne Urlaub/Krank) → Summe aller Orte = `gearb`. Orte ohne Groß-/Klein-
   schreibung gruppiert, Anzeigename = erste Schreibweise, leer = „(ohne Angabe)“.
@@ -322,6 +329,8 @@ interface AuswertungResult {
   holidays: Holiday[];
   warnings: string[];
   flagged: FlaggedBooking[];      // hervorgehobene Urlaubs-/Krank-Tage (zählen mit)
+  missing: MissingBooking[];      // Werktage mit fehlender/zu geringer Buchung
+  missing_checked_until: string;  // min(Stichtag, Stand des Exports)
   overview: ParsedExport;         // Rohdaten-Übersicht (Tab „Import“)
 }
 
@@ -349,6 +358,7 @@ interface PeriodData {
   nonbill_h: number;   // Non-billable Stunden
   plus: number;        // Überstunden
   plus_krank: number;  // Überstunden (Krank = Fehlzeit)
+  missing_days: number; // Werktage mit fehlender Buchung
 }
 ```
 

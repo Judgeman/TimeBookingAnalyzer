@@ -1,5 +1,10 @@
 import { useState } from "react";
-import type { AuswertungResult, FlaggedBooking, PeriodBreakdown } from "../../types/results";
+import type {
+  AuswertungResult,
+  FlaggedBooking,
+  MissingBooking,
+  PeriodBreakdown,
+} from "../../types/results";
 import {
   clampRange,
   endOfPreviousMonth,
@@ -63,6 +68,11 @@ export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Pro
   );
   const flagsWhere = (match: (f: FlaggedBooking) => boolean) =>
     flags.filter(match).map(describeFlag);
+  const missing = result.missing.filter(
+    (m) => selectedIndex === TEAM || m.person === result.persons[selectedIndex]?.name,
+  );
+  const missingWhere = (match: (m: MissingBooking) => boolean) =>
+    missing.filter(match).map(describeMissing);
 
   const monthRows: PeriodRow[] = Object.entries(selected.by_month).map(([month, data]) => {
     const range = clampRange(monthRange(month), period);
@@ -73,12 +83,14 @@ export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Pro
       detail: range[1] < monthRange(month)[1] ? `bis ${formatDate(range[1])}` : undefined,
       data,
       flags: flagsWhere((f) => f.date.startsWith(month)),
+      missing: missingWhere((m) => m.date.startsWith(month)),
       children: Object.entries(weeks).map(([week, weekData]) => ({
         key: week,
         label: formatWeek(week),
         detail: formatRange(...clampRange(isoWeekRange(week), range)),
         data: weekData,
         flags: flagsWhere((f) => f.date.startsWith(month) && isoWeekKey(f.date) === week),
+        missing: missingWhere((m) => m.date.startsWith(month) && isoWeekKey(m.date) === week),
       })),
     };
   });
@@ -89,6 +101,7 @@ export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Pro
     detail: formatRange(...clampRange(isoWeekRange(week), period)),
     data,
     flags: flagsWhere((f) => isoWeekKey(f.date) === week),
+    missing: missingWhere((m) => isoWeekKey(m.date) === week),
   }));
 
   const sourceLabel =
@@ -153,6 +166,14 @@ export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Pro
             <li key={w}>⚠ {w}</li>
           ))}
         </ul>
+      )}
+
+      {result.missing.length > 0 && (
+        <MissingList
+          missing={result.missing}
+          checkedUntil={result.missing_checked_until}
+          threshold={result.missing_threshold_percent}
+        />
       )}
 
       {result.flagged.length > 0 && <FlaggedList flagged={result.flagged} />}
@@ -259,6 +280,75 @@ function describeFlag(f: FlaggedBooking): string {
   return `${formatDateWithWeekday(f.date)} · ${f.person}: ${KIND_LABEL[f.kind]} ${formatHours(
     f.hours,
   )} h → ${formatNumber(f.credited_days)} Tag(e) (${f.reasons.join(", ")})`;
+}
+
+function missingReason(m: MissingBooking): string {
+  return m.booked_hours === 0
+    ? "keine Buchung"
+    : `nur ${formatNumber(m.coverage_percent)} % gebucht`;
+}
+
+function describeMissing(m: MissingBooking): string {
+  return `${formatDateWithWeekday(m.date)} · ${m.person}: fehlende Buchung – ${missingReason(m)} (${formatHours(
+    m.booked_hours,
+  )} von ${formatHours(m.expected_hours)} h)`;
+}
+
+/** Werktage mit fehlender oder zu geringer Buchung. */
+function MissingList({
+  missing,
+  checkedUntil,
+  threshold,
+}: {
+  missing: MissingBooking[];
+  checkedUntil: string;
+  threshold: number;
+}) {
+  return (
+    <details open={missing.length <= 10} className="rounded-xl border border-red-200 bg-red-50">
+      <summary className="cursor-pointer px-4 py-2.5 text-sm font-medium text-red-900">
+        ! {missing.length} fehlende Buchung{missing.length === 1 ? "" : "en"}
+        <span className="ml-2 font-normal text-red-800">
+          (Werktage mit weniger als {formatNumber(threshold)} % der Soll-Stunden, geprüft bis{" "}
+          {formatDate(checkedUntil)})
+        </span>
+      </summary>
+      <div className="max-h-72 overflow-auto border-t border-red-200">
+        <table className="w-full text-sm text-red-950">
+          <thead className="sticky top-0 bg-red-50 text-xs text-red-800">
+            <tr>
+              <th className="px-4 py-1.5 text-left font-medium">Datum</th>
+              <th className="px-4 py-1.5 text-left font-medium">Person</th>
+              <th className="px-4 py-1.5 text-left font-medium">Eintrag</th>
+              <th className="px-4 py-1.5 text-right font-medium">Gebucht</th>
+              <th className="px-4 py-1.5 text-right font-medium">Soll</th>
+              <th className="px-4 py-1.5 text-right font-medium">Anteil</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-red-100">
+            {missing.map((m) => (
+              <tr key={`${m.person}/${m.date}`}>
+                <td className="px-4 py-1.5 whitespace-nowrap">{formatDateWithWeekday(m.date)}</td>
+                <td className="px-4 py-1.5 whitespace-nowrap">{m.person}</td>
+                <td className="px-4 py-1.5">
+                  <span className="font-medium">Fehlende Buchung</span> – {missingReason(m)}
+                </td>
+                <td className="px-4 py-1.5 text-right tabular-nums">
+                  {formatHours(m.booked_hours)} h
+                </td>
+                <td className="px-4 py-1.5 text-right tabular-nums">
+                  {formatHours(m.expected_hours)} h
+                </td>
+                <td className="px-4 py-1.5 text-right tabular-nums">
+                  {formatNumber(m.coverage_percent)} %
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  );
 }
 
 /** Urlaub/Krank an arbeitsfreien Tagen u. Ä. – zählt mit, wird aber hervorgehoben. */

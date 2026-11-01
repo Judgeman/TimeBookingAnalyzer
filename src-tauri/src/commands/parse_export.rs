@@ -74,6 +74,9 @@ pub fn parse_export_file(
         holidays: evaluation.holidays,
         warnings: evaluation.warnings,
         flagged: evaluation.flagged,
+        missing: evaluation.missing,
+        missing_checked_until: evaluation.missing_checked_until,
+        missing_threshold_percent: config.missing_threshold_percent,
         overview,
     })
 }
@@ -117,7 +120,7 @@ mod tests {
             result.last_entry_date,
             NaiveDate::from_ymd_opt(2026, 10, 30)
         );
-        assert_eq!(result.entry_count, 678);
+        assert_eq!(result.entry_count, 676);
         assert!(result.skipped_rows.is_empty(), "{:?}", result.skipped_rows);
         assert!(result.missing_team_members.is_empty());
 
@@ -149,11 +152,11 @@ mod tests {
         assert_eq!((erika.vac_days, erika.vac_h), (15.0, 115.0));
         assert_eq!((erika.sick_days, erika.sick_h), (2.5, 20.0)); // inkl. halber Tag
         assert_eq!(erika.soll_n, 1501.0);
-        assert_eq!(erika.gearb, 1554.0);
-        assert_eq!(erika.bill_h, 1497.0);
-        assert_eq!(erika.bill_eur, 153_200.0);
+        assert_eq!(erika.gearb, 1542.0);
+        assert_eq!(erika.bill_h, 1485.0);
+        assert_eq!(erika.bill_eur, 151_940.0);
         assert_eq!(erika.nonbill_h, 57.0);
-        assert_eq!((erika.plus, erika.plus_krank), (53.0, 33.0));
+        assert_eq!((erika.plus, erika.plus_krank), (41.0, 21.0));
 
         let max = &auswertung.persons[1].periods.ytd;
         // Ab September 6 h/Tag (Ausnahme bei der Person): 44 Werktage × 1,5 h weniger
@@ -161,9 +164,9 @@ mod tests {
         // Urlaub inkl. Samstag 25.07. (zählt, wird hervorgehoben)
         assert_eq!((max.vac_days, max.vac_h), (11.0, 82.5));
         assert_eq!((max.sick_days, max.sick_h), (3.0, 18.0));
-        assert_eq!(max.gearb, 1567.0);
-        assert_eq!(max.bill_eur, 141_520.0);
-        assert_eq!((max.plus, max.plus_krank), (97.5, 79.5));
+        assert_eq!(max.gearb, 1561.0);
+        assert_eq!(max.bill_eur, 141_045.0);
+        assert_eq!((max.plus, max.plus_krank), (91.5, 73.5));
 
         // Arbeitsorte (Basis = gearbeitete Stunden)
         let share = |person: usize, location: &str| {
@@ -176,9 +179,28 @@ mod tests {
                 .map(|s| (s.hours, s.share, s.days))
                 .unwrap()
         };
-        assert_eq!(share(0, "Home Office"), (307.5, 19.79, 40));
-        assert_eq!(share(0, "Büro"), (1242.0, 79.92, 154));
-        assert_eq!(share(1, "Home Office"), (1465.0, 93.49, 188));
+        assert_eq!(share(0, "Home Office"), (311.5, 20.2, 41));
+        assert_eq!(share(0, "Büro"), (1226.0, 79.51, 152));
+        assert_eq!(share(1, "Home Office"), (1460.0, 93.53, 188));
+
+        // Fehlende Buchungen: Erika 20.10. ohne Buchung, Max 22.10. nur 2 von 6 h;
+        // Erika 16.09. mit 4 von 7,5 h (53 %) liegt über der Schwelle.
+        let missing: Vec<(&str, String, f64)> = auswertung
+            .missing
+            .iter()
+            .map(|m| (m.person.as_str(), m.date.to_string(), m.coverage_percent))
+            .collect();
+        assert_eq!(
+            missing,
+            vec![
+                ("Erika Mustermann", "2026-10-20".to_string(), 0.0),
+                ("Max Mustermann", "2026-10-22".to_string(), 33.33),
+            ]
+        );
+        assert_eq!(
+            auswertung.persons[0].periods.by_month["2026-10"].missing_days,
+            1.0
+        );
 
         assert_eq!(auswertung.flagged.len(), 1);
         assert_eq!(auswertung.flagged[0].reasons, vec!["Samstag".to_string()]);
@@ -186,9 +208,9 @@ mod tests {
         let invoice = &auswertung.invoice;
         assert_eq!(invoice.months.len(), 10);
         assert!(!invoice.months[9].partial); // Stichtag 31.10. = Monatsende
-        assert_eq!(invoice.total.net, 294_720.0);
-        assert_eq!(invoice.total.vat, 55_941.91);
-        assert_eq!(invoice.total.gross, 350_661.91);
+        assert_eq!(invoice.total.net, 292_985.0);
+        assert_eq!(invoice.total.vat, 55_612.27);
+        assert_eq!(invoice.total.gross, 348_597.27);
         // Schulung mit 7 % USt. (eigene Abrechnungsregel)
         let reduced = &invoice.total.vat_groups[0];
         assert_eq!(

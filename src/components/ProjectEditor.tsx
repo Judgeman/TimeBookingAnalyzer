@@ -215,6 +215,27 @@ export function ProjectEditor({ initial, onSave, onCancel, onDelete }: Props) {
       </fieldset>
 
       <fieldset className={ui.card}>
+        <legend className={ui.legend}>Prüfung</legend>
+        <div className="grid grid-cols-3 gap-4">
+          <Field
+            label="Fehlende Buchung unter (%)"
+            hint="Werktag gilt als „fehlende Buchung“, wenn weniger als dieser Anteil der Soll-Stunden gebucht ist (Arbeitszeit + Urlaub/Krank)"
+          >
+            <input
+              type="number"
+              min={0}
+              max={100}
+              step={5}
+              required
+              value={draft.missing_threshold_percent}
+              onChange={(e) => patch({ missing_threshold_percent: numberOf(e.target.value) })}
+              className={ui.input}
+            />
+          </Field>
+        </div>
+      </fieldset>
+
+      <fieldset className={ui.card}>
         <legend className={ui.legend}>Export-Format</legend>
         <div className="grid grid-cols-3 gap-4">
           <Field label="Tabellenblatt">

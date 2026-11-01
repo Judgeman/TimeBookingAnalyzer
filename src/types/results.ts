@@ -75,7 +75,21 @@ export interface AuswertungResult {
   warnings: string[];
   /** Hervorzuhebende Buchungen (Urlaub/Krank an arbeitsfreien Tagen u. a.). */
   flagged: FlaggedBooking[];
+  /** Werktage mit fehlender oder zu geringer Buchung. */
+  missing: MissingBooking[];
+  /** Geprüft bis (Stichtag, höchstens Stand des Exports). */
+  missing_checked_until: IsoDate;
+  missing_threshold_percent: number;
   overview: ParsedExport;
+}
+
+export interface MissingBooking {
+  person: string;
+  date: IsoDate;
+  expected_hours: number;
+  /** Arbeitszeit (ohne Mult) + angerechneter Urlaub/Krank. */
+  booked_hours: number;
+  coverage_percent: number;
 }
 
 export interface FlaggedBooking {
@@ -135,6 +149,8 @@ export interface PeriodData {
   nonbill_h: number;
   plus: number;
   plus_krank: number;
+  /** Werktage mit fehlender Buchung. */
+  missing_days: number;
 }
 
 export interface Holiday {

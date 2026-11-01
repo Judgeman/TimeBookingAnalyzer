@@ -93,6 +93,12 @@ pub struct AuswertungResult {
     pub warnings: Vec<String>,
     /// Hervorzuhebende Buchungen (z. B. Urlaub/Krank an arbeitsfreien Tagen).
     pub flagged: Vec<FlaggedBooking>,
+    /// Werktage mit fehlender oder zu geringer Buchung.
+    pub missing: Vec<MissingBooking>,
+    /// Bis zu diesem Tag wurde auf fehlende Buchungen geprüft
+    /// (Stichtag, höchstens Stand des Exports).
+    pub missing_checked_until: NaiveDate,
+    pub missing_threshold_percent: f64,
     pub overview: ParsedExport,
 }
 
@@ -101,6 +107,18 @@ pub struct AuswertungResult {
 pub enum AbsenceKind {
     Vacation,
     Sick,
+}
+
+/// Werktag, an dem weniger als die Schwelle der Soll-Stunden gebucht ist.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct MissingBooking {
+    pub person: String,
+    pub date: NaiveDate,
+    /// Soll-Stunden des Tages (h/Tag der Person).
+    pub expected_hours: f64,
+    /// Gebucht: Arbeitszeit (ohne Mult) + angerechneter Urlaub/Krank.
+    pub booked_hours: f64,
+    pub coverage_percent: f64,
 }
 
 /// Urlaub/Krank, der auffällt, aber mitgezählt wird.
@@ -184,6 +202,8 @@ pub struct PeriodData {
     pub plus: f64,
     /// Überstunden, wenn Krankheit als Fehlzeit zählt: plus − Krank.
     pub plus_krank: f64,
+    /// Werktage mit fehlender Buchung (unter der Schwelle).
+    pub missing_days: f64,
 }
 
 #[derive(Debug, Clone, Serialize)]

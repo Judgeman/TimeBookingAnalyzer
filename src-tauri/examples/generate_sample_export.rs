@@ -131,6 +131,19 @@ fn rows_for_day(date: NaiveDate, rows: &mut Vec<Row>) {
         rows.push(absence(ERIKA, date, "(Vacation)"));
     } else if in_range(date, (2, 16), (2, 17)) {
         rows.push(absence(ERIKA, date, "(Sick)"));
+    } else if date == d(10, 20) {
+        // Keine Buchung → „fehlende Buchung“ in der App
+    } else if date == d(9, 16) {
+        // Nur gut die Hälfte gebucht (4 von 7,5 h) → knapp über der 50-%-Schwelle
+        rows.push(work(
+            ERIKA,
+            date,
+            4.0,
+            PROJECT,
+            "Delivery (billable)",
+            "Entwicklung",
+            "Home Office",
+        ));
     } else if date == d(5, 8) {
         // Halber Krankheitstag
         let mut half = absence(ERIKA, date, "(Sick)");
@@ -201,6 +214,17 @@ fn rows_for_day(date: NaiveDate, rows: &mut Vec<Row>) {
         rows.push(absence(MAX, date, "(Vacation)"));
     } else if in_range(date, (10, 12), (10, 14)) {
         rows.push(absence(MAX, date, "(Sick)"));
+    } else if date == d(10, 22) {
+        // Nur 2 von 6 h gebucht → „fehlende Buchung“
+        rows.push(work(
+            MAX,
+            date,
+            2.0,
+            PROJECT,
+            "Delivery (billable)",
+            "Entwicklung",
+            "Home Office",
+        ));
     } else if weekday == Weekday::Mon && date.day() <= 7 {
         let mut travel = work(
             MAX,
