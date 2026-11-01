@@ -22,6 +22,9 @@ const env = {
   // App-Datenverzeichnis umleiten, damit echte Projekte unberührt bleiben.
   XDG_DATA_HOME: dataDir,
   APPDATA: dataDir,
+  // GTK: Barrierefreiheits-Bus nicht suchen – ohne laufenden AT-SPI-Dienst
+  // (z. B. in CI) wartet jeder App-Start sonst ~30 s auf eine Zeitüberschreitung.
+  NO_AT_BRIDGE: "1",
   E2E_APP: app,
   E2E_DATA_DIR: dataDir,
   E2E_SAMPLE_EXPORT: join(root, "sample-data", "Beispiel-Export_2026-10-31.xlsx"),
