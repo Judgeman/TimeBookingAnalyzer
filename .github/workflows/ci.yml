@@ -22,7 +22,7 @@ jobs:
     name: Rust (fmt, clippy, Tests, Abdeckung)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Systempakete
         run: sudo apt-get update && sudo apt-get install -y $TAURI_LINUX_DEPS
@@ -65,7 +65,7 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: always()
         with:
           name: coverage-rust
@@ -75,9 +75,9 @@ jobs:
     name: Frontend (Typecheck, Build, Tests, Abdeckung)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -100,7 +100,7 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: always()
         with:
           name: coverage-frontend
@@ -110,7 +110,7 @@ jobs:
     name: E2E (Desktop-App unter Xvfb)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Systempakete
         run: sudo apt-get update && sudo apt-get install -y $TAURI_LINUX_DEPS webkit2gtk-driver xvfb
@@ -121,7 +121,7 @@ jobs:
         with:
           workspaces: src-tauri
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -137,7 +137,7 @@ jobs:
       - name: E2E-Tests
         run: xvfb-run -a npm run test:e2e
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: failure()
         with:
           name: e2e-screenshots
