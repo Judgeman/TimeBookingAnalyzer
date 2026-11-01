@@ -1,0 +1,45 @@
+{
+  "id": "beispiel-lager-app",
+  "name": "Musterkunde GmbH / Lager-App",
+  "element_filter": "P100 Lager-App",
+  "team": [
+    {
+      "name": "Erika Mustermann",
+      "rates": [
+        { "from": "2026-01-01", "to": "2026-06-30", "rate": 100 },
+        { "from": "2026-07-01", "to": null, "rate": 105 }
+      ]
+    },
+    {
+      "name": "Max Mustermann",
+      "rates": [
+        { "from": "2026-01-01", "to": "2026-06-30", "rate": 90 },
+        { "from": "2026-07-01", "to": null, "rate": 95 }
+      ]
+    }
+  ],
+  "working_hours": [
+    { "from": "2026-01-01", "to": "2026-06-30", "hours_per_day": 8.0 },
+    { "from": "2026-07-01", "to": null, "hours_per_day": 7.5 }
+  ],
+  "holidays": {
+    "region": "HE",
+    "custom": []
+  },
+  "export_format": {
+    "sheet_name": "Details",
+    "columns": {
+      "name": 0,
+      "date": 2,
+      "duration": 5,
+      "mult": 8,
+      "element": 9,
+      "kost2art": 11,
+      "location": 13
+    },
+    "special_elements": {
+      "sick": "(Sick)",
+      "vacation": "(Vacation)"
+    }
+  }
+}
