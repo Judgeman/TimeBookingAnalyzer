@@ -1,13 +1,13 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import {
   COLUMN_LABELS,
+  REGIONS,
   type ColumnMapping,
-  type HolidayConfig,
   type ProjectConfig,
   type TeamMember,
   type WorkingHoursPeriod,
 } from "../types/config";
-import { columnLetter } from "../lib/format";
+import { columnLetter, formatDate } from "../lib/format";
 import { errorMessage } from "../lib/api";
 
 interface Props {
@@ -23,22 +23,20 @@ const COLUMN_OPTIONS = Array.from({ length: 52 }, (_, i) => i);
 interface Advanced {
   team: TeamMember[];
   working_hours: WorkingHoursPeriod[];
-  holidays: HolidayConfig;
 }
 
 /**
- * Einfacher Projekt-Editor: Stammdaten und Export-Format als Formular,
- * Team/Arbeitszeiten/Feiertage vorerst als JSON. Datumswerte und Zeiträume
+ * Einfacher Projekt-Editor: Stammdaten, Feiertage, Rechnung und Export-Format
+ * als Formular, Team/Arbeitszeiten vorerst als JSON. Datumswerte und Zeiträume
  * prüft das Backend beim Speichern.
  */
 export function ProjectEditor({ initial, onSave, onCancel, onDelete }: Props) {
   const [draft, setDraft] = useState<ProjectConfig>(initial);
   const [advancedJson, setAdvancedJson] = useState(() =>
-    JSON.stringify(
-      { team: initial.team, working_hours: initial.working_hours, holidays: initial.holidays },
-      null,
-      2,
-    ),
+    JSON.stringify({ team: initial.team, working_hours: initial.working_hours }, null, 2),
+  );
+  const [customDays, setCustomDays] = useState(() =>
+    initial.holidays.custom.map(formatDate).join("\n"),
   );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -60,16 +58,27 @@ export function ProjectEditor({ initial, onSave, onCancel, onDelete }: Props) {
     setError(null);
 
     let advanced: Advanced;
+    let custom: string[];
     try {
       advanced = parseAdvanced(advancedJson);
     } catch (e) {
-      setError(`Team / Arbeitszeiten / Feiertage: ${errorMessage(e)}`);
+      setError(`Team / Arbeitszeiten: ${errorMessage(e)}`);
+      return;
+    }
+    try {
+      custom = parseDates(customDays);
+    } catch (e) {
+      setError(`Zusätzliche freie Tage: ${errorMessage(e)}`);
       return;
     }
 
     setSaving(true);
     try {
-      await onSave({ ...draft, ...advanced });
+      await onSave({
+        ...draft,
+        ...advanced,
+        holidays: { ...draft.holidays, custom },
+      });
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -132,6 +141,51 @@ export function ProjectEditor({ initial, onSave, onCancel, onDelete }: Props) {
       </fieldset>
 
       <fieldset className={card}>
+        <legend className={legend}>Feiertage &amp; Rechnung</legend>
+        <div className="grid grid-cols-3 gap-4">
+          <Field label="Bundesland (Feiertage)">
+            <select
+              value={draft.holidays.region}
+              onChange={(e) =>
+                setDraft({ ...draft, holidays: { ...draft.holidays, region: e.target.value } })
+              }
+              className={input}
+            >
+              {REGIONS.map(([code, name]) => (
+                <option key={code} value={code}>
+                  {name} ({code})
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field
+            label="Zusätzliche freie Tage"
+            hint="Ein Datum pro Zeile, z. B. 24.12.2026 (Betriebsferien, regionale Feiertage)"
+          >
+            <textarea
+              value={customDays}
+              onChange={(e) => setCustomDays(e.target.value)}
+              rows={3}
+              placeholder={"24.12.2026\n31.12.2026"}
+              className={`${input} font-mono text-xs`}
+            />
+          </Field>
+          <Field label="Umsatzsteuer (%)" hint="Für die Brutto-Berechnung der Rechnung">
+            <input
+              type="number"
+              min={0}
+              max={100}
+              step={0.1}
+              required
+              value={draft.vat_percent}
+              onChange={(e) => setDraft({ ...draft, vat_percent: Number(e.target.value) })}
+              className={input}
+            />
+          </Field>
+        </div>
+      </fieldset>
+
+      <fieldset className={card}>
         <legend className={legend}>Export-Format</legend>
         <div className="grid grid-cols-3 gap-4">
           <Field label="Tabellenblatt">
@@ -185,7 +239,7 @@ export function ProjectEditor({ initial, onSave, onCancel, onDelete }: Props) {
       </fieldset>
 
       <fieldset className={card}>
-        <legend className={legend}>Team, Arbeitszeiten &amp; Feiertage</legend>
+        <legend className={legend}>Team &amp; Arbeitszeiten</legend>
         <p className="mb-2 text-sm text-slate-500">
           Vorläufig als JSON. Datumswerte im Format <code>YYYY-MM-DD</code>, offenes Ende ={" "}
           <code>null</code>.
@@ -234,15 +288,32 @@ export function ProjectEditor({ initial, onSave, onCancel, onDelete }: Props) {
 function parseAdvanced(json: string): Advanced {
   const value: unknown = JSON.parse(json);
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error("Erwartet wird ein Objekt mit team, working_hours und holidays.");
+    throw new Error("Erwartet wird ein Objekt mit team und working_hours.");
   }
-  const { team = [], working_hours = [], holidays } = value as Partial<Advanced>;
+  const { team = [], working_hours = [] } = value as Partial<Advanced>;
   if (!Array.isArray(team)) throw new Error("„team“ muss eine Liste sein.");
   if (!Array.isArray(working_hours)) throw new Error("„working_hours“ muss eine Liste sein.");
-  if (holidays !== undefined && (typeof holidays !== "object" || holidays === null)) {
-    throw new Error("„holidays“ muss ein Objekt sein.");
-  }
-  return { team, working_hours, holidays: holidays ?? { region: "HE", custom: [] } };
+  return { team, working_hours };
+}
+
+/** Eine Zeile pro Datum, "TT.MM.JJJJ" oder "JJJJ-MM-TT" → ISO-Daten. */
+function parseDates(text: string): string[] {
+  return text
+    .split(/[\n,;]+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const german = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/.exec(line);
+      const iso = german
+        ? `${german[3]}-${german[2].padStart(2, "0")}-${german[1].padStart(2, "0")}`
+        : line;
+      const date = new Date(`${iso}T00:00:00Z`);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(iso) || Number.isNaN(date.getTime()) ||
+          date.toISOString().slice(0, 10) !== iso) {
+        throw new Error(`„${line}“ ist kein gültiges Datum.`);
+      }
+      return iso;
+    });
 }
 
 function Field({

@@ -1,3 +1,4 @@
+mod calculation;
 mod commands;
 mod models;
 mod parsing;

@@ -41,5 +41,6 @@
       "sick": "(Sick)",
       "vacation": "(Vacation)"
     }
-  }
+  },
+  "vat_percent": 19.0
 }

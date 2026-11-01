@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { ProjectConfig } from "../types/config";
-import type { ParsedExport, ProjectSummary } from "../types/results";
+import type { AuswertungResult, ProjectSummary } from "../types/results";
 
 // Tauri wandelt camelCase-Argumente automatisch in snake_case (Rust) um.
 export const api = {
@@ -8,8 +8,9 @@ export const api = {
   getProject: (id: string) => invoke<ProjectConfig>("get_project", { id }),
   saveProject: (config: ProjectConfig) => invoke<string>("save_project", { config }),
   deleteProject: (id: string) => invoke<void>("delete_project", { id }),
-  parseExport: (filePath: string, projectId: string) =>
-    invoke<ParsedExport>("parse_export", { filePath, projectId }),
+  /** `cutoffDate` = Stichtag (ISO-Datum); `null` → Export-Datum. */
+  parseExport: (filePath: string, projectId: string, cutoffDate: string | null) =>
+    invoke<AuswertungResult>("parse_export", { filePath, projectId, cutoffDate }),
 };
 
 /** Fehler aus `invoke` sind bei uns Strings (Result<_, String> im Backend). */

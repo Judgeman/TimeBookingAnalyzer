@@ -169,6 +169,7 @@ mod tests {
             working_hours: vec![],
             holidays: HolidayConfig::default(),
             export_format: ExportFormat::default(),
+            vat_percent: 19.0,
         }
     }
 

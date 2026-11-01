@@ -6,11 +6,15 @@ use std::path::Path;
 
 use chrono::{DateTime, Datelike, Local, NaiveDate};
 
+use crate::models::results::ExportDateSource;
+
 /// "Stand" des Exports: Datum im Dateinamen (z. B. `…_2026-10-31.xlsx`,
 /// `…_31.10.2026.xlsx` oder `…_20261031.xlsx`), sonst Änderungsdatum der Datei.
-pub fn export_date(path: &Path) -> Option<NaiveDate> {
+pub fn export_date(path: &Path) -> Option<(NaiveDate, ExportDateSource)> {
     let file_name = path.file_stem()?.to_string_lossy();
-    date_from_file_name(&file_name).or_else(|| file_modified_date(path))
+    date_from_file_name(&file_name)
+        .map(|d| (d, ExportDateSource::FileName))
+        .or_else(|| file_modified_date(path).map(|d| (d, ExportDateSource::Modified)))
 }
 
 pub fn date_from_file_name(name: &str) -> Option<NaiveDate> {
@@ -98,6 +102,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("export.xlsx");
         std::fs::write(&path, b"x").unwrap();
-        assert_eq!(export_date(&path), Some(Local::now().date_naive()));
+        assert_eq!(
+            export_date(&path),
+            Some((Local::now().date_naive(), ExportDateSource::Modified))
+        );
     }
 }

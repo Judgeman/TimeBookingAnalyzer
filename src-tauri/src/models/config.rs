@@ -6,6 +6,8 @@
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
+use crate::calculation::holidays::is_known_region;
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ProjectConfig {
     /// UUID v4. Leer beim Anlegen – wird von `save_project` vergeben.
@@ -23,6 +25,13 @@ pub struct ProjectConfig {
     pub holidays: HolidayConfig,
     #[serde(default)]
     pub export_format: ExportFormat,
+    /// Umsatzsteuersatz in Prozent für die Brutto-Berechnung der Rechnung.
+    #[serde(default = "default_vat_percent")]
+    pub vat_percent: f64,
+}
+
+fn default_vat_percent() -> f64 {
+    19.0
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -140,6 +149,15 @@ impl Default for SpecialElements {
 }
 
 impl ProjectConfig {
+    /// Index des Teammitglieds mit diesem Namen (Groß-/Kleinschreibung und
+    /// Leerzeichen am Rand werden ignoriert).
+    pub fn team_index(&self, name: &str) -> Option<usize> {
+        let name = name.trim();
+        self.team
+            .iter()
+            .position(|m| m.name.trim().eq_ignore_ascii_case(name))
+    }
+
     /// Prüft die Konfiguration auf offensichtliche Fehler.
     /// Gibt alle gefundenen Probleme auf einmal zurück.
     pub fn validate(&self) -> Result<(), String> {
@@ -150,6 +168,18 @@ impl ProjectConfig {
         }
         if self.export_format.sheet_name.trim().is_empty() {
             errors.push("Tabellenblatt-Name darf nicht leer sein.".to_string());
+        }
+        if !is_known_region(&self.holidays.region) {
+            errors.push(format!(
+                "Unbekannte Feiertags-Region „{}“ (erwartet z. B. „HE“).",
+                self.holidays.region
+            ));
+        }
+        if !(0.0..=100.0).contains(&self.vat_percent) {
+            errors.push(format!(
+                "Umsatzsteuersatz {} % liegt nicht zwischen 0 und 100.",
+                self.vat_percent
+            ));
         }
 
         for member in &self.team {
@@ -238,6 +268,14 @@ mod tests {
         assert_eq!(config.id, "");
         assert_eq!(config.export_format, ExportFormat::default());
         assert_eq!(config.holidays.region, "HE");
+        assert_eq!(config.vat_percent, 19.0);
+    }
+
+    #[test]
+    fn team_index_ignores_case_and_whitespace() {
+        let config: ProjectConfig = serde_json::from_str(EXAMPLE).unwrap();
+        assert_eq!(config.team_index(" erika MUSTERMANN "), Some(0));
+        assert_eq!(config.team_index("Max Mustermann"), None);
     }
 
     #[test]
@@ -254,8 +292,12 @@ mod tests {
         let mut config: ProjectConfig = serde_json::from_str(EXAMPLE).unwrap();
         config.name = "  ".into();
         config.working_hours[0].to = NaiveDate::from_ymd_opt(2025, 12, 31);
+        config.holidays.region = "XX".into();
+        config.vat_percent = 120.0;
         let err = config.validate().unwrap_err();
         assert!(err.contains("Projektname"));
         assert!(err.contains("endet"));
+        assert!(err.contains("Region"));
+        assert!(err.contains("Umsatzsteuersatz"));
     }
 }

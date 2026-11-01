@@ -25,8 +25,13 @@ src/                        # React Frontend
     DropZone.tsx            # Drag-and-Drop Bereich (Tauri-Webview-Events) + Datei-Dialog
     ProjectSelector.tsx     # Projekt-Auswahl (Sidebar)
     ProjectEditor.tsx       # Projekt-Konfiguration bearbeiten (vorläufig: Team/Zeiten als JSON)
-    ExportSummary.tsx       # Übersicht über den eingelesenen Export
-    ResultsView.tsx         # (geplant) Auswertungs-Ergebnis (Tabellen)
+    ExportSummary.tsx       # Übersicht über den eingelesenen Export (Tab „Import“)
+    results/
+      ResultsView.tsx       # Kopf (Zeitraum, Stichtag, Hinweise) + Tabs
+      YearView.tsx          # Jahr: Kennzahlen × Personen
+      PeriodTable.tsx       # Monate (aufklappbar auf KW) / Wochen
+      InvoiceView.tsx       # Rechnung: Netto pro Person/Monat, USt., Brutto
+      metrics.ts            # Kennzahl-Labels, Tooltips (Rechenregeln), Formatierung
   lib/
     api.ts                  # Typisierte Wrapper um invoke()
     format.ts               # Zahl-/Datumsformatierung (de-DE)
@@ -52,10 +57,14 @@ src-tauri/
       summary.rs            # Übersicht (Personen, Team-Abgleich, Vorschau)
     storage/
       projects.rs           # ProjectStore: <app_data_dir>/projects/<id>.json
-    calculation/            # (geplant)
-      gearb.rs              # Arbeitszeit-Berechnung
-      billing.rs            # Billable-Berechnung
-      soll.rs               # Soll-Stunden + Feiertage
+    calculation/
+      mod.rs                # evaluate(): Tageswerte → Jahr/Monat/KW/Monat×KW, Hinweise
+      gearb.rs              # Arbeitszeit-Berechnung, Urlaub/Krank-Erkennung
+      billing.rs            # Billable-Klassifikation, Stundensatz je Tag
+      soll.rs               # Soll-Stunden, Werktage, Personio-Normierung
+      holidays.rs           # Feiertage aller Bundesländer (Osterformel)
+      invoice.rs            # Rechnung je Monat (Cent-genau), USt., Brutto
+      tests.rs              # Szenario-Test mit handgerechneten Werten
   examples/
     generate_sample_export.rs  # erzeugt sample-data/Beispiel-Export_2026-10-31.xlsx
 
@@ -68,7 +77,7 @@ sample-data/                # Fiktive Testdaten (Export + passende Projektkonfig
 npm install
 npm run tauri dev          # App im Dev-Modus starten
 npm run build              # Typecheck + Frontend-Build
-cd src-tauri && cargo test # Rust-Tests (Parser, Config, Speicher)
+cd src-tauri && cargo test # Rust-Tests (Parser, Config, Speicher, Berechnung)
 cd src-tauri && cargo clippy --all-targets
 cd src-tauri && cargo run --example generate_sample_export  # Beispiel-Export neu erzeugen
 ```
@@ -108,6 +117,7 @@ Jedes Projekt wird als JSON-Datei gespeichert:
     "region": "HE",
     "custom": []
   },
+  "vat_percent": 19.0,
   "export_format": {
     "sheet_name": "Details",
     "columns": {
@@ -201,6 +211,27 @@ plus       = gearb - soll_netto
 plus_krank = plus - sick_h_norm
 ```
 
+### Festlegungen (umgesetzt in `calculation/`)
+- **Zeitraum**: 1. Januar des Stichtag-Jahres bis Stichtag. Stichtag = Export-Datum
+  (Datum im Dateinamen, sonst Änderungsdatum), in der UI änderbar. Buchungen nach dem
+  Stichtag werden ignoriert (Hinweis), Buchungen aus Vorjahren still ignoriert.
+- **Personen**: nur Teammitglieder aus der Konfiguration (Namensabgleich ohne
+  Groß-/Kleinschreibung). `gearb` zählt alle Elemente, nicht nur das Projekt.
+- **Urlaub/Krank** nur an Werktagen; an Wochenenden/Feiertagen ignoriert (Hinweis).
+  Tage = Personio-Stunden ÷ 8.
+- **h/Tag** fehlt für einen Werktag → Soll 0 h (Hinweis).
+- **nonbill_h** = Stunden (ohne Mult) aller gearbeiteten Buchungen mit Mult > 0, die
+  nicht in `bill_h` zählen (Travel, Sales, andere Elemente). `bill_h + nonbill_h` =
+  gebuchte Arbeitsstunden.
+- **bill_h / bill_eur** ignorieren Mult (auch Mult 0 wird abgerechnet).
+- **Kein Stundensatz** für einen Tag → 0 € (Hinweis + Rechnungsposition „kein Satz“).
+- **Kalenderwochen** nach ISO 8601 (`2026-W53` kann im Januar des Folgejahres liegen).
+  `month_weeks` enthält Teilwochen je Monat, damit aufgeklappte Wochen den Monat ergeben.
+- **Rechnung** (`invoice.rs`): eine Rechnung pro Monat, Positionen je Person × Satz.
+  Netto = round(Stunden auf 2 Stellen × Satz, Cent); USt. = round(Monats-Netto × Satz);
+  Brutto = Netto + USt.; Jahressummen = Summe der Monatsrechnungen. Monat des
+  Stichtags ist `partial`, wenn der Stichtag nicht der Monatsletzte ist.
+
 ---
 
 ## Feiertage Hessen 2026 (Beispiel)
@@ -211,24 +242,25 @@ Easter-Berechnung nach Gauß-Algorithmus. Für Hessen relevante Feiertage:
 - Ostermontag (Easter + 1)
 - Tag der Arbeit (1.5.)
 - Christi Himmelfahrt (Easter + 39)
-- Pfingstmontag (Easter + 49)
+- Pfingstmontag (Easter + 50)
 - Fronleichnam (Easter + 60) ← Hessen-spezifisch
 - Tag der Deutschen Einheit (3.10.)
 - Weihnachten (25.12., 26.12.)
 
-Empfehlung: Crate `holidays` oder `workalendar` verwenden, oder eigene Berechnung.
+Umgesetzt als eigene Berechnung in `calculation/holidays.rs` für alle 16 Bundesländer
+(nur landesweite Feiertage; regionale Sonderfälle über `holidays.custom`).
 
 ---
 
 ## Tauri Commands (IPC Frontend ↔ Backend)
 
 ```rust
-// Aktuell: Result<ParsedExport, String> (Übersicht über die eingelesenen Daten).
-// Ziel:    Result<AuswertungResult, String>, sobald calculation/ steht.
+// cutoff_date = Stichtag; None → Export-Datum („Stand“), ersatzweise letzte Buchung
 #[tauri::command]
 async fn parse_export(
     file_path: String,
     project_id: String,
+    cutoff_date: Option<NaiveDate>,
 ) -> Result<AuswertungResult, String>
 
 #[tauri::command]
@@ -249,19 +281,26 @@ async fn delete_project(id: String) -> Result<(), String>
 ## Ausgabe-Datenmodell
 
 ```typescript
+// Vollständig in src/types/results.ts; hier die Kernstruktur.
 interface AuswertungResult {
   project_name: string;
-  export_date: string;
+  export_date: string | null;
+  period_start: string;
   cutoff_date: string;
   persons: PersonResult[];
-  team: TeamSummary;
+  team: PeriodBreakdown;          // Summe aller Personen
+  invoice: InvoiceSummary;        // Monate → Positionen (Person × Satz), Netto/USt./Brutto
+  holidays: Holiday[];
+  warnings: string[];
+  overview: ParsedExport;         // Rohdaten-Übersicht (Tab „Import“)
 }
 
 interface PersonResult {
   name: string;
   ytd: PeriodData;
-  by_month: Record<string, PeriodData>;
-  by_week: Record<string, PeriodData>;  // Key: "2026-W43"
+  by_month: Record<string, PeriodData>;   // Key: "2026-10"
+  by_week: Record<string, PeriodData>;    // Key: "2026-W43"
+  month_weeks: Record<string, Record<string, PeriodData>>;
 }
 
 interface PeriodData {
@@ -287,7 +326,7 @@ interface PeriodData {
 ### Hauptansicht
 1. **Sidebar links**: Projektliste + "Neues Projekt"-Button
 2. **Mitte oben**: Drag-and-Drop-Zone (oder Datei-Browser)
-3. **Mitte**: Auswertungsergebnis (Tabs: YTD / Monate / Wochen)
+3. **Mitte**: Auswertungsergebnis (Tabs: Jahr / Monate / Wochen / Rechnung / Import)
 4. **Oben rechts**: Projekt-bearbeiten-Button
 
 ### Drag & Drop

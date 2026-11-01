@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { DropZone } from "./components/DropZone";
-import { ExportSummary } from "./components/ExportSummary";
 import { ProjectEditor } from "./components/ProjectEditor";
 import { ProjectSelector } from "./components/ProjectSelector";
+import { ResultsView } from "./components/results/ResultsView";
 import { api, errorMessage } from "./lib/api";
 import { newProject, type ProjectConfig } from "./types/config";
-import type { ParsedExport, ProjectSummary } from "./types/results";
+import type { AuswertungResult, ProjectSummary } from "./types/results";
 
 const ACTIVE_PROJECT_KEY = "billing-tracker.active-project";
 
@@ -23,7 +23,9 @@ export default function App() {
   const [activeProject, setActiveProject] = useState<ProjectConfig | null>(null);
   const [editing, setEditing] = useState<ProjectConfig | null>(null);
   const [file, setFile] = useState<FileRequest | null>(null);
-  const [result, setResult] = useState<ParsedExport | null>(null);
+  /** Manuell gewählter Stichtag; `null` = Export-Datum. */
+  const [cutoff, setCutoff] = useState<string | null>(null);
+  const [result, setResult] = useState<AuswertungResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,7 +71,7 @@ export default function App() {
     };
   }, [activeId]);
 
-  // Export einlesen – nach jedem Drop und wenn sich das aktive Projekt ändert.
+  // Export auswerten – nach jedem Drop, bei Projektwechsel und neuem Stichtag.
   useEffect(() => {
     if (!file || !activeProject) {
       setResult(null);
@@ -80,7 +82,7 @@ export default function App() {
     setBusy(true);
     setError(null);
     api
-      .parseExport(file.path, activeProject.id)
+      .parseExport(file.path, activeProject.id, cutoff)
       .then((parsed) => !stale && setResult(parsed))
       .catch((e) => {
         if (stale) return;
@@ -91,7 +93,7 @@ export default function App() {
     return () => {
       stale = true;
     };
-  }, [file, activeProject]);
+  }, [file, activeProject, cutoff]);
 
   function selectProject(id: string) {
     setEditing(null);
@@ -193,11 +195,19 @@ export default function App() {
                 current={
                   result ? { fileName: result.file_name, exportDate: result.export_date } : null
                 }
-                onFile={(path) => setFile((prev) => ({ path, seq: (prev?.seq ?? 0) + 1 }))}
+                onFile={(path) => {
+                  setCutoff(null);
+                  setFile((prev) => ({ path, seq: (prev?.seq ?? 0) + 1 }));
+                }}
                 onError={setError}
               />
               {result && activeProject && (
-                <ExportSummary result={result} elementFilter={activeProject.element_filter} />
+                <ResultsView
+                  result={result}
+                  elementFilter={activeProject.element_filter}
+                  busy={busy}
+                  onCutoffChange={setCutoff}
+                />
               )}
             </>
           )}

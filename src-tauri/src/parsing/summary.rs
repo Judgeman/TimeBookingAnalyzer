@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use chrono::NaiveDate;
 
 use super::export::ParseOutcome;
+use crate::calculation::round2;
 use crate::models::config::ProjectConfig;
 use crate::models::results::{ParsedExport, PersonOverview};
 
@@ -18,7 +19,7 @@ pub fn summarize(
     outcome: ParseOutcome,
 ) -> ParsedExport {
     let entries = &outcome.entries;
-    let in_team = |name: &str| config.team.iter().any(|m| same_person(&m.name, name));
+    let in_team = |name: &str| config.team_index(name).is_some();
     let is_project =
         |element: &str| !config.element_filter.is_empty() && element == config.element_filter;
 
@@ -54,8 +55,13 @@ pub fn summarize(
     let missing_team_members = config
         .team
         .iter()
-        .filter(|m| !entries.iter().any(|e| same_person(&m.name, &e.name)))
-        .map(|m| m.name.clone())
+        .enumerate()
+        .filter(|(i, _)| {
+            !entries
+                .iter()
+                .any(|e| config.team_index(&e.name) == Some(*i))
+        })
+        .map(|(_, m)| m.name.clone())
         .collect();
 
     ParsedExport {
@@ -74,14 +80,6 @@ pub fn summarize(
         skipped_rows: outcome.skipped,
         preview: entries.iter().take(PREVIEW_ROWS).cloned().collect(),
     }
-}
-
-fn same_person(a: &str, b: &str) -> bool {
-    a.trim().eq_ignore_ascii_case(b.trim())
-}
-
-pub fn round2(value: f64) -> f64 {
-    (value * 100.0).round() / 100.0
 }
 
 #[cfg(test)]
@@ -124,6 +122,7 @@ mod tests {
             working_hours: vec![],
             holidays: HolidayConfig::default(),
             export_format: ExportFormat::default(),
+            vat_percent: 19.0,
         };
         let outcome = ParseOutcome {
             sheet_name: "Details".into(),

@@ -8,9 +8,10 @@ konfigurierbaren Projekt-Regeln. Details zu Regeln und Datenmodell: [CLAUDE.md](
 
 - [x] `parse_export`: Excel-Export mit calamine einlesen (Spalten-Mapping pro Projekt)
 - [x] Projektkonfiguration laden/speichern/löschen (JSON pro Projekt im App-Datenverzeichnis)
-- [x] Oberfläche: Projektliste, einfacher Projekt-Editor, Drop-Zone, Übersicht des Exports
-- [ ] Berechnung: gearb, billable, Soll/Ist inkl. Feiertage → `AuswertungResult`
-- [ ] Ergebnis-Tabellen (YTD / Monate / Wochen), vollständiger Projekt-Editor
+- [x] Berechnung: gearb, billable, Soll/Ist inkl. Feiertage (alle Bundesländer)
+- [x] Auswertung pro Person: Jahr, Monate (aufklappbar auf KW), Kalenderwochen, Stichtag wählbar
+- [x] Rechnung: Netto pro Person und Monat, USt., Brutto, Positionen je Stundensatz
+- [ ] Vollständiger Projekt-Editor (Team/Arbeitszeiten als Formular, Spalten-Mapping per Drag & Drop)
 
 ## Voraussetzungen
 

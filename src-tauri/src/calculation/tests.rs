@@ -1,0 +1,241 @@
+//! Szenario-Test mit von Hand nachgerechneten Werten (fiktive Daten).
+//!
+//! Zeitraum 01.01.–16.01.2026 (Hessen, 1.1. Feiertag). Arbeitszeit 8 h bis 09.01.,
+//! danach 6 h. Erika: 100 € bis 09.01., danach 110 €. Max: Satz erst ab 05.01.
+
+use chrono::NaiveDate;
+
+use super::*;
+use crate::models::config::{
+    ExportFormat, HolidayConfig, ProjectConfig, RatePeriod, TeamMember, WorkingHoursPeriod,
+};
+
+fn d(y: i32, m: u32, day: u32) -> NaiveDate {
+    NaiveDate::from_ymd_opt(y, m, day).unwrap()
+}
+
+fn rate(from: NaiveDate, to: Option<NaiveDate>, rate: f64) -> RatePeriod {
+    RatePeriod { from, to, rate }
+}
+
+fn config() -> ProjectConfig {
+    ProjectConfig {
+        id: "test".into(),
+        name: "Musterkunde GmbH / Lager-App".into(),
+        element_filter: "P100 Lager-App".into(),
+        team: vec![
+            TeamMember {
+                name: "Erika Mustermann".into(),
+                rates: vec![
+                    rate(d(2026, 1, 1), Some(d(2026, 1, 9)), 100.0),
+                    rate(d(2026, 1, 10), None, 110.0),
+                ],
+            },
+            TeamMember {
+                name: "Max Mustermann".into(),
+                rates: vec![rate(d(2026, 1, 5), None, 90.0)],
+            },
+        ],
+        working_hours: vec![
+            WorkingHoursPeriod {
+                from: d(2026, 1, 1),
+                to: Some(d(2026, 1, 9)),
+                hours_per_day: 8.0,
+            },
+            WorkingHoursPeriod {
+                from: d(2026, 1, 10),
+                to: None,
+                hours_per_day: 6.0,
+            },
+        ],
+        holidays: HolidayConfig::default(),
+        export_format: ExportFormat::default(),
+        vat_percent: 19.0,
+    }
+}
+
+fn e(
+    name: &str,
+    date: NaiveDate,
+    hours: f64,
+    mult: f64,
+    element: &str,
+    kost2art: &str,
+) -> TimeEntry {
+    TimeEntry {
+        name: name.into(),
+        date,
+        hours,
+        mult,
+        element: element.into(),
+        kost2art: kost2art.into(),
+        location: String::new(),
+    }
+}
+
+const ERIKA: &str = "Erika Mustermann";
+const P100: &str = "P100 Lager-App";
+const DELIVERY: &str = "Delivery (billable)";
+
+fn entries() -> Vec<TimeEntry> {
+    vec![
+        e(ERIKA, d(2025, 12, 30), 8.0, 1.0, P100, DELIVERY), // Vorjahr → ignoriert
+        e(ERIKA, d(2026, 1, 1), 8.0, 1.0, "(Vacation)", ""), // Feiertag → ignoriert + Hinweis
+        e(ERIKA, d(2026, 1, 2), 8.0, 1.0, P100, DELIVERY),
+        e(ERIKA, d(2026, 1, 5), 8.0, 1.0, "(Vacation)", ""),
+        e(ERIKA, d(2026, 1, 6), 6.0, 1.0, P100, DELIVERY),
+        e(ERIKA, d(2026, 1, 6), 2.0, 0.5, P100, "Travel (billable)"),
+        e(ERIKA, d(2026, 1, 7), 7.0, 1.0, P100, DELIVERY),
+        e(ERIKA, d(2026, 1, 7), 1.0, 1.0, "Z900 Intern", "Internal"),
+        e(ERIKA, d(2026, 1, 10), 3.0, 1.0, P100, DELIVERY), // Samstag
+        e(ERIKA, d(2026, 1, 12), 8.0, 1.0, "(Sick)", ""),
+        e(ERIKA, d(2026, 1, 13), 6.0, 1.0, P100, "Sales"),
+        e(ERIKA, d(2026, 1, 14), 4.0, 0.0, P100, DELIVERY), // Mult 0
+        e(ERIKA, d(2026, 1, 17), 5.0, 1.0, P100, DELIVERY), // nach Stichtag
+        e("max mustermann ", d(2026, 1, 2), 8.0, 1.0, P100, DELIVERY), // ohne Satz
+        e("Max Mustermann", d(2026, 1, 5), 8.0, 1.0, P100, DELIVERY),
+        e(
+            "Jonas Beispiel",
+            d(2026, 1, 5),
+            8.0,
+            1.0,
+            "P200 Intranet",
+            DELIVERY,
+        ), // nicht im Team
+    ]
+}
+
+fn run() -> Evaluation {
+    evaluate(&config(), &entries(), d(2026, 1, 16))
+}
+
+#[test]
+fn year_to_date_per_person() {
+    let result = run();
+    assert_eq!(result.period_start, d(2026, 1, 1));
+    assert_eq!(result.persons.len(), 2);
+
+    let erika = &result.persons[0].periods.ytd;
+    // Werktage: 02.01. + 05.–09.01. à 8 h = 48 h, 12.–16.01. à 6 h = 30 h
+    assert_eq!(erika.soll_b, 78.0);
+    assert_eq!((erika.vac_days, erika.vac_h), (1.0, 8.0));
+    assert_eq!((erika.sick_days, erika.sick_h), (1.0, 6.0)); // 8 h Personio → 6 h Vertrag
+    assert_eq!(erika.soll_n, 64.0);
+    assert_eq!(erika.gearb, 32.0); // 8 + (6 + 2×0,5) + (7 + 1) + 3 + 6 + 0
+    assert_eq!(erika.bill_h, 28.0); // 8 + 6 + 7 + 3 + 4
+    assert_eq!(erika.nonbill_h, 9.0); // Travel 2 + Intern 1 + Sales 6
+    assert_eq!(erika.bill_eur, 3070.0); // (8+8+7)×100 + (3+4)×110
+    assert_eq!(erika.plus, -32.0);
+    assert_eq!(erika.plus_krank, -38.0);
+
+    let max = &result.persons[1].periods.ytd;
+    assert_eq!(max.soll_b, 78.0);
+    assert_eq!(max.gearb, 16.0);
+    assert_eq!(max.bill_h, 16.0);
+    assert_eq!(max.bill_eur, 720.0); // 02.01. ohne Satz
+    assert_eq!(max.plus, -62.0);
+
+    let team = &result.team.ytd;
+    assert_eq!(team.soll_b, 156.0);
+    assert_eq!(team.gearb, 48.0);
+    assert_eq!(team.bill_eur, 3790.0);
+}
+
+#[test]
+fn months_and_calendar_weeks() {
+    let result = run();
+    let erika = &result.persons[0].periods;
+    assert_eq!(erika.by_month.keys().collect::<Vec<_>>(), vec!["2026-01"]);
+    assert_eq!(erika.by_month["2026-01"], erika.ytd);
+
+    assert_eq!(
+        erika.by_week.keys().collect::<Vec<_>>(),
+        vec!["2026-W01", "2026-W02", "2026-W03"]
+    );
+    let w01 = &erika.by_week["2026-W01"];
+    assert_eq!((w01.soll_b, w01.gearb, w01.plus), (8.0, 8.0, 0.0));
+    let w02 = &erika.by_week["2026-W02"]; // 05.–11.01. inkl. Samstag
+    assert_eq!(w02.soll_b, 40.0);
+    assert_eq!(w02.vac_h, 8.0);
+    assert_eq!(w02.gearb, 18.0);
+    assert_eq!(w02.bill_h, 16.0);
+    assert_eq!(w02.plus, -14.0);
+
+    assert_eq!(result.persons[0].periods.month_weeks["2026-01"].len(), 3);
+    assert_eq!(result.team.by_week["2026-W02"].soll_b, 80.0);
+}
+
+#[test]
+fn invoice_per_month() {
+    let invoice = run().invoice;
+    assert_eq!(invoice.months.len(), 1);
+    let jan = &invoice.months[0];
+    assert_eq!(jan.month, "2026-01");
+    assert!(jan.partial);
+
+    let lines: Vec<(&str, Option<f64>, f64, f64, f64)> = jan
+        .lines
+        .iter()
+        .map(|l| (l.person.as_str(), l.rate, l.delivery_h, l.other_h, l.net))
+        .collect();
+    assert_eq!(
+        lines,
+        vec![
+            (ERIKA, Some(100.0), 21.0, 2.0, 2300.0),
+            (ERIKA, Some(110.0), 7.0, 0.0, 770.0),
+            ("Max Mustermann", None, 8.0, 0.0, 0.0),
+            ("Max Mustermann", Some(90.0), 8.0, 0.0, 720.0),
+        ]
+    );
+    assert_eq!(jan.net, 3790.0);
+    assert_eq!(jan.vat, 720.1);
+    assert_eq!(jan.gross, 4510.1);
+    assert_eq!(invoice.total.gross, 4510.1);
+}
+
+#[test]
+fn warnings_explain_ignored_data() {
+    let warnings = run().warnings.join("\n");
+    assert!(
+        warnings.contains("1 Buchung(en) des Teams nach dem Stichtag 16.01.2026"),
+        "{warnings}"
+    );
+    assert!(
+        warnings.contains("Max Mustermann: kein Stundensatz für 8,00 billable Stunden zwischen 02.01.2026 und 02.01.2026"),
+        "{warnings}"
+    );
+    assert!(
+        warnings.contains("Erika Mustermann: 1 Urlaubs-/Krank-Buchung(en) an arbeitsfreien Tagen"),
+        "{warnings}"
+    );
+    assert!(!warnings.contains("Arbeitszeit"), "{warnings}");
+}
+
+#[test]
+fn missing_working_hours_are_reported() {
+    let mut config = config();
+    config.working_hours[0].from = d(2026, 1, 5);
+    let result = evaluate(&config, &entries(), d(2026, 1, 16));
+    assert_eq!(result.persons[0].periods.ytd.soll_b, 70.0);
+    let warnings = result.warnings.join("\n");
+    assert!(
+        warnings
+            .contains("Für 1 Werktag(e) zwischen 02.01.2026 und 02.01.2026 ist keine Arbeitszeit"),
+        "{warnings}"
+    );
+}
+
+#[test]
+fn holidays_follow_region_and_year_of_cutoff() {
+    let result = run();
+    assert_eq!(result.holidays.first().map(|h| h.date), Some(d(2026, 1, 1)));
+    assert_eq!(result.holidays.len(), 10);
+}
+
+#[test]
+fn week_keys_use_iso_week_year() {
+    assert_eq!(week_key(d(2026, 1, 1)), "2026-W01");
+    assert_eq!(week_key(d(2027, 1, 1)), "2026-W53");
+    assert_eq!(week_key(d(2026, 10, 19)), "2026-W43");
+    assert_eq!(month_key(d(2026, 3, 9)), "2026-03");
+}

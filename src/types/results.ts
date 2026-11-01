@@ -19,7 +19,7 @@ export interface TimeEntry {
   location: string;
 }
 
-/** Ergebnis von `parse_export` (Übersicht vor der eigentlichen Auswertung). */
+/** Übersicht über die eingelesenen Rohdaten (Teil der Auswertung). */
 export interface ParsedExport {
   project_id: string;
   project_name: string;
@@ -50,4 +50,95 @@ export interface SkippedRow {
   /** Excel-Zeilennummer (1-basiert). */
   row: number;
   reason: string;
+}
+
+// --- Auswertung (Spiegel von AuswertungResult in models/results.rs) ---
+
+export type ExportDateSource = "file_name" | "modified";
+
+/** Ergebnis von `parse_export`. */
+export interface AuswertungResult {
+  project_id: string;
+  project_name: string;
+  file_name: string;
+  export_date: IsoDate | null;
+  export_date_source: ExportDateSource | null;
+  /** 1. Januar des Stichtag-Jahres. */
+  period_start: IsoDate;
+  cutoff_date: IsoDate;
+  default_cutoff_date: IsoDate;
+  persons: PersonResult[];
+  team: PeriodBreakdown;
+  invoice: InvoiceSummary;
+  holiday_region: string;
+  holidays: Holiday[];
+  warnings: string[];
+  overview: ParsedExport;
+}
+
+export interface PeriodBreakdown {
+  ytd: PeriodData;
+  /** Key: "2026-10" */
+  by_month: Record<string, PeriodData>;
+  /** Key: "2026-W43" */
+  by_week: Record<string, PeriodData>;
+  /** Monat → Kalenderwoche → Werte nur der Tage dieses Monats. */
+  month_weeks: Record<string, Record<string, PeriodData>>;
+}
+
+export interface PersonResult extends PeriodBreakdown {
+  name: string;
+}
+
+export interface PeriodData {
+  soll_b: number;
+  soll_n: number;
+  vac_days: number;
+  vac_h: number;
+  sick_days: number;
+  sick_h: number;
+  gearb: number;
+  bill_h: number;
+  bill_eur: number;
+  nonbill_h: number;
+  plus: number;
+  plus_krank: number;
+}
+
+export interface Holiday {
+  date: IsoDate;
+  name: string;
+}
+
+export interface InvoiceSummary {
+  vat_percent: number;
+  months: InvoiceMonth[];
+  total: InvoiceTotals;
+}
+
+export interface InvoiceMonth {
+  month: string;
+  /** Monat ist zum Stichtag noch nicht abgeschlossen. */
+  partial: boolean;
+  lines: InvoiceLine[];
+  hours: number;
+  net: number;
+  vat: number;
+  gross: number;
+}
+
+export interface InvoiceLine {
+  person: string;
+  rate: number | null;
+  delivery_h: number;
+  other_h: number;
+  hours: number;
+  net: number;
+}
+
+export interface InvoiceTotals {
+  hours: number;
+  net: number;
+  vat: number;
+  gross: number;
 }

@@ -12,6 +12,8 @@ export interface ProjectConfig {
   working_hours: WorkingHoursPeriod[];
   holidays: HolidayConfig;
   export_format: ExportFormat;
+  /** Umsatzsteuersatz in Prozent (Brutto-Berechnung der Rechnung). */
+  vat_percent: number;
 }
 
 export interface TeamMember {
@@ -78,6 +80,26 @@ export function defaultExportFormat(): ExportFormat {
   };
 }
 
+/** Bundesländer für die Feiertags-Region (wie im Backend). */
+export const REGIONS: [code: string, name: string][] = [
+  ["BW", "Baden-Württemberg"],
+  ["BY", "Bayern"],
+  ["BE", "Berlin"],
+  ["BB", "Brandenburg"],
+  ["HB", "Bremen"],
+  ["HH", "Hamburg"],
+  ["HE", "Hessen"],
+  ["MV", "Mecklenburg-Vorpommern"],
+  ["NI", "Niedersachsen"],
+  ["NW", "Nordrhein-Westfalen"],
+  ["RP", "Rheinland-Pfalz"],
+  ["SL", "Saarland"],
+  ["SN", "Sachsen"],
+  ["ST", "Sachsen-Anhalt"],
+  ["SH", "Schleswig-Holstein"],
+  ["TH", "Thüringen"],
+];
+
 export function newProject(): ProjectConfig {
   return {
     id: "",
@@ -87,5 +109,6 @@ export function newProject(): ProjectConfig {
     working_hours: [],
     holidays: { region: "HE", custom: [] },
     export_format: defaultExportFormat(),
+    vat_percent: 19,
   };
 }
