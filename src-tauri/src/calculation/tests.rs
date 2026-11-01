@@ -414,3 +414,58 @@ fn week_keys_use_iso_week_year() {
     assert_eq!(week_key(d(2026, 10, 19)), "2026-W43");
     assert_eq!(month_key(d(2026, 3, 9)), "2026-03");
 }
+
+#[test]
+fn hours_per_work_location() {
+    let mut entries = entries();
+    let set =
+        |entries: &mut Vec<TimeEntry>, day: u32, kost2art: &str, element: &str, location: &str| {
+            let entry = entries
+                .iter_mut()
+                .find(|e| {
+                    e.name == ERIKA
+                        && e.date == d(2026, 1, day)
+                        && e.kost2art == kost2art
+                        && e.element == element
+                })
+                .unwrap();
+            entry.location = location.into();
+        };
+    set(&mut entries, 2, DELIVERY, P100, "Home Office");
+    set(&mut entries, 6, DELIVERY, P100, "Kunde");
+    set(&mut entries, 6, "Travel (billable)", P100, "Kunde"); // 2 h × Mult 0,5
+    set(&mut entries, 7, DELIVERY, P100, "home office ");
+    set(&mut entries, 7, "Internal", "Z900 Intern", "Büro");
+    set(&mut entries, 10, DELIVERY, P100, "Home Office");
+    set(&mut entries, 14, DELIVERY, P100, "Home Office"); // Mult 0 → zählt nicht
+    let result = evaluate(&config(), &entries, d(2026, 1, 16), None);
+
+    let erika = &result.persons[0].periods;
+    let shares: Vec<(&str, f64, f64, usize)> = erika
+        .locations
+        .ytd
+        .iter()
+        .map(|s| (s.location.as_str(), s.hours, s.share, s.days))
+        .collect();
+    assert_eq!(
+        shares,
+        vec![
+            ("Home Office", 18.0, 56.25, 3),
+            ("Kunde", 7.0, 21.88, 1),
+            ("(ohne Angabe)", 6.0, 18.75, 1),
+            ("Büro", 1.0, 3.13, 1),
+        ]
+    );
+    let total: f64 = erika.locations.ytd.iter().map(|s| s.hours).sum();
+    assert_eq!(total, erika.ytd.gearb);
+    assert_eq!(erika.locations.by_month["2026-01"], erika.locations.ytd);
+
+    let team_unknown = result
+        .team
+        .locations
+        .ytd
+        .iter()
+        .find(|s| s.location == "(ohne Angabe)")
+        .unwrap();
+    assert_eq!((team_unknown.hours, team_unknown.days), (22.0, 3)); // Erika 6 h + Max 16 h
+}

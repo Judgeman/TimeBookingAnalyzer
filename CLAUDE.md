@@ -35,6 +35,9 @@ src/                        # React Frontend
       YearView.tsx          # Jahr: Kennzahlen × Personen
       PeriodTable.tsx       # Monate (aufklappbar auf KW) / Wochen, ⚑-Markierungen
       AccountView.tsx       # Stundenkonto: Vertragsabgleich (2 Varianten), kumuliert
+      LocationView.tsx      # Arbeitsort: Torte + Tabelle, Home-Office-Anteil, Monatsverlauf
+      PieChart.tsx          # SVG-Tortendiagramm (ohne Bibliothek), Hover-Tooltip
+      chartColors.ts        # validierte kategorische Palette, Farbe folgt dem Ort
       InvoiceView.tsx       # Rechnung: Netto pro Person/Monat, USt., Brutto
       metrics.ts            # Kennzahl-Labels, Tooltips (Rechenregeln), Formatierung
   lib/
@@ -69,6 +72,7 @@ src-tauri/
       soll.rs               # Soll-Stunden, h/Tag je Person, ½-/ganze Tage
       holidays.rs           # Feiertage aller Bundesländer (Osterformel)
       invoice.rs            # Rechnung je Monat (Cent-genau), USt., Brutto
+      location.rs           # Stunden/Anteile/Tage je Arbeitsort (Spalte „Ort“)
       tests.rs              # Szenario-Test mit handgerechneten Werten
   examples/
     generate_sample_export.rs  # erzeugt sample-data/Beispiel-Export_2026-10-31.xlsx
@@ -242,6 +246,13 @@ plus_krank = plus - sick_h_norm
 - **Stundenkonto** (UI, aus PeriodData): zu leisten = Soll netto, Saldo = `plus`
   (negativ = Person schuldet Stunden); Variante „Krankheit als Fehlzeit“: zu leisten =
   Soll brutto − Urlaub, Saldo = `plus_krank`; Erfüllung = gearb ÷ zu leisten.
+- **Arbeitsort** (`location.rs`): Basis = gearbeitete Stunden (wie `gearb`: × Mult,
+  Mult > 0, ohne Urlaub/Krank) → Summe aller Orte = `gearb`. Orte ohne Groß-/Klein-
+  schreibung gruppiert, Anzeigename = erste Schreibweise, leer = „(ohne Angabe)“.
+  Tage = Tage mit Buchung an dem Ort (Team: Personentage). Anteile kaufmännisch auf
+  2 Stellen. UI: Home-Office-Kennzahl für Orte mit „home“, „remote“ oder „mobil“.
+  Torte: max. 6 Farben (feste Reihenfolge aus `chartColors.ts`, Zuordnung nach
+  Team-Rang im Jahr), weitere Orte → „Sonstige“.
 - **Kalenderwochen** nach ISO 8601 (`2026-W53` kann im Januar des Folgejahres liegen).
   `month_weeks` enthält Teilwochen je Monat, damit aufgeklappte Wochen den Monat ergeben.
 - **Rechnung** (`invoice.rs`): eine Rechnung pro Monat, Positionen je Person × Regel ×
@@ -320,7 +331,10 @@ interface PersonResult {
   by_month: Record<string, PeriodData>;   // Key: "2026-10"
   by_week: Record<string, PeriodData>;    // Key: "2026-W43"
   month_weeks: Record<string, Record<string, PeriodData>>;
+  locations: { ytd: LocationShare[]; by_month: Record<string, LocationShare[]> };
 }
+
+interface LocationShare { location: string; hours: number; share: number; days: number }
 
 interface PeriodData {
   soll_b: number;      // Soll brutto
@@ -345,7 +359,7 @@ interface PeriodData {
 ### Hauptansicht
 1. **Sidebar links**: Projektliste + "Neues Projekt"-Button
 2. **Mitte oben**: Drag-and-Drop-Zone (oder Datei-Browser)
-3. **Mitte**: Auswertungsergebnis (Tabs: Jahr / Monate / Wochen / Stundenkonto / Rechnung / Import)
+3. **Mitte**: Auswertungsergebnis (Tabs: Jahr / Monate / Wochen / Stundenkonto / Arbeitsort / Rechnung / Import)
 4. **Oben rechts**: Projekt-bearbeiten-Button
 
 ### Drag & Drop

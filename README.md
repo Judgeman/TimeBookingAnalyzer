@@ -11,6 +11,7 @@ konfigurierbaren Projekt-Regeln. Details zu Regeln und Datenmodell: [CLAUDE.md](
 - [x] Berechnung: gearb, billable, Soll/Ist inkl. Feiertage (alle Bundesländer)
 - [x] Auswertung pro Person: Jahr, Monate (aufklappbar auf KW), Kalenderwochen, Stichtag wählbar
 - [x] Stundenkonto: Vertragsabgleich (Urlaub/Krank angerechnet bzw. Krankheit als Fehlzeit)
+- [x] Arbeitsort: Anteile je Ort (Tortendiagramm + Tabelle), Home-Office-Anteil, Monatsverlauf
 - [x] Rechnung: Netto pro Person und Monat, USt. je Steuersatz, Brutto, Positionen je Leistung
 - [x] Abrechnungsregeln (billable, Mult, Satz-Anteil, USt.), Arbeitszeit-Ausnahmen je Person
 - [x] Projekt-Editor mit Formularen für Team, Arbeitszeiten, Regeln, Feiertage

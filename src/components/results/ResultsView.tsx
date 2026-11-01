@@ -17,23 +17,26 @@ import {
 } from "../../lib/format";
 import { ExportSummary } from "../ExportSummary";
 import { AccountView } from "./AccountView";
+import { colorMapFor } from "./chartColors";
 import { InvoiceView } from "./InvoiceView";
+import { LocationView } from "./LocationView";
 import { PeriodTable, type PeriodRow } from "./PeriodTable";
 import { YearView } from "./YearView";
 
-type Tab = "year" | "months" | "weeks" | "account" | "invoice" | "import";
+type Tab = "year" | "months" | "weeks" | "account" | "locations" | "invoice" | "import";
 
 const TABS: [Tab, string][] = [
   ["year", "Jahr"],
   ["months", "Monate"],
   ["weeks", "Wochen"],
   ["account", "Stundenkonto"],
+  ["locations", "Arbeitsort"],
   ["invoice", "Rechnung"],
   ["import", "Import"],
 ];
 
 /** Tabs mit Personenauswahl. */
-const PERSON_TABS: Tab[] = ["months", "weeks", "account"];
+const PERSON_TABS: Tab[] = ["months", "weeks", "account", "locations"];
 
 interface Props {
   result: AuswertungResult;
@@ -225,6 +228,14 @@ export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Pro
             />
           )}
           {tab === "account" && <AccountView name={selectedName} data={selected} />}
+          {tab === "locations" && (
+            <LocationView
+              name={selectedIndex === TEAM ? "Team" : selectedName}
+              data={selected}
+              colorMap={colorMapFor(result.team.locations.ytd.map((s) => s.location))}
+              isTeam={selectedIndex === TEAM}
+            />
+          )}
           {tab === "invoice" && (
             <InvoiceView
               invoice={result.invoice}

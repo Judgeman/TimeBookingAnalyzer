@@ -97,6 +97,25 @@ export interface PeriodBreakdown {
   by_week: Record<string, PeriodData>;
   /** Monat → Kalenderwoche → Werte nur der Tage dieses Monats. */
   month_weeks: Record<string, Record<string, PeriodData>>;
+  /** Gearbeitete Stunden je Arbeitsort. */
+  locations: LocationBreakdown;
+}
+
+export interface LocationBreakdown {
+  /** Jahr bis Stichtag, absteigend nach Stunden. */
+  ytd: LocationShare[];
+  /** Key: "2026-10" */
+  by_month: Record<string, LocationShare[]>;
+}
+
+export interface LocationShare {
+  location: string;
+  /** Gearbeitete Stunden (× Mult). */
+  hours: number;
+  /** Anteil in Prozent. */
+  share: number;
+  /** Tage mit Buchungen an diesem Ort (Team: Personentage). */
+  days: number;
 }
 
 export interface PersonResult extends PeriodBreakdown {

@@ -100,7 +100,7 @@ fn rows_for_day(date: NaiveDate, rows: &mut Vec<Row>) {
             PROJECT,
             "Delivery (billable)",
             "Go-live-Vorbereitung",
-            "Remote",
+            "Home Office",
         ));
     }
     // Urlaub an einem Samstag (wird mitgezählt und in der App hervorgehoben).
@@ -115,7 +115,7 @@ fn rows_for_day(date: NaiveDate, rows: &mut Vec<Row>) {
             PROJECT,
             "Delivery (billable)",
             "Rufbereitschaft",
-            "Remote",
+            "Home Office",
         );
         on_call.mult = Some(0.0);
         rows.push(on_call);
@@ -143,7 +143,7 @@ fn rows_for_day(date: NaiveDate, rows: &mut Vec<Row>) {
             PROJECT,
             "Delivery (billable)",
             "Entwicklung",
-            "Remote",
+            "Home Office",
         ));
     } else if [d(3, 27), d(6, 26), d(9, 25)].contains(&date) {
         rows.push(work(
@@ -153,7 +153,7 @@ fn rows_for_day(date: NaiveDate, rows: &mut Vec<Row>) {
             PROJECT,
             "Delivery (billable)",
             "Entwicklung",
-            "Remote",
+            "Home Office",
         ));
         rows.push(work(
             ERIKA,
@@ -172,7 +172,7 @@ fn rows_for_day(date: NaiveDate, rows: &mut Vec<Row>) {
             PROJECT,
             "Delivery (billable)",
             "Entwicklung",
-            "Remote",
+            "Home Office",
         ));
         rows.push(work(
             ERIKA,
@@ -181,7 +181,7 @@ fn rows_for_day(date: NaiveDate, rows: &mut Vec<Row>) {
             PROJECT,
             "Sales",
             "Angebot Folgephase",
-            "Remote",
+            "Home Office",
         ));
     } else {
         let hours = [8.0, 7.5, 8.5, 8.25][date.weekday().num_days_from_monday() as usize];
@@ -230,7 +230,7 @@ fn rows_for_day(date: NaiveDate, rows: &mut Vec<Row>) {
             PROJECT,
             "Delivery (billable)",
             "Entwicklung",
-            "Remote",
+            "Home Office",
         ));
         rows.push(work(
             MAX,
@@ -249,7 +249,7 @@ fn rows_for_day(date: NaiveDate, rows: &mut Vec<Row>) {
             PROJECT,
             "Delivery (billable)",
             "Entwicklung",
-            "Remote",
+            "Home Office",
         ));
     }
 

@@ -9,6 +9,7 @@ pub mod billing;
 pub mod gearb;
 pub mod holidays;
 pub mod invoice;
+pub mod location;
 pub mod soll;
 
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -24,6 +25,7 @@ use crate::models::results::{
 use gearb::Absence;
 use holidays::Holiday;
 use invoice::{InvoiceBuilder, InvoiceItem};
+use location::{LocationAcc, location_key};
 
 pub struct Evaluation {
     pub period_start: NaiveDate,
@@ -105,6 +107,15 @@ pub fn evaluate(
 
     warnings.extend(missing_working_hours(config, &days, &is_workday));
 
+    // Anzeigenamen der Arbeitsorte: erste Schreibweise im Export.
+    let mut location_names: HashMap<String, String> = HashMap::new();
+    for entries_of_day in by_person.iter().flat_map(|days| days.values()) {
+        for entry in entries_of_day {
+            let (key, name) = location_key(&entry.location);
+            location_names.entry(key).or_insert(name);
+        }
+    }
+
     let mut invoice = InvoiceBuilder::new(config.vat_percent, cutoff);
     let mut team = BreakdownAcc::default();
     let mut persons = Vec::with_capacity(config.team.len());
@@ -122,13 +133,20 @@ pub fn evaluate(
                 ..Acc::default()
             };
             let (mut raw_vacation, mut raw_sick) = (0.0, 0.0);
+            let mut day_locations: BTreeMap<String, f64> = BTreeMap::new();
 
             for entry in by_person[index].get(&date).into_iter().flatten() {
                 match gearb::absence(entry, special) {
                     Some(Absence::Vacation) => raw_vacation += entry.hours,
                     Some(Absence::Sick) => raw_sick += entry.hours,
                     None => {
-                        day.gearb += gearb::worked_hours(entry);
+                        let worked = gearb::worked_hours(entry);
+                        day.gearb += worked;
+                        if worked > 0.0 {
+                            *day_locations
+                                .entry(location_key(&entry.location).0)
+                                .or_default() += worked;
+                        }
                         let rule = billing::matching_rule(&config.billing_rules, entry, filter);
                         let in_bill_h = rule.is_some_and(|(_, r)| r.billable_hours);
                         if !in_bill_h && gearb::counts_as_work(entry.mult) {
@@ -201,6 +219,7 @@ pub fn evaluate(
             }
 
             breakdown.add_day(date, &day);
+            breakdown.locations.add_day(date, &day_locations);
         }
 
         if let Some((first, last, hours)) = missing_rate.range() {
@@ -216,14 +235,14 @@ pub fn evaluate(
         team.add_all(&breakdown);
         persons.push(PersonResult {
             name: member.name.clone(),
-            periods: breakdown.finish(),
+            periods: breakdown.finish(&location_names),
         });
     }
 
     Evaluation {
         period_start,
         persons,
-        team: team.finish(),
+        team: team.finish(&location_names),
         invoice: invoice.finish(),
         holidays: holiday_list,
         warnings,
@@ -364,6 +383,7 @@ struct BreakdownAcc {
     months: BTreeMap<String, Acc>,
     weeks: BTreeMap<String, Acc>,
     month_weeks: BTreeMap<String, BTreeMap<String, Acc>>,
+    locations: LocationAcc,
 }
 
 impl BreakdownAcc {
@@ -394,9 +414,10 @@ impl BreakdownAcc {
                 *target.entry(week.clone()).or_default() += acc;
             }
         }
+        self.locations.add_all(&other.locations);
     }
 
-    fn finish(&self) -> PeriodBreakdown {
+    fn finish(&self, location_names: &HashMap<String, String>) -> PeriodBreakdown {
         let map = |m: &BTreeMap<String, Acc>| {
             m.iter()
                 .map(|(k, v)| (k.clone(), v.finish()))
@@ -411,6 +432,7 @@ impl BreakdownAcc {
                 .iter()
                 .map(|(k, v)| (k.clone(), map(v)))
                 .collect(),
+            locations: self.locations.finish(location_names),
         }
     }
 }

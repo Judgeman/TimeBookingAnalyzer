@@ -165,6 +165,21 @@ mod tests {
         assert_eq!(max.bill_eur, 141_520.0);
         assert_eq!((max.plus, max.plus_krank), (97.5, 79.5));
 
+        // Arbeitsorte (Basis = gearbeitete Stunden)
+        let share = |person: usize, location: &str| {
+            auswertung.persons[person]
+                .periods
+                .locations
+                .ytd
+                .iter()
+                .find(|s| s.location == location)
+                .map(|s| (s.hours, s.share, s.days))
+                .unwrap()
+        };
+        assert_eq!(share(0, "Home Office"), (307.5, 19.79, 40));
+        assert_eq!(share(0, "Büro"), (1242.0, 79.92, 154));
+        assert_eq!(share(1, "Home Office"), (1465.0, 93.49, 188));
+
         assert_eq!(auswertung.flagged.len(), 1);
         assert_eq!(auswertung.flagged[0].reasons, vec!["Samstag".to_string()]);
 

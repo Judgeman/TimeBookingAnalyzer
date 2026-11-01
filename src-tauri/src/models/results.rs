@@ -137,6 +137,28 @@ pub struct PeriodBreakdown {
     pub by_week: BTreeMap<String, PeriodData>,
     /// Monat → Kalenderwoche → Werte nur der Tage dieses Monats.
     pub month_weeks: BTreeMap<String, BTreeMap<String, PeriodData>>,
+    /// Gearbeitete Stunden je Arbeitsort.
+    pub locations: LocationBreakdown,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct LocationBreakdown {
+    /// Jahr bis Stichtag, absteigend nach Stunden.
+    pub ytd: Vec<LocationShare>,
+    /// Schlüssel: "2026-10"
+    pub by_month: BTreeMap<String, Vec<LocationShare>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct LocationShare {
+    /// Wert der Ort-Spalte bzw. „(ohne Angabe)“.
+    pub location: String,
+    /// Gearbeitete Stunden (× Mult) an diesem Ort.
+    pub hours: f64,
+    /// Anteil an den gearbeiteten Stunden in Prozent.
+    pub share: f64,
+    /// Tage mit Buchungen an diesem Ort (Team: Personentage).
+    pub days: usize,
 }
 
 /// Kennzahlen eines Zeitraums, auf 2 Nachkommastellen gerundet.
