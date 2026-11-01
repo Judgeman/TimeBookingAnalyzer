@@ -2,12 +2,15 @@
 //!
 //! Zeitraum 01.01.–16.01.2026 (Hessen, 1.1. Feiertag). Arbeitszeit 8 h bis 09.01.,
 //! danach 6 h. Erika: 100 € bis 09.01., danach 110 €. Max: Satz erst ab 05.01.
+//! Abrechnung mit den Standardregeln (Delivery = billable h + €, übrige
+//! „(billable)“ nur €, ohne Mult).
 
 use chrono::NaiveDate;
 
 use super::*;
 use crate::models::config::{
-    ExportFormat, HolidayConfig, ProjectConfig, RatePeriod, TeamMember, WorkingHoursPeriod,
+    BillingRule, ExportFormat, HolidayConfig, MatchMode, ProjectConfig, RatePeriod, TeamMember,
+    WorkingHoursPeriod, default_billing_rules,
 };
 
 fn d(y: i32, m: u32, day: u32) -> NaiveDate {
@@ -30,10 +33,12 @@ fn config() -> ProjectConfig {
                     rate(d(2026, 1, 1), Some(d(2026, 1, 9)), 100.0),
                     rate(d(2026, 1, 10), None, 110.0),
                 ],
+                working_hours: vec![],
             },
             TeamMember {
                 name: "Max Mustermann".into(),
                 rates: vec![rate(d(2026, 1, 5), None, 90.0)],
+                working_hours: vec![],
             },
         ],
         working_hours: vec![
@@ -51,6 +56,7 @@ fn config() -> ProjectConfig {
         holidays: HolidayConfig::default(),
         export_format: ExportFormat::default(),
         vat_percent: 19.0,
+        billing_rules: default_billing_rules(),
     }
 }
 
@@ -80,7 +86,7 @@ const DELIVERY: &str = "Delivery (billable)";
 fn entries() -> Vec<TimeEntry> {
     vec![
         e(ERIKA, d(2025, 12, 30), 8.0, 1.0, P100, DELIVERY), // Vorjahr → ignoriert
-        e(ERIKA, d(2026, 1, 1), 8.0, 1.0, "(Vacation)", ""), // Feiertag → ignoriert + Hinweis
+        e(ERIKA, d(2026, 1, 1), 8.0, 1.0, "(Vacation)", ""), // Feiertag → zählt, hervorgehoben
         e(ERIKA, d(2026, 1, 2), 8.0, 1.0, P100, DELIVERY),
         e(ERIKA, d(2026, 1, 5), 8.0, 1.0, "(Vacation)", ""),
         e(ERIKA, d(2026, 1, 6), 6.0, 1.0, P100, DELIVERY),
@@ -106,7 +112,7 @@ fn entries() -> Vec<TimeEntry> {
 }
 
 fn run() -> Evaluation {
-    evaluate(&config(), &entries(), d(2026, 1, 16))
+    evaluate(&config(), &entries(), d(2026, 1, 16), Some(d(2026, 1, 16)))
 }
 
 #[test]
@@ -118,15 +124,16 @@ fn year_to_date_per_person() {
     let erika = &result.persons[0].periods.ytd;
     // Werktage: 02.01. + 05.–09.01. à 8 h = 48 h, 12.–16.01. à 6 h = 30 h
     assert_eq!(erika.soll_b, 78.0);
-    assert_eq!((erika.vac_days, erika.vac_h), (1.0, 8.0));
+    // Urlaub 01.01. (Feiertag, zählt trotzdem) + 05.01. à 8 h
+    assert_eq!((erika.vac_days, erika.vac_h), (2.0, 16.0));
     assert_eq!((erika.sick_days, erika.sick_h), (1.0, 6.0)); // 8 h Personio → 6 h Vertrag
-    assert_eq!(erika.soll_n, 64.0);
+    assert_eq!(erika.soll_n, 56.0);
     assert_eq!(erika.gearb, 32.0); // 8 + (6 + 2×0,5) + (7 + 1) + 3 + 6 + 0
     assert_eq!(erika.bill_h, 28.0); // 8 + 6 + 7 + 3 + 4
     assert_eq!(erika.nonbill_h, 9.0); // Travel 2 + Intern 1 + Sales 6
     assert_eq!(erika.bill_eur, 3070.0); // (8+8+7)×100 + (3+4)×110
-    assert_eq!(erika.plus, -32.0);
-    assert_eq!(erika.plus_krank, -38.0);
+    assert_eq!(erika.plus, -24.0);
+    assert_eq!(erika.plus_krank, -30.0);
 
     let max = &result.persons[1].periods.ytd;
     assert_eq!(max.soll_b, 78.0);
@@ -152,8 +159,11 @@ fn months_and_calendar_weeks() {
         erika.by_week.keys().collect::<Vec<_>>(),
         vec!["2026-W01", "2026-W02", "2026-W03"]
     );
-    let w01 = &erika.by_week["2026-W01"];
-    assert_eq!((w01.soll_b, w01.gearb, w01.plus), (8.0, 8.0, 0.0));
+    let w01 = &erika.by_week["2026-W01"]; // 01.–04.01.: Urlaub am Feiertag + 02.01.
+    assert_eq!(
+        (w01.soll_b, w01.vac_h, w01.gearb, w01.plus),
+        (8.0, 8.0, 8.0, 8.0)
+    );
     let w02 = &erika.by_week["2026-W02"]; // 05.–11.01. inkl. Samstag
     assert_eq!(w02.soll_b, 40.0);
     assert_eq!(w02.vac_h, 8.0);
@@ -173,18 +183,33 @@ fn invoice_per_month() {
     assert_eq!(jan.month, "2026-01");
     assert!(jan.partial);
 
-    let lines: Vec<(&str, Option<f64>, f64, f64, f64)> = jan
+    let lines: Vec<(&str, &str, Option<f64>, f64, f64)> = jan
         .lines
         .iter()
-        .map(|l| (l.person.as_str(), l.rate, l.delivery_h, l.other_h, l.net))
+        .map(|l| {
+            (
+                l.person.as_str(),
+                l.service.as_str(),
+                l.rate,
+                l.hours,
+                l.net,
+            )
+        })
         .collect();
     assert_eq!(
         lines,
         vec![
-            (ERIKA, Some(100.0), 21.0, 2.0, 2300.0),
-            (ERIKA, Some(110.0), 7.0, 0.0, 770.0),
-            ("Max Mustermann", None, 8.0, 0.0, 0.0),
-            ("Max Mustermann", Some(90.0), 8.0, 0.0, 720.0),
+            (ERIKA, "Delivery", Some(100.0), 21.0, 2100.0),
+            (ERIKA, "Delivery", Some(110.0), 7.0, 770.0),
+            (
+                ERIKA,
+                "Sonstige billable (z. B. Travel)",
+                Some(100.0),
+                2.0,
+                200.0
+            ),
+            ("Max Mustermann", "Delivery", None, 8.0, 0.0),
+            ("Max Mustermann", "Delivery", Some(90.0), 8.0, 720.0),
         ]
     );
     assert_eq!(jan.net, 3790.0);
@@ -194,8 +219,139 @@ fn invoice_per_month() {
 }
 
 #[test]
+fn custom_rule_with_mult_reduced_rate_and_own_vat() {
+    let mut config = config();
+    config.billing_rules.insert(
+        0,
+        BillingRule {
+            name: "Reisezeit".into(),
+            kost2art: "travel".into(),
+            match_mode: MatchMode::Contains,
+            element: String::new(),
+            billable_hours: false,
+            invoice: true,
+            apply_mult: true,
+            rate_percent: 50.0,
+            vat_percent: Some(7.0),
+        },
+    );
+    let result = evaluate(&config, &entries(), d(2026, 1, 16), None);
+
+    // Reisezeit 06.01.: 2 h × Mult 0,5 = 1 h × 100 € × 50 % = 50 €
+    let erika = &result.persons[0].periods.ytd;
+    assert_eq!(erika.bill_eur, 2920.0);
+    assert_eq!(erika.bill_h, 28.0);
+
+    let jan = &result.invoice.months[0];
+    let travel = jan.lines.iter().find(|l| l.service == "Reisezeit").unwrap();
+    assert_eq!(
+        (
+            travel.hours,
+            travel.base_rate,
+            travel.rate,
+            travel.net,
+            travel.vat_percent
+        ),
+        (1.0, Some(100.0), Some(50.0), 50.0, 7.0)
+    );
+    let groups: Vec<(f64, f64, f64)> = jan
+        .vat_groups
+        .iter()
+        .map(|g| (g.vat_percent, g.net, g.vat))
+        .collect();
+    assert_eq!(groups, vec![(7.0, 50.0, 3.5), (19.0, 3590.0, 682.1)]);
+    assert_eq!((jan.net, jan.vat, jan.gross), (3640.0, 685.6, 4325.6));
+}
+
+#[test]
+fn rules_can_make_other_kost2art_billable_or_exclude_it() {
+    let mut config = config();
+    // Sales zählt als billable Stunden, wird aber nicht abgerechnet;
+    // Travel wird gar nicht mehr abgerechnet (keine passende Regel).
+    config.billing_rules = vec![
+        default_billing_rules()[0].clone(),
+        BillingRule {
+            name: "Sales".into(),
+            kost2art: "Sales".into(),
+            match_mode: MatchMode::Exact,
+            element: String::new(),
+            billable_hours: true,
+            invoice: false,
+            apply_mult: false,
+            rate_percent: 100.0,
+            vat_percent: None,
+        },
+    ];
+    let erika = evaluate(&config, &entries(), d(2026, 1, 16), None).persons[0]
+        .periods
+        .ytd;
+    assert_eq!(erika.bill_h, 34.0); // 28 + Sales 6
+    assert_eq!(erika.nonbill_h, 3.0); // Travel 2 + Intern 1
+    assert_eq!(erika.bill_eur, 2870.0); // ohne Travel
+}
+
+#[test]
+fn person_working_hours_override_project() {
+    let mut config = config();
+    config.team[1].working_hours = vec![WorkingHoursPeriod {
+        from: d(2026, 1, 12),
+        to: None,
+        hours_per_day: 4.0,
+    }];
+    let result = evaluate(&config, &entries(), d(2026, 1, 16), None);
+    assert_eq!(result.persons[0].periods.ytd.soll_b, 78.0);
+    assert_eq!(result.persons[1].periods.ytd.soll_b, 68.0); // 6 × 8 h + 5 × 4 h
+}
+
+#[test]
+fn absences_are_counted_on_any_day_and_flagged() {
+    let mut entries = entries();
+    entries.push(e("Max Mustermann", d(2026, 1, 14), 6.0, 1.0, "(Sick)", ""));
+    let result = evaluate(&config(), &entries, d(2026, 1, 16), None);
+
+    let flagged: Vec<(&str, NaiveDate, f64, f64, String)> = result
+        .flagged
+        .iter()
+        .map(|f| {
+            (
+                f.person.as_str(),
+                f.date,
+                f.credited_days,
+                f.credited_hours,
+                f.reasons.join("; "),
+            )
+        })
+        .collect();
+    assert_eq!(
+        flagged,
+        vec![
+            (
+                ERIKA,
+                d(2026, 1, 1),
+                1.0,
+                8.0,
+                "Feiertag (Neujahr)".to_string()
+            ),
+            (
+                "Max Mustermann",
+                d(2026, 1, 14),
+                1.0,
+                6.0,
+                "6,00 h gebucht → als 1,00 Tag(e) angerechnet".to_string()
+            ),
+        ]
+    );
+    assert_eq!(result.flagged[0].kind, AbsenceKind::Vacation);
+    let max = &result.persons[1].periods.ytd;
+    assert_eq!((max.sick_days, max.sick_h), (1.0, 6.0));
+    assert_eq!((max.plus, max.plus_krank), (-56.0, -62.0));
+}
+
+#[test]
 fn warnings_explain_ignored_data() {
-    let warnings = run().warnings.join("\n");
+    let warnings = evaluate(&config(), &entries(), d(2026, 1, 16), Some(d(2026, 1, 14)))
+        .warnings
+        .join("\n");
     assert!(
         warnings.contains("1 Buchung(en) des Teams nach dem Stichtag 16.01.2026"),
         "{warnings}"
@@ -205,24 +361,43 @@ fn warnings_explain_ignored_data() {
         "{warnings}"
     );
     assert!(
-        warnings.contains("Erika Mustermann: 1 Urlaubs-/Krank-Buchung(en) an arbeitsfreien Tagen"),
+        warnings.contains("Stichtag 16.01.2026 liegt nach dem Stand des Exports (14.01.2026)"),
         "{warnings}"
     );
     assert!(!warnings.contains("Arbeitszeit"), "{warnings}");
+    assert!(
+        run()
+            .warnings
+            .iter()
+            .all(|w| !w.contains("Stand des Exports"))
+    );
 }
 
 #[test]
-fn missing_working_hours_are_reported() {
+fn missing_working_hours_are_reported_once_or_per_person() {
     let mut config = config();
     config.working_hours[0].from = d(2026, 1, 5);
-    let result = evaluate(&config, &entries(), d(2026, 1, 16));
+    let result = evaluate(&config, &entries(), d(2026, 1, 16), None);
     assert_eq!(result.persons[0].periods.ytd.soll_b, 70.0);
     let warnings = result.warnings.join("\n");
     assert!(
-        warnings
-            .contains("Für 1 Werktag(e) zwischen 02.01.2026 und 02.01.2026 ist keine Arbeitszeit"),
+        warnings.contains("Alle Personen: für 1 Werktag(e) zwischen 02.01.2026 und 02.01.2026 ist keine Arbeitszeit"),
         "{warnings}"
     );
+
+    config.team[1].working_hours = vec![WorkingHoursPeriod {
+        from: d(2026, 1, 1),
+        to: Some(d(2026, 1, 4)),
+        hours_per_day: 8.0,
+    }];
+    let warnings = evaluate(&config, &entries(), d(2026, 1, 16), None)
+        .warnings
+        .join("\n");
+    assert!(
+        warnings.contains("Erika Mustermann: für 1 Werktag(e)"),
+        "{warnings}"
+    );
+    assert!(!warnings.contains("Max Mustermann: für"), "{warnings}");
 }
 
 #[test]

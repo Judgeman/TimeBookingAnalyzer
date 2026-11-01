@@ -155,7 +155,7 @@ fn read_config(path: &Path) -> Result<ProjectConfig, ReadError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::config::{ExportFormat, HolidayConfig, TeamMember};
+    use crate::models::config::{ExportFormat, HolidayConfig, TeamMember, default_billing_rules};
 
     fn config(name: &str) -> ProjectConfig {
         ProjectConfig {
@@ -165,11 +165,13 @@ mod tests {
             team: vec![TeamMember {
                 name: "Erika Mustermann".into(),
                 rates: vec![],
+                working_hours: vec![],
             }],
             working_hours: vec![],
             holidays: HolidayConfig::default(),
             export_format: ExportFormat::default(),
             vat_percent: 19.0,
+            billing_rules: default_billing_rules(),
         }
     }
 

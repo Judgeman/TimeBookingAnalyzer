@@ -15,6 +15,9 @@
       "rates": [
         { "from": "2026-01-01", "to": "2026-06-30", "rate": 90 },
         { "from": "2026-07-01", "to": null, "rate": 95 }
+      ],
+      "working_hours": [
+        { "from": "2026-09-01", "to": null, "hours_per_day": 6.0 }
       ]
     }
   ],
@@ -42,5 +45,40 @@
       "vacation": "(Vacation)"
     }
   },
-  "vat_percent": 19.0
+  "vat_percent": 19.0,
+  "billing_rules": [
+    {
+      "name": "Delivery",
+      "kost2art": "Delivery (billable)",
+      "match_mode": "exact",
+      "element": "",
+      "billable_hours": true,
+      "invoice": true,
+      "apply_mult": false,
+      "rate_percent": 100.0,
+      "vat_percent": null
+    },
+    {
+      "name": "Schulung",
+      "kost2art": "Training (billable)",
+      "match_mode": "exact",
+      "element": "",
+      "billable_hours": false,
+      "invoice": true,
+      "apply_mult": false,
+      "rate_percent": 100.0,
+      "vat_percent": 7.0
+    },
+    {
+      "name": "Sonstige billable (z. B. Travel)",
+      "kost2art": "(billable)",
+      "match_mode": "contains",
+      "element": "",
+      "billable_hours": false,
+      "invoice": true,
+      "apply_mult": false,
+      "rate_percent": 100.0,
+      "vat_percent": null
+    }
+  ]
 }

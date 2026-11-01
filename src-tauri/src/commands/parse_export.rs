@@ -50,7 +50,12 @@ pub fn parse_export_file(
         .ok_or("Export enthält keine Buchungen.")?;
     let cutoff_date = cutoff.unwrap_or(default_cutoff);
 
-    let evaluation = calculation::evaluate(config, &outcome.entries, cutoff_date);
+    let evaluation = calculation::evaluate(
+        config,
+        &outcome.entries,
+        cutoff_date,
+        export.map(|(d, _)| d),
+    );
     let overview = summarize(config, file_name.clone(), export.map(|(d, _)| d), outcome);
 
     Ok(AuswertungResult {
@@ -68,6 +73,7 @@ pub fn parse_export_file(
         holiday_region: config.holidays.region.clone(),
         holidays: evaluation.holidays,
         warnings: evaluation.warnings,
+        flagged: evaluation.flagged,
         overview,
     })
 }
@@ -111,7 +117,7 @@ mod tests {
             result.last_entry_date,
             NaiveDate::from_ymd_opt(2026, 10, 30)
         );
-        assert_eq!(result.entry_count, 677);
+        assert_eq!(result.entry_count, 678);
         assert!(result.skipped_rows.is_empty(), "{:?}", result.skipped_rows);
         assert!(result.missing_team_members.is_empty());
 
@@ -141,25 +147,38 @@ mod tests {
         let erika = &auswertung.persons[0].periods.ytd;
         assert_eq!(erika.soll_b, 1636.0);
         assert_eq!((erika.vac_days, erika.vac_h), (15.0, 115.0));
-        assert_eq!((erika.sick_days, erika.sick_h), (2.0, 16.0));
-        assert_eq!(erika.soll_n, 1505.0);
-        assert_eq!(erika.gearb, 1558.0);
-        assert_eq!(erika.bill_h, 1499.5);
-        assert_eq!(erika.bill_eur, 152_992.5);
-        assert_eq!(erika.nonbill_h, 58.5);
-        assert_eq!((erika.plus, erika.plus_krank), (53.0, 37.0));
+        assert_eq!((erika.sick_days, erika.sick_h), (2.5, 20.0)); // inkl. halber Tag
+        assert_eq!(erika.soll_n, 1501.0);
+        assert_eq!(erika.gearb, 1554.0);
+        assert_eq!(erika.bill_h, 1497.0);
+        assert_eq!(erika.bill_eur, 153_200.0);
+        assert_eq!(erika.nonbill_h, 57.0);
+        assert_eq!((erika.plus, erika.plus_krank), (53.0, 33.0));
 
         let max = &auswertung.persons[1].periods.ytd;
-        assert_eq!((max.vac_h, max.sick_h), (75.0, 22.5));
+        // Ab September 6 h/Tag (Ausnahme bei der Person): 44 Werktage × 1,5 h weniger
+        assert_eq!(max.soll_b, 1570.0);
+        // Urlaub inkl. Samstag 25.07. (zählt, wird hervorgehoben)
+        assert_eq!((max.vac_days, max.vac_h), (11.0, 82.5));
+        assert_eq!((max.sick_days, max.sick_h), (3.0, 18.0));
         assert_eq!(max.gearb, 1567.0);
         assert_eq!(max.bill_eur, 141_520.0);
-        assert_eq!((max.plus, max.plus_krank), (28.5, 6.0));
+        assert_eq!((max.plus, max.plus_krank), (97.5, 79.5));
+
+        assert_eq!(auswertung.flagged.len(), 1);
+        assert_eq!(auswertung.flagged[0].reasons, vec!["Samstag".to_string()]);
 
         let invoice = &auswertung.invoice;
         assert_eq!(invoice.months.len(), 10);
         assert!(!invoice.months[9].partial); // Stichtag 31.10. = Monatsende
-        assert_eq!(invoice.total.net, 294_512.5);
-        assert_eq!(invoice.total.vat, 55_957.38);
-        assert_eq!(invoice.total.gross, 350_469.88);
+        assert_eq!(invoice.total.net, 294_720.0);
+        assert_eq!(invoice.total.vat, 55_941.91);
+        assert_eq!(invoice.total.gross, 350_661.91);
+        // Schulung mit 7 % USt. (eigene Abrechnungsregel)
+        let reduced = &invoice.total.vat_groups[0];
+        assert_eq!(
+            (reduced.vat_percent, reduced.net, reduced.vat),
+            (7.0, 457.5, 32.03)
+        );
     }
 }

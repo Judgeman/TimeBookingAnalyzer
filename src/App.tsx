@@ -5,6 +5,7 @@ import { ProjectEditor } from "./components/ProjectEditor";
 import { ProjectSelector } from "./components/ProjectSelector";
 import { ResultsView } from "./components/results/ResultsView";
 import { api, errorMessage } from "./lib/api";
+import { todayIso } from "./lib/format";
 import { newProject, type ProjectConfig } from "./types/config";
 import type { AuswertungResult, ProjectSummary } from "./types/results";
 
@@ -23,8 +24,8 @@ export default function App() {
   const [activeProject, setActiveProject] = useState<ProjectConfig | null>(null);
   const [editing, setEditing] = useState<ProjectConfig | null>(null);
   const [file, setFile] = useState<FileRequest | null>(null);
-  /** Manuell gewählter Stichtag; `null` = Export-Datum. */
-  const [cutoff, setCutoff] = useState<string | null>(null);
+  /** Stichtag der Auswertung – beim Programmstart heute. */
+  const [cutoff, setCutoff] = useState<string>(todayIso);
   const [result, setResult] = useState<AuswertungResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -195,10 +196,7 @@ export default function App() {
                 current={
                   result ? { fileName: result.file_name, exportDate: result.export_date } : null
                 }
-                onFile={(path) => {
-                  setCutoff(null);
-                  setFile((prev) => ({ path, seq: (prev?.seq ?? 0) + 1 }));
-                }}
+                onFile={(path) => setFile((prev) => ({ path, seq: (prev?.seq ?? 0) + 1 }))}
                 onError={setError}
               />
               {result && activeProject && (

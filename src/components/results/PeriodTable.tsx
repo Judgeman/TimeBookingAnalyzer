@@ -9,6 +9,8 @@ export interface PeriodRow {
   /** Zusatz, z. B. Datumsbereich. */
   detail?: string;
   data: PeriodData;
+  /** Hervorgehobene Buchungen in diesem Zeitraum (Tooltip-Zeilen). */
+  flags?: string[];
   /** Aufklappbare Unterzeilen (z. B. Kalenderwochen eines Monats). */
   children?: PeriodRow[];
 }
@@ -79,6 +81,7 @@ export function PeriodTable({ rows, total, totalLabel, periodLabel }: Props) {
                     )}
                     <span className="font-medium">{row.label}</span>
                     {row.detail && <span className="ml-2 text-xs text-slate-500">{row.detail}</span>}
+                    <FlagMarker flags={row.flags} />
                   </td>
                   <MetricCells data={row.data} />
                 </tr>
@@ -90,6 +93,7 @@ export function PeriodTable({ rows, total, totalLabel, periodLabel }: Props) {
                         {child.detail && (
                           <span className="ml-2 text-xs text-slate-500">{child.detail}</span>
                         )}
+                        <FlagMarker flags={child.flags} />
                       </td>
                       <MetricCells data={child.data} />
                     </tr>
@@ -106,6 +110,18 @@ export function PeriodTable({ rows, total, totalLabel, periodLabel }: Props) {
         </tfoot>
       </table>
     </div>
+  );
+}
+
+function FlagMarker({ flags }: { flags?: string[] }) {
+  if (!flags?.length) return null;
+  return (
+    <span
+      className="ml-2 cursor-help rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800"
+      title={flags.join("\n")}
+    >
+      ⚑ {flags.length}
+    </span>
   );
 }
 

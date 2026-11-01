@@ -85,7 +85,7 @@ pub fn summarize(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::config::{ExportFormat, HolidayConfig, TeamMember};
+    use crate::models::config::{ExportFormat, HolidayConfig, TeamMember, default_billing_rules};
     use crate::models::entry::TimeEntry;
     use crate::models::results::SkippedRow;
 
@@ -105,6 +105,7 @@ mod tests {
         TeamMember {
             name: name.into(),
             rates: vec![],
+            working_hours: vec![],
         }
     }
 
@@ -123,6 +124,7 @@ mod tests {
             holidays: HolidayConfig::default(),
             export_format: ExportFormat::default(),
             vat_percent: 19.0,
+            billing_rules: default_billing_rules(),
         };
         let outcome = ParseOutcome {
             sheet_name: "Details".into(),

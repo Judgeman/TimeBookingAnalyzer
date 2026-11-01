@@ -1,34 +1,45 @@
 import { useState } from "react";
-import type { AuswertungResult, PeriodBreakdown } from "../../types/results";
+import type { AuswertungResult, FlaggedBooking, PeriodBreakdown } from "../../types/results";
 import {
   clampRange,
+  endOfPreviousMonth,
   formatDate,
+  formatDateWithWeekday,
+  formatHours,
   formatMonth,
+  formatNumber,
   formatRange,
   formatWeek,
+  isoWeekKey,
   isoWeekRange,
   monthRange,
+  todayIso,
 } from "../../lib/format";
 import { ExportSummary } from "../ExportSummary";
+import { AccountView } from "./AccountView";
 import { InvoiceView } from "./InvoiceView";
 import { PeriodTable, type PeriodRow } from "./PeriodTable";
 import { YearView } from "./YearView";
 
-type Tab = "year" | "months" | "weeks" | "invoice" | "import";
+type Tab = "year" | "months" | "weeks" | "account" | "invoice" | "import";
 
 const TABS: [Tab, string][] = [
   ["year", "Jahr"],
   ["months", "Monate"],
   ["weeks", "Wochen"],
+  ["account", "Stundenkonto"],
   ["invoice", "Rechnung"],
   ["import", "Import"],
 ];
+
+/** Tabs mit Personenauswahl. */
+const PERSON_TABS: Tab[] = ["months", "weeks", "account"];
 
 interface Props {
   result: AuswertungResult;
   elementFilter: string;
   busy: boolean;
-  onCutoffChange: (cutoff: string | null) => void;
+  onCutoffChange: (cutoff: string) => void;
 }
 
 const TEAM = -1;
@@ -41,6 +52,14 @@ export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Pro
   const selectedIndex = personIndex < result.persons.length ? personIndex : TEAM;
   const selected: PeriodBreakdown =
     selectedIndex === TEAM ? result.team : result.persons[selectedIndex];
+  const selectedName = selectedIndex === TEAM ? "Das Team" : result.persons[selectedIndex].name;
+
+  // Hervorgehobene Buchungen der Auswahl, nach Monat bzw. Kalenderwoche.
+  const flags = result.flagged.filter(
+    (f) => selectedIndex === TEAM || f.person === result.persons[selectedIndex]?.name,
+  );
+  const flagsWhere = (match: (f: FlaggedBooking) => boolean) =>
+    flags.filter(match).map(describeFlag);
 
   const monthRows: PeriodRow[] = Object.entries(selected.by_month).map(([month, data]) => {
     const range = clampRange(monthRange(month), period);
@@ -50,11 +69,13 @@ export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Pro
       label: formatMonth(month),
       detail: range[1] < monthRange(month)[1] ? `bis ${formatDate(range[1])}` : undefined,
       data,
+      flags: flagsWhere((f) => f.date.startsWith(month)),
       children: Object.entries(weeks).map(([week, weekData]) => ({
         key: week,
         label: formatWeek(week),
         detail: formatRange(...clampRange(isoWeekRange(week), range)),
         data: weekData,
+        flags: flagsWhere((f) => f.date.startsWith(month) && isoWeekKey(f.date) === week),
       })),
     };
   });
@@ -64,6 +85,7 @@ export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Pro
     label: formatWeek(week),
     detail: formatRange(...clampRange(isoWeekRange(week), period)),
     data,
+    flags: flagsWhere((f) => isoWeekKey(f.date) === week),
   }));
 
   const sourceLabel =
@@ -72,6 +94,13 @@ export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Pro
       : result.export_date_source === "modified"
         ? "Änderungsdatum der Datei"
         : "letzte Buchung";
+
+  const today = todayIso();
+  const quickCutoffs: [string, string][] = [
+    ["Heute", today],
+    ["Stand des Exports", result.default_cutoff_date],
+    ["Ende Vormonat", endOfPreviousMonth(today)],
+  ];
 
   return (
     <div className={`space-y-5 transition-opacity ${busy ? "opacity-60" : ""}`}>
@@ -85,24 +114,34 @@ export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Pro
             {result.holiday_region}: <HolidayList result={result} />
           </p>
         </div>
-        <label className="flex items-center gap-2 text-sm">
-          <span className="font-medium text-slate-700">Stichtag</span>
-          <input
-            type="date"
-            value={result.cutoff_date}
-            onChange={(e) => e.target.value && onCutoffChange(e.target.value)}
-            className="rounded-md border border-slate-300 px-2 py-1.5 text-sm"
-          />
-          {result.cutoff_date !== result.default_cutoff_date && (
-            <button
-              type="button"
-              onClick={() => onCutoffChange(null)}
-              className="text-sm text-slate-500 underline hover:text-slate-800"
-            >
-              zurücksetzen
-            </button>
-          )}
-        </label>
+        <div className="flex flex-col items-end gap-1.5">
+          <label className="flex items-center gap-2 text-sm">
+            <span className="font-medium text-slate-700">Stichtag</span>
+            <input
+              type="date"
+              value={result.cutoff_date}
+              onChange={(e) => e.target.value && onCutoffChange(e.target.value)}
+              className="rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+            />
+          </label>
+          <div className="flex gap-1">
+            {quickCutoffs.map(([label, date]) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => onCutoffChange(date)}
+                title={formatDate(date)}
+                className={`rounded px-2 py-0.5 text-xs ${
+                  result.cutoff_date === date
+                    ? "bg-slate-800 text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {result.warnings.length > 0 && (
@@ -112,6 +151,8 @@ export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Pro
           ))}
         </ul>
       )}
+
+      {result.flagged.length > 0 && <FlaggedList flagged={result.flagged} />}
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200">
         <nav className="flex gap-1" role="tablist">
@@ -133,7 +174,7 @@ export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Pro
           ))}
         </nav>
 
-        {(tab === "months" || tab === "weeks") && (
+        {PERSON_TABS.includes(tab) && (
           <div className="flex flex-wrap gap-1 pb-2" role="group" aria-label="Person">
             {result.persons.map((p, i) => (
               <PersonPill
@@ -183,6 +224,7 @@ export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Pro
               periodLabel="Kalenderwoche"
             />
           )}
+          {tab === "account" && <AccountView name={selectedName} data={selected} />}
           {tab === "invoice" && (
             <InvoiceView
               invoice={result.invoice}
@@ -194,6 +236,56 @@ export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Pro
       )}
       {tab === "import" && <ExportSummary result={result.overview} elementFilter={elementFilter} />}
     </div>
+  );
+}
+
+const KIND_LABEL: Record<FlaggedBooking["kind"], string> = {
+  vacation: "Urlaub",
+  sick: "Krank",
+};
+
+function describeFlag(f: FlaggedBooking): string {
+  return `${formatDateWithWeekday(f.date)} · ${f.person}: ${KIND_LABEL[f.kind]} ${formatHours(
+    f.hours,
+  )} h → ${formatNumber(f.credited_days)} Tag(e) (${f.reasons.join(", ")})`;
+}
+
+/** Urlaub/Krank an arbeitsfreien Tagen u. Ä. – zählt mit, wird aber hervorgehoben. */
+function FlaggedList({ flagged }: { flagged: FlaggedBooking[] }) {
+  return (
+    <details open className="rounded-xl border border-amber-200 bg-amber-50">
+      <summary className="cursor-pointer px-4 py-2.5 text-sm font-medium text-amber-900">
+        ⚑ {flagged.length} hervorgehobene Buchung(en) – werden mitgezählt
+      </summary>
+      <div className="overflow-x-auto border-t border-amber-200">
+        <table className="w-full text-sm text-amber-950">
+          <thead className="text-xs text-amber-800">
+            <tr>
+              <th className="px-4 py-1.5 text-left font-medium">Datum</th>
+              <th className="px-4 py-1.5 text-left font-medium">Person</th>
+              <th className="px-4 py-1.5 text-left font-medium">Art</th>
+              <th className="px-4 py-1.5 text-right font-medium">Gebucht</th>
+              <th className="px-4 py-1.5 text-right font-medium">Angerechnet</th>
+              <th className="px-4 py-1.5 text-left font-medium">Grund</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-amber-100">
+            {flagged.map((f) => (
+              <tr key={`${f.person}/${f.date}/${f.kind}`}>
+                <td className="px-4 py-1.5 whitespace-nowrap">{formatDateWithWeekday(f.date)}</td>
+                <td className="px-4 py-1.5 whitespace-nowrap">{f.person}</td>
+                <td className="px-4 py-1.5">{KIND_LABEL[f.kind]}</td>
+                <td className="px-4 py-1.5 text-right tabular-nums">{formatHours(f.hours)} h</td>
+                <td className="px-4 py-1.5 text-right tabular-nums whitespace-nowrap">
+                  {formatNumber(f.credited_days)} T = {formatHours(f.credited_hours)} h
+                </td>
+                <td className="px-4 py-1.5">{f.reasons.join(", ")}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
   );
 }
 

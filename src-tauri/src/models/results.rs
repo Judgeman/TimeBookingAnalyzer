@@ -91,7 +91,32 @@ pub struct AuswertungResult {
     pub holiday_region: String,
     pub holidays: Vec<Holiday>,
     pub warnings: Vec<String>,
+    /// Hervorzuhebende Buchungen (z. B. Urlaub/Krank an arbeitsfreien Tagen).
+    pub flagged: Vec<FlaggedBooking>,
     pub overview: ParsedExport,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AbsenceKind {
+    Vacation,
+    Sick,
+}
+
+/// Urlaub/Krank, der auffällt, aber mitgezählt wird.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct FlaggedBooking {
+    pub person: String,
+    pub date: NaiveDate,
+    pub kind: AbsenceKind,
+    /// Gebuchte (Personio-)Stunden des Tages.
+    pub hours: f64,
+    /// Angerechnete Tage (ganzer oder halber Standard-Tag).
+    pub credited_days: f64,
+    /// Angerechnete Stunden (Tage × h/Tag der Person).
+    pub credited_hours: f64,
+    /// Grund, z. B. "Samstag", "Feiertag (Neujahr)", "ungewöhnliche Dauer".
+    pub reasons: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -127,11 +152,11 @@ pub struct PeriodData {
     pub sick_h: f64,
     /// Gearbeitete Stunden (Stunden × Mult, nur Mult > 0, ohne Urlaub/Krank).
     pub gearb: f64,
-    /// Billable Stunden: Projekt-Element + „Delivery (billable)“.
+    /// Billable Stunden: Buchungen, deren Abrechnungsregel „billable Stunden“ hat.
     pub bill_h: f64,
-    /// Billable EUR: Projekt-Element + alle „(billable)“ × Stundensatz.
+    /// Billable EUR: abgerechnete Stunden × Stundensatz × Satz-Anteil der Regel.
     pub bill_eur: f64,
-    /// Übrige gearbeitete Stunden (Mult > 0), die nicht in `bill_h` zählen.
+    /// Gearbeitete Stunden (Mult > 0, ohne Mult), die nicht in `bill_h` zählen.
     pub nonbill_h: f64,
     /// Überstunden: gearb − Soll netto.
     pub plus: f64,
@@ -156,27 +181,41 @@ pub struct InvoiceMonth {
     pub lines: Vec<InvoiceLine>,
     pub hours: f64,
     pub net: f64,
+    /// USt. je Steuersatz (aufsteigend nach Satz).
+    pub vat_groups: Vec<VatGroup>,
     pub vat: f64,
     pub gross: f64,
 }
 
-/// Eine Rechnungsposition: Person × Stundensatz innerhalb eines Monats.
+/// Eine Rechnungsposition: Person × Leistung (Regel) × Stundensatz × USt.-Satz.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct InvoiceLine {
     pub person: String,
-    /// `None`, wenn für die Tage kein Stundensatz hinterlegt ist (Netto = 0).
+    /// Bezeichnung der Abrechnungsregel, z. B. "Delivery".
+    pub service: String,
+    /// Stundensatz der Person; `None`, wenn keiner hinterlegt ist (Netto = 0).
+    pub base_rate: Option<f64>,
+    /// Anteil des Satzes laut Regel in Prozent.
+    pub rate_percent: f64,
+    /// Abgerechneter Satz = Stundensatz × Anteil.
     pub rate: Option<f64>,
-    pub delivery_h: f64,
-    /// Übrige billable Stunden (z. B. „Travel (billable)“).
-    pub other_h: f64,
     pub hours: f64,
     pub net: f64,
+    pub vat_percent: f64,
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+pub struct VatGroup {
+    pub vat_percent: f64,
+    pub net: f64,
+    pub vat: f64,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
 pub struct InvoiceTotals {
     pub hours: f64,
     pub net: f64,
+    pub vat_groups: Vec<VatGroup>,
     pub vat: f64,
     pub gross: f64,
 }

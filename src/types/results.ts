@@ -73,7 +73,20 @@ export interface AuswertungResult {
   holiday_region: string;
   holidays: Holiday[];
   warnings: string[];
+  /** Hervorzuhebende Buchungen (Urlaub/Krank an arbeitsfreien Tagen u. a.). */
+  flagged: FlaggedBooking[];
   overview: ParsedExport;
+}
+
+export interface FlaggedBooking {
+  person: string;
+  date: IsoDate;
+  kind: "vacation" | "sick";
+  /** Gebuchte (Personio-)Stunden. */
+  hours: number;
+  credited_days: number;
+  credited_hours: number;
+  reasons: string[];
 }
 
 export interface PeriodBreakdown {
@@ -123,22 +136,34 @@ export interface InvoiceMonth {
   lines: InvoiceLine[];
   hours: number;
   net: number;
+  vat_groups: VatGroup[];
   vat: number;
   gross: number;
 }
 
 export interface InvoiceLine {
   person: string;
+  /** Bezeichnung der Abrechnungsregel. */
+  service: string;
+  base_rate: number | null;
+  rate_percent: number;
+  /** Abgerechneter Satz = Stundensatz × Anteil. */
   rate: number | null;
-  delivery_h: number;
-  other_h: number;
   hours: number;
   net: number;
+  vat_percent: number;
+}
+
+export interface VatGroup {
+  vat_percent: number;
+  net: number;
+  vat: number;
 }
 
 export interface InvoiceTotals {
   hours: number;
   net: number;
+  vat_groups: VatGroup[];
   vat: number;
   gross: number;
 }

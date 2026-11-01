@@ -8,7 +8,7 @@ export const api = {
   getProject: (id: string) => invoke<ProjectConfig>("get_project", { id }),
   saveProject: (config: ProjectConfig) => invoke<string>("save_project", { config }),
   deleteProject: (id: string) => invoke<void>("delete_project", { id }),
-  /** `cutoffDate` = Stichtag (ISO-Datum); `null` → Export-Datum. */
+  /** `cutoffDate` = Stichtag (ISO-Datum); `null` → Stand des Exports. */
   parseExport: (filePath: string, projectId: string, cutoffDate: string | null) =>
     invoke<AuswertungResult>("parse_export", { filePath, projectId, cutoffDate }),
 };

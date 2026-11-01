@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { InvoiceMonth, InvoiceSummary } from "../../types/results";
+import type { InvoiceMonth, InvoiceSummary, VatGroup } from "../../types/results";
 import { formatDate, formatEuro, formatHours, formatMonth, formatNumber } from "../../lib/format";
 import { styles } from "./styles";
 
@@ -10,12 +10,20 @@ interface Props {
   cutoffDate: string;
 }
 
+const vatText = (percent: number) => `USt. ${formatNumber(percent)} %`;
+
+/** "USt. 19 %" oder bei mehreren Sätzen "USt. 7 % / 19 %". */
+function vatLabelOf(groups: VatGroup[], fallback: number): string {
+  if (groups.length <= 1) return vatText(groups[0]?.vat_percent ?? fallback);
+  return `USt. ${groups.map((g) => `${formatNumber(g.vat_percent)} %`).join(" / ")}`;
+}
+
 /**
  * Rechnungsübersicht: pro Monat eine Rechnung. Netto je Position = Stunden ×
- * Satz, USt. auf den Monats-Nettobetrag, Brutto = Netto + USt.
+ * Satz, USt. je Steuersatz auf die Monats-Nettosumme, Brutto = Netto + USt.
  */
 export function InvoiceView({ invoice, persons, cutoffDate }: Props) {
-  const vatLabel = `USt. ${formatNumber(invoice.vat_percent)} %`;
+  const vatLabel = vatLabelOf(invoice.total.vat_groups, invoice.vat_percent);
 
   if (invoice.months.length === 0) {
     return (
@@ -36,7 +44,16 @@ export function InvoiceView({ invoice, persons, cutoffDate }: Props) {
         <Card label={`Netto gesamt bis ${formatDate(cutoffDate)}`} strong>
           {formatEuro(invoice.total.net)}
         </Card>
-        <Card label={vatLabel}>{formatEuro(invoice.total.vat)}</Card>
+        <Card label={vatLabel}>
+          {formatEuro(invoice.total.vat)}
+          {invoice.total.vat_groups.length > 1 && (
+            <span className="mt-1 block text-xs font-normal text-slate-500">
+              {invoice.total.vat_groups
+                .map((g) => `${formatNumber(g.vat_percent)} %: ${formatEuro(g.vat)}`)
+                .join(" · ")}
+            </span>
+          )}
+        </Card>
         <Card label="Brutto gesamt" strong>
           {formatEuro(invoice.total.gross)}
         </Card>
@@ -56,7 +73,7 @@ export function InvoiceView({ invoice, persons, cutoffDate }: Props) {
                   </th>
                 ))}
                 <th className={`${styles.thNum} bg-slate-100`}>Netto</th>
-                <th className={styles.thNum}>{vatLabel}</th>
+                <th className={styles.thNum}>USt.</th>
                 <th className={`${styles.thNum} bg-slate-100`}>Brutto</th>
               </tr>
             </thead>
@@ -118,7 +135,7 @@ export function InvoiceView({ invoice, persons, cutoffDate }: Props) {
                 <span className="font-medium text-slate-900">{formatEuro(month.gross)}</span>
               </span>
             </summary>
-            <MonthLines month={month} vatLabel={vatLabel} />
+            <MonthLines month={month} />
           </details>
         ))}
       </section>
@@ -126,41 +143,55 @@ export function InvoiceView({ invoice, persons, cutoffDate }: Props) {
   );
 }
 
-function MonthLines({ month, vatLabel }: { month: InvoiceMonth; vatLabel: string }) {
+function MonthLines({ month }: { month: InvoiceMonth }) {
+  const multipleVat = month.vat_groups.length > 1;
   return (
     <div className="overflow-x-auto border-t border-slate-200">
       <table className="w-full text-sm">
         <thead className={styles.thead}>
           <tr>
             <th className={styles.th}>Person</th>
-            <th className={styles.thNum}>Stundensatz</th>
-            <th className={styles.thNum}>Delivery (h)</th>
-            <th className={styles.thNum}>Travel / sonst. (h)</th>
+            <th className={styles.th}>Leistung</th>
             <th className={styles.thNum}>Stunden</th>
+            <th className={styles.thNum}>Satz</th>
+            <th className={styles.thNum}>USt.</th>
             <th className={styles.thNum}>Netto</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
-          {month.lines.map((line) => (
-            <tr key={`${line.person}/${line.rate}`}>
+          {month.lines.map((line, i) => (
+            <tr key={i}>
               <td className={styles.td}>{line.person}</td>
+              <td className={styles.td}>{line.service}</td>
+              <td className={styles.tdNum}>{formatHours(line.hours)}</td>
               <td className={styles.tdNum}>
                 {line.rate === null ? (
                   <span className="text-red-700">kein Satz hinterlegt</span>
                 ) : (
-                  formatEuro(line.rate)
+                  <>
+                    {formatEuro(line.rate)}
+                    {line.rate_percent !== 100 && line.base_rate !== null && (
+                      <span className="ml-1 text-xs text-slate-500">
+                        ({formatNumber(line.rate_percent)} % von {formatEuro(line.base_rate)})
+                      </span>
+                    )}
+                  </>
                 )}
               </td>
-              <td className={styles.tdNum}>{formatHours(line.delivery_h)}</td>
-              <td className={styles.tdNum}>{formatHours(line.other_h)}</td>
-              <td className={styles.tdNum}>{formatHours(line.hours)}</td>
+              <td className={styles.tdNum}>{formatNumber(line.vat_percent)} %</td>
               <td className={styles.tdNum}>{formatEuro(line.net)}</td>
             </tr>
           ))}
         </tbody>
         <tfoot className="border-t-2 border-slate-200 bg-slate-50">
           <TotalRow label="Netto" value={formatEuro(month.net)} hours={formatHours(month.hours)} />
-          <TotalRow label={`zzgl. ${vatLabel}`} value={formatEuro(month.vat)} />
+          {month.vat_groups.map((g) => (
+            <TotalRow
+              key={g.vat_percent}
+              label={`zzgl. ${vatText(g.vat_percent)}${multipleVat ? ` auf ${formatEuro(g.net)}` : ""}`}
+              value={formatEuro(g.vat)}
+            />
+          ))}
           <TotalRow label="Brutto" value={formatEuro(month.gross)} strong />
         </tfoot>
       </table>
@@ -181,10 +212,11 @@ function TotalRow({
 }) {
   return (
     <tr className={strong ? "font-semibold" : ""}>
-      <td className={styles.td} colSpan={4}>
+      <td className={styles.td} colSpan={2}>
         {label}
       </td>
       <td className={styles.tdNum}>{hours ?? ""}</td>
+      <td colSpan={2} />
       <td className={styles.tdNum}>{value}</td>
     </tr>
   );

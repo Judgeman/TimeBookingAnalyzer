@@ -10,8 +10,11 @@ konfigurierbaren Projekt-Regeln. Details zu Regeln und Datenmodell: [CLAUDE.md](
 - [x] Projektkonfiguration laden/speichern/löschen (JSON pro Projekt im App-Datenverzeichnis)
 - [x] Berechnung: gearb, billable, Soll/Ist inkl. Feiertage (alle Bundesländer)
 - [x] Auswertung pro Person: Jahr, Monate (aufklappbar auf KW), Kalenderwochen, Stichtag wählbar
-- [x] Rechnung: Netto pro Person und Monat, USt., Brutto, Positionen je Stundensatz
-- [ ] Vollständiger Projekt-Editor (Team/Arbeitszeiten als Formular, Spalten-Mapping per Drag & Drop)
+- [x] Stundenkonto: Vertragsabgleich (Urlaub/Krank angerechnet bzw. Krankheit als Fehlzeit)
+- [x] Rechnung: Netto pro Person und Monat, USt. je Steuersatz, Brutto, Positionen je Leistung
+- [x] Abrechnungsregeln (billable, Mult, Satz-Anteil, USt.), Arbeitszeit-Ausnahmen je Person
+- [x] Projekt-Editor mit Formularen für Team, Arbeitszeiten, Regeln, Feiertage
+- [ ] Spalten-Mapping per Drag & Drop auf eine Beispielzeile
 
 ## Voraussetzungen
 

@@ -12,13 +12,37 @@ export interface ProjectConfig {
   working_hours: WorkingHoursPeriod[];
   holidays: HolidayConfig;
   export_format: ExportFormat;
-  /** Umsatzsteuersatz in Prozent (Brutto-Berechnung der Rechnung). */
+  /** Umsatzsteuersatz in Prozent (Standard für die Rechnung). */
   vat_percent: number;
+  /** Abrechnungsregeln; die erste passende gilt. */
+  billing_rules: BillingRule[];
 }
 
 export interface TeamMember {
   name: string;
   rates: RatePeriod[];
+  /** Abweichende Arbeitszeit; leer = Arbeitszeit des Projekts. */
+  working_hours: WorkingHoursPeriod[];
+}
+
+export type MatchMode = "exact" | "contains";
+
+export interface BillingRule {
+  name: string;
+  kost2art: string;
+  match_mode: MatchMode;
+  /** Leer = Element-Filter des Projekts. */
+  element: string;
+  /** Zählt in „Billable (h)“. */
+  billable_hours: boolean;
+  /** Wird in Rechnung gestellt. */
+  invoice: boolean;
+  /** Abgerechnete Stunden = Stunden × Mult. */
+  apply_mult: boolean;
+  /** Anteil des Stundensatzes in Prozent. */
+  rate_percent: number;
+  /** Abweichender USt.-Satz; `null` = Projekt. */
+  vat_percent: number | null;
 }
 
 export interface RatePeriod {
@@ -100,6 +124,34 @@ export const REGIONS: [code: string, name: string][] = [
   ["TH", "Thüringen"],
 ];
 
+/** Standardregeln laut Spezifikation (wie `default_billing_rules` im Backend). */
+export function defaultBillingRules(): BillingRule[] {
+  return [
+    {
+      name: "Delivery",
+      kost2art: "Delivery (billable)",
+      match_mode: "exact",
+      element: "",
+      billable_hours: true,
+      invoice: true,
+      apply_mult: false,
+      rate_percent: 100,
+      vat_percent: null,
+    },
+    {
+      name: "Sonstige billable (z. B. Travel)",
+      kost2art: "(billable)",
+      match_mode: "contains",
+      element: "",
+      billable_hours: false,
+      invoice: true,
+      apply_mult: false,
+      rate_percent: 100,
+      vat_percent: null,
+    },
+  ];
+}
+
 export function newProject(): ProjectConfig {
   return {
     id: "",
@@ -110,5 +162,6 @@ export function newProject(): ProjectConfig {
     holidays: { region: "HE", custom: [] },
     export_format: defaultExportFormat(),
     vat_percent: 19,
+    billing_rules: defaultBillingRules(),
   };
 }

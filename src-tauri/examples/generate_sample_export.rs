@@ -103,6 +103,10 @@ fn rows_for_day(date: NaiveDate, rows: &mut Vec<Row>) {
             "Remote",
         ));
     }
+    // Urlaub an einem Samstag (wird mitgezählt und in der App hervorgehoben).
+    if date == d(7, 25) {
+        rows.push(absence(MAX, date, "(Vacation)"));
+    }
     if date == d(6, 14) {
         let mut on_call = work(
             MAX,
@@ -122,11 +126,44 @@ fn rows_for_day(date: NaiveDate, rows: &mut Vec<Row>) {
         return;
     }
 
-    // Erika: Entwicklung, freitags anteilig Sales.
+    // Erika: Entwicklung, freitags anteilig Sales bzw. am Quartalsende Key-User-Schulung.
     if in_range(date, (3, 9), (3, 13)) || in_range(date, (8, 3), (8, 14)) {
         rows.push(absence(ERIKA, date, "(Vacation)"));
     } else if in_range(date, (2, 16), (2, 17)) {
         rows.push(absence(ERIKA, date, "(Sick)"));
+    } else if date == d(5, 8) {
+        // Halber Krankheitstag
+        let mut half = absence(ERIKA, date, "(Sick)");
+        half.hours = 4.0;
+        rows.push(half);
+        rows.push(work(
+            ERIKA,
+            date,
+            4.0,
+            PROJECT,
+            "Delivery (billable)",
+            "Entwicklung",
+            "Remote",
+        ));
+    } else if [d(3, 27), d(6, 26), d(9, 25)].contains(&date) {
+        rows.push(work(
+            ERIKA,
+            date,
+            6.5,
+            PROJECT,
+            "Delivery (billable)",
+            "Entwicklung",
+            "Remote",
+        ));
+        rows.push(work(
+            ERIKA,
+            date,
+            1.5,
+            PROJECT,
+            "Training (billable)",
+            "Schulung Key-User",
+            "Kunde vor Ort",
+        ));
     } else if weekday == Weekday::Fri {
         rows.push(work(
             ERIKA,

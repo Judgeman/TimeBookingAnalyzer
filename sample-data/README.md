@@ -10,8 +10,11 @@ App-Datenverzeichnis (siehe Haupt-README).
 | `beispiel-projekt.json` | Passende Projektkonfiguration „Musterkunde GmbH / Lager-App“ |
 
 Enthalten sind u. a.: Feiertage Hessen (ohne Buchungen), Urlaub/Krank mit 8 h/Tag,
-Wochenend-Buchungen (eine davon mit Mult 0), Reisezeit mit Mult 0,5, Sales- und
-interne Buchungen sowie eine Person außerhalb des Projektteams („Jonas Beispiel“).
+ein halber Krankheitstag, ein Urlaubstag an einem Samstag (wird hervorgehoben),
+Wochenend-Buchungen (eine davon mit Mult 0), Reisezeit mit Mult 0,5, Key-User-Schulungen
+(eigene Regel mit 7 % USt.), Sales- und interne Buchungen sowie eine Person außerhalb
+des Projektteams („Jonas Beispiel“). Max Mustermann hat ab September eine abweichende
+Arbeitszeit von 6 h/Tag.
 
 Zum Ausprobieren in der App: `beispiel-projekt.json` in den Projektordner kopieren
 und danach die `.xlsx` in das Fenster ziehen.

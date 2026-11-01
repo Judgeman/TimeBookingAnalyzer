@@ -102,3 +102,44 @@ export function clampRange(
   return [from < min ? min : from, to > max ? max : to];
 }
 
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/** Heutiges Datum (lokale Zeit) als ISO-String. */
+export function todayIso(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+/** Letzter Tag des Vormonats relativ zu `iso`. */
+export function endOfPreviousMonth(iso: string): string {
+  const [year, month] = iso.split("-").map(Number);
+  const last = new Date(Date.UTC(year, month - 1, 0));
+  return last.toISOString().slice(0, 10);
+}
+
+/** ISO-Kalenderwoche eines Datums, z. B. "2026-W43" (wie im Backend). */
+export function isoWeekKey(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  // Donnerstag derselben Woche bestimmt das Wochenjahr.
+  date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7) + 3);
+  const weekYear = date.getUTCFullYear();
+  const firstThursday = new Date(Date.UTC(weekYear, 0, 4));
+  firstThursday.setUTCDate(firstThursday.getUTCDate() - ((firstThursday.getUTCDay() + 6) % 7) + 3);
+  const week = 1 + Math.round((date.getTime() - firstThursday.getTime()) / (7 * 86_400_000));
+  return `${weekYear}-W${pad(week)}`;
+}
+
+const WEEKDAYS = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+
+/** "2026-07-25" → "Sa, 25.07.2026" */
+export function formatDateWithWeekday(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return `${WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]}, ${formatDate(iso)}`;
+}
+
+/** Prozentwert mit max. einer Nachkommastelle, z. B. "103,5 %". */
+export function formatPercent(value: number): string {
+  return `${new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 }).format(value)} %`;
+}

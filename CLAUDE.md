@@ -24,12 +24,17 @@ src/                        # React Frontend
   components/
     DropZone.tsx            # Drag-and-Drop Bereich (Tauri-Webview-Events) + Datei-Dialog
     ProjectSelector.tsx     # Projekt-Auswahl (Sidebar)
-    ProjectEditor.tsx       # Projekt-Konfiguration bearbeiten (vorläufig: Team/Zeiten als JSON)
+    ProjectEditor.tsx       # Projekt-Konfiguration bearbeiten
+    editor/
+      TeamEditor.tsx        # Personen, Stundensätze, abweichende Arbeitszeit
+      PeriodListEditor.tsx  # Zeiträume (Von/Bis/Wert)
+      RulesEditor.tsx       # Abrechnungsregeln (Reihenfolge = Priorität)
     ExportSummary.tsx       # Übersicht über den eingelesenen Export (Tab „Import“)
     results/
       ResultsView.tsx       # Kopf (Zeitraum, Stichtag, Hinweise) + Tabs
       YearView.tsx          # Jahr: Kennzahlen × Personen
-      PeriodTable.tsx       # Monate (aufklappbar auf KW) / Wochen
+      PeriodTable.tsx       # Monate (aufklappbar auf KW) / Wochen, ⚑-Markierungen
+      AccountView.tsx       # Stundenkonto: Vertragsabgleich (2 Varianten), kumuliert
       InvoiceView.tsx       # Rechnung: Netto pro Person/Monat, USt., Brutto
       metrics.ts            # Kennzahl-Labels, Tooltips (Rechenregeln), Formatierung
   lib/
@@ -60,8 +65,8 @@ src-tauri/
     calculation/
       mod.rs                # evaluate(): Tageswerte → Jahr/Monat/KW/Monat×KW, Hinweise
       gearb.rs              # Arbeitszeit-Berechnung, Urlaub/Krank-Erkennung
-      billing.rs            # Billable-Klassifikation, Stundensatz je Tag
-      soll.rs               # Soll-Stunden, Werktage, Personio-Normierung
+      billing.rs            # Abrechnungsregeln (erste passende), Stundensatz je Tag
+      soll.rs               # Soll-Stunden, h/Tag je Person, ½-/ganze Tage
       holidays.rs           # Feiertage aller Bundesländer (Osterformel)
       invoice.rs            # Rechnung je Monat (Cent-genau), USt., Brutto
       tests.rs              # Szenario-Test mit handgerechneten Werten
@@ -106,6 +111,9 @@ Jedes Projekt wird als JSON-Datei gespeichert:
       "rates": [
         { "from": "2026-01-01", "to": "2026-06-30", "rate": 90 },
         { "from": "2026-07-01", "to": null, "rate": 95 }
+      ],
+      "working_hours": [
+        { "from": "2026-09-01", "to": null, "hours_per_day": 6.0 }
       ]
     }
   ],
@@ -118,6 +126,14 @@ Jedes Projekt wird als JSON-Datei gespeichert:
     "custom": []
   },
   "vat_percent": 19.0,
+  "billing_rules": [
+    { "name": "Delivery", "kost2art": "Delivery (billable)", "match_mode": "exact",
+      "element": "", "billable_hours": true, "invoice": true, "apply_mult": false,
+      "rate_percent": 100.0, "vat_percent": null },
+    { "name": "Sonstige billable (z. B. Travel)", "kost2art": "(billable)",
+      "match_mode": "contains", "element": "", "billable_hours": false, "invoice": true,
+      "apply_mult": false, "rate_percent": 100.0, "vat_percent": null }
+  ],
   "export_format": {
     "sheet_name": "Details",
     "columns": {
@@ -154,16 +170,20 @@ struct TimeEntry {
 }
 ```
 
-### Kost2Art-Klassifikation
+### Abrechnungsregeln (statt fester Kost2Art-Klassifikation)
+Jede Nicht-Abwesenheits-Buchung wird der **ersten passenden** Regel aus
+`billing_rules` zugeordnet (Kost2Art `exact`/`contains`, ohne Groß-/Kleinschreibung;
+`element` leer = `element_filter`). Ohne passende Regel: nicht billable.
+- `billable_hours` → zählt in `bill_h`
+- `invoice` → geht in `bill_eur` und die Rechnung
+- `apply_mult` → abgerechnete Stunden = Stunden × Mult (sonst ohne Mult)
+- `rate_percent` → Anteil des Stundensatzes (z. B. 50 für Reisezeit)
+- `vat_percent` → eigener USt.-Satz (`null` = `vat_percent` des Projekts)
+
+Standardregeln (`default_billing_rules`, gelten auch wenn das Feld fehlt) = Spezifikation:
+Delivery → billable h + €; übrige „(billable)“ → nur €; ohne Mult.
+
 ```rust
-fn is_billable(kost2art: &str) -> bool {
-    kost2art.contains("(billable)")
-}
-
-fn is_delivery(kost2art: &str) -> bool {
-    kost2art == "Delivery (billable)"
-}
-
 fn counts_as_work(mult: f64) -> bool {
     mult > 0.0
 }
@@ -179,32 +199,25 @@ gearb = entries
     .sum(|e| e.hours * e.mult)
 ```
 
-### bill_h (Billable Stunden)
+### bill_h / bill_eur
 ```rust
-// NUR Projekt-Element + Delivery — kein Sales, kein Travel
-bill_h = entries
-    .filter(|e| e.element == config.element_filter)
-    .filter(|e| e.kost2art == "Delivery (billable)")
-    .sum(|e| e.hours)
-```
-
-### bill_eur (Billable EUR)
-```rust
-// Projekt-Element + alle (billable) — inkl. Travel (billable)
-bill_eur = entries
-    .filter(|e| e.element == config.element_filter)
-    .filter(|e| is_billable(&e.kost2art))
-    .sum(|e| e.hours * rate_for(person, e.date, &config))
+// Regel = erste passende Abrechnungsregel der Buchung
+billed  = if rule.apply_mult { e.hours * e.mult } else { e.hours }
+bill_h  = Σ billed            (rule.billable_hours)
+bill_eur = Σ billed × rate_for(person, e.date) × rule.rate_percent / 100   (rule.invoice)
 ```
 
 ### Soll-Berechnung
 ```rust
+// hpd(person, d) = Zeitraum der Person (working_hours am Teammitglied), sonst Projekt
 // Soll brutto = Σ hpd für jeden Werktag (Mo–Fr, kein Feiertag)
-soll_brutto = workdays.sum(|d| hours_per_day(d, &config))
+soll_brutto = workdays.sum(|d| hpd(person, d))
 
-// Urlaub/Krank normalisieren (Personio gibt 8h/Tag, wir skalieren auf Vertrag)
-vac_h_norm = (vac_raw_h / 8.0) * hpd(date, &config)
-sick_h_norm = (sick_raw_h / 8.0) * hpd(date, &config)
+// Urlaub/Krank je Tag als ganzer oder halber Standard-Tag anrechnen
+// (Personio: 8 h = 1 Tag, 4 h = ½ Tag; andere Werte auf ½ Tag gerundet)
+days        = round(raw_h_des_tages / 8 × 2) / 2
+vac_h_norm  = days_vac  × hpd(person, d)
+sick_h_norm = days_sick × hpd(person, d)
 
 soll_netto = soll_brutto - vac_h_norm - sick_h_norm
 plus       = gearb - soll_netto
@@ -212,25 +225,30 @@ plus_krank = plus - sick_h_norm
 ```
 
 ### Festlegungen (umgesetzt in `calculation/`)
-- **Zeitraum**: 1. Januar des Stichtag-Jahres bis Stichtag. Stichtag = Export-Datum
-  (Datum im Dateinamen, sonst Änderungsdatum), in der UI änderbar. Buchungen nach dem
-  Stichtag werden ignoriert (Hinweis), Buchungen aus Vorjahren still ignoriert.
+- **Zeitraum**: 1. Januar des Stichtag-Jahres bis Stichtag. Stichtag in der UI beim
+  Programmstart = heute (Schnellwahl: Heute / Stand des Exports / Ende Vormonat); ohne
+  Vorgabe im Backend = Export-Datum. Liegt der Stichtag nach dem Export-Stand → Hinweis.
+  Buchungen nach dem Stichtag werden ignoriert (Hinweis), aus Vorjahren still ignoriert.
 - **Personen**: nur Teammitglieder aus der Konfiguration (Namensabgleich ohne
   Groß-/Kleinschreibung). `gearb` zählt alle Elemente, nicht nur das Projekt.
-- **Urlaub/Krank** nur an Werktagen; an Wochenenden/Feiertagen ignoriert (Hinweis).
-  Tage = Personio-Stunden ÷ 8.
-- **h/Tag** fehlt für einen Werktag → Soll 0 h (Hinweis).
+- **Urlaub/Krank** zählt an **jedem** Tag (auch Wochenende/Feiertag) mit h/Tag der
+  Person. Hervorgehoben (`flagged`) werden: arbeitsfreie Tage, Dauern ≠ ganzer/halber
+  Tag, Tage ohne hinterlegte Arbeitszeit.
+- **h/Tag** fehlt für einen Werktag → Soll 0 h (Hinweis, je Person oder „Alle Personen“).
+- **Zeiträume** (Sätze, Arbeitszeiten) dürfen sich nicht überschneiden (Validierung).
 - **nonbill_h** = Stunden (ohne Mult) aller gearbeiteten Buchungen mit Mult > 0, die
-  nicht in `bill_h` zählen (Travel, Sales, andere Elemente). `bill_h + nonbill_h` =
-  gebuchte Arbeitsstunden.
-- **bill_h / bill_eur** ignorieren Mult (auch Mult 0 wird abgerechnet).
+  nicht in `bill_h` zählen (Travel, Sales, andere Elemente).
 - **Kein Stundensatz** für einen Tag → 0 € (Hinweis + Rechnungsposition „kein Satz“).
+- **Stundenkonto** (UI, aus PeriodData): zu leisten = Soll netto, Saldo = `plus`
+  (negativ = Person schuldet Stunden); Variante „Krankheit als Fehlzeit“: zu leisten =
+  Soll brutto − Urlaub, Saldo = `plus_krank`; Erfüllung = gearb ÷ zu leisten.
 - **Kalenderwochen** nach ISO 8601 (`2026-W53` kann im Januar des Folgejahres liegen).
   `month_weeks` enthält Teilwochen je Monat, damit aufgeklappte Wochen den Monat ergeben.
-- **Rechnung** (`invoice.rs`): eine Rechnung pro Monat, Positionen je Person × Satz.
-  Netto = round(Stunden auf 2 Stellen × Satz, Cent); USt. = round(Monats-Netto × Satz);
-  Brutto = Netto + USt.; Jahressummen = Summe der Monatsrechnungen. Monat des
-  Stichtags ist `partial`, wenn der Stichtag nicht der Monatsletzte ist.
+- **Rechnung** (`invoice.rs`): eine Rechnung pro Monat, Positionen je Person × Regel ×
+  Satz × USt.-Satz. Netto = round(Stunden auf 2 Stellen × Satz × Anteil, Cent);
+  USt. je Monat und Steuersatz = round(Netto-Summe × Satz); Brutto = Netto + USt.;
+  Jahressummen = Summe der Monatsrechnungen. Monat des Stichtags ist `partial`, wenn
+  der Stichtag nicht der Monatsletzte ist.
 
 ---
 
@@ -289,9 +307,10 @@ interface AuswertungResult {
   cutoff_date: string;
   persons: PersonResult[];
   team: PeriodBreakdown;          // Summe aller Personen
-  invoice: InvoiceSummary;        // Monate → Positionen (Person × Satz), Netto/USt./Brutto
+  invoice: InvoiceSummary;        // Monate → Positionen (Person × Regel × Satz), USt. je Satz
   holidays: Holiday[];
   warnings: string[];
+  flagged: FlaggedBooking[];      // hervorgehobene Urlaubs-/Krank-Tage (zählen mit)
   overview: ParsedExport;         // Rohdaten-Übersicht (Tab „Import“)
 }
 
@@ -326,7 +345,7 @@ interface PeriodData {
 ### Hauptansicht
 1. **Sidebar links**: Projektliste + "Neues Projekt"-Button
 2. **Mitte oben**: Drag-and-Drop-Zone (oder Datei-Browser)
-3. **Mitte**: Auswertungsergebnis (Tabs: Jahr / Monate / Wochen / Rechnung / Import)
+3. **Mitte**: Auswertungsergebnis (Tabs: Jahr / Monate / Wochen / Stundenkonto / Rechnung / Import)
 4. **Oben rechts**: Projekt-bearbeiten-Button
 
 ### Drag & Drop
