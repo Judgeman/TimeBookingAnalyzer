@@ -9,6 +9,8 @@ export interface ProjectConfig {
   name: string;
   element_filter: string;
   team: TeamMember[];
+  /** Rolle „darf buchen“: Buchungen aufs Projekt ohne Zeiterfassung. */
+  guests: Guest[];
   working_hours: WorkingHoursPeriod[];
   holidays: HolidayConfig;
   export_format: ExportFormat;
@@ -27,6 +29,16 @@ export interface TeamMember {
   working_hours: WorkingHoursPeriod[];
   /** Einsatzzeiträume im Projekt; leer = immer im Projekt. */
   assignments: AssignmentPeriod[];
+}
+
+/**
+ * Rolle „darf buchen“ (z. B. Geschäftsführung): Buchungen aufs Projekt werden
+ * nach den Abrechnungsregeln mit dem eigenen Satz abgerechnet, die Arbeitszeit
+ * wird nicht ausgewertet.
+ */
+export interface Guest {
+  name: string;
+  rates: RatePeriod[];
 }
 
 export interface AssignmentPeriod {
@@ -168,6 +180,7 @@ export function newProject(): ProjectConfig {
     name: "",
     element_filter: "",
     team: [],
+    guests: [],
     working_hours: [],
     holidays: { region: "HE", custom: [] },
     export_format: defaultExportFormat(),

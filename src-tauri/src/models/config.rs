@@ -19,6 +19,10 @@ pub struct ProjectConfig {
     pub element_filter: String,
     #[serde(default)]
     pub team: Vec<TeamMember>,
+    /// Personen, die aufs Projekt buchen dürfen, ohne dass ihre Arbeitszeit
+    /// ausgewertet wird (z. B. Geschäftsführung).
+    #[serde(default)]
+    pub guests: Vec<Guest>,
     #[serde(default)]
     pub working_hours: Vec<WorkingHoursPeriod>,
     #[serde(default)]
@@ -73,6 +77,17 @@ impl TeamMember {
                 .iter()
                 .any(|a| a.from <= date && a.to.is_none_or(|to| date <= to))
     }
+}
+
+/// Rolle „darf buchen“: Buchungen aufs Projekt werden nach den
+/// Abrechnungsregeln (Kost2Art) mit dem eigenen Stundensatz abgerechnet; kein
+/// Soll, kein Stundenkonto, keine Prüfung auf fehlende Buchungen.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Guest {
+    /// Name wie in der Namensspalte des Exports.
+    pub name: String,
+    #[serde(default)]
+    pub rates: Vec<RatePeriod>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -274,6 +289,14 @@ impl ProjectConfig {
             .position(|m| m.name.trim().eq_ignore_ascii_case(name))
     }
 
+    /// Index der Person mit der Rolle „darf buchen“ (wie `team_index`).
+    pub fn guest_index(&self, name: &str) -> Option<usize> {
+        let name = name.trim();
+        self.guests
+            .iter()
+            .position(|g| g.name.trim().eq_ignore_ascii_case(name))
+    }
+
     /// Prüft die Konfiguration auf offensichtliche Fehler.
     /// Gibt alle gefundenen Probleme auf einmal zurück.
     pub fn validate(&self) -> Result<(), String> {
@@ -310,17 +333,7 @@ impl ProjectConfig {
             } else if self.team_index(&member.name) != Some(i) {
                 errors.push(format!("{}: Person ist doppelt im Team.", member.name));
             }
-            let label = format!("{}: Stundensatz", member.name);
-            check_periods(
-                &mut errors,
-                &label,
-                member.rates.iter().map(|r| (r.from, r.to)),
-            );
-            for rate in &member.rates {
-                if rate.rate < 0.0 {
-                    errors.push(format!("{label} darf nicht negativ sein."));
-                }
-            }
+            check_rates(&mut errors, &member.name, &member.rates);
             let label = format!("{}: Arbeitszeit", member.name);
             check_working_hours(&mut errors, &label, &member.working_hours);
             check_periods(
@@ -328,6 +341,23 @@ impl ProjectConfig {
                 &format!("{}: Einsatzzeitraum", member.name),
                 member.assignments.iter().map(|a| (a.from, a.to)),
             );
+        }
+
+        for (i, guest) in self.guests.iter().enumerate() {
+            if guest.name.trim().is_empty() {
+                errors.push("Person ohne Namen bei „darf buchen“.".to_string());
+            } else if self.team_index(&guest.name).is_some() {
+                errors.push(format!(
+                    "{}: Person ist im Team und bei „darf buchen“ – nur eine Rolle möglich.",
+                    guest.name
+                ));
+            } else if self.guest_index(&guest.name) != Some(i) {
+                errors.push(format!(
+                    "{}: Person ist doppelt bei „darf buchen“.",
+                    guest.name
+                ));
+            }
+            check_rates(&mut errors, &guest.name, &guest.rates);
         }
 
         check_working_hours(&mut errors, "Arbeitszeit (Projekt)", &self.working_hours);
@@ -356,6 +386,16 @@ impl ProjectConfig {
             Ok(())
         } else {
             Err(errors.join("\n"))
+        }
+    }
+}
+
+fn check_rates(errors: &mut Vec<String>, name: &str, rates: &[RatePeriod]) {
+    let label = format!("{name}: Stundensatz");
+    check_periods(errors, &label, rates.iter().map(|r| (r.from, r.to)));
+    for rate in rates {
+        if rate.rate < 0.0 {
+            errors.push(format!("{label} darf nicht negativ sein."));
         }
     }
 }
@@ -489,6 +529,45 @@ mod tests {
         config.team.push(member);
         let err = config.validate().unwrap_err();
         assert!(err.contains("Lena Beispiel: Einsatzzeitraum: Zeiträume ab 2026-01-01 und ab 2026-02-01 überschneiden sich"), "{err}");
+    }
+
+    #[test]
+    fn guests_may_book_but_need_a_unique_role() {
+        let mut config: ProjectConfig = serde_json::from_str(EXAMPLE).unwrap();
+        assert!(config.guests.is_empty()); // fehlt in älteren Dateien
+        let guest: Guest = serde_json::from_str(
+            r#"{ "name": "Karl Beispiel", "rates": [{ "from": "2026-01-01", "rate": 120 }] }"#,
+        )
+        .unwrap();
+        config.guests.push(guest.clone());
+        assert!(config.validate().is_ok());
+        assert_eq!(config.guest_index(" karl beispiel"), Some(0));
+        assert_eq!(config.team_index("Karl Beispiel"), None);
+
+        config.guests.push(guest);
+        config.guests.push(Guest {
+            name: "ERIKA Mustermann".into(),
+            rates: vec![],
+        });
+        config.guests.push(Guest {
+            name: " ".into(),
+            rates: vec![RatePeriod {
+                from: NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+                to: None,
+                rate: -1.0,
+            }],
+        });
+        let err = config.validate().unwrap_err();
+        assert!(
+            err.contains("Karl Beispiel: Person ist doppelt bei „darf buchen“"),
+            "{err}"
+        );
+        assert!(
+            err.contains("ERIKA Mustermann: Person ist im Team und bei „darf buchen“"),
+            "{err}"
+        );
+        assert!(err.contains("Person ohne Namen bei „darf buchen“"), "{err}");
+        assert!(err.contains("Stundensatz darf nicht negativ sein"), "{err}");
     }
 
     #[test]

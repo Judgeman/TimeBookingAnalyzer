@@ -120,3 +120,26 @@ describe("ResultsView – Einsatzzeitraum und Buchungen außerhalb des Teams", (
     expect(within(table).getByText("im Projekt: 01.01.2026–28.02.2026")).toBeInTheDocument();
   });
 });
+
+describe("ResultsView – Rolle „darf buchen“", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 10, 1, 9, 0, 0));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("zeigt Buchungen neutral (nicht im Warnkasten) und als Spalte in der Rechnung", async () => {
+    const user = userEvent.setup();
+    render(<ResultsView result={sampleResult()} elementFilter="P100 Lager-App" busy={false} onCutoffChange={() => {}} />);
+    const alert = screen.getByRole("alert", { name: "Buchungen außerhalb des Teams" });
+    expect(alert).not.toHaveTextContent("Karl Beispiel");
+    expect(screen.getByText(/Darf buchen \(ohne Zeiterfassung\)/).closest("details")).toHaveClass("bg-sky-50");
+    // keine Person in der Jahresübersicht
+    const year = screen.getByText("Kennzahl").closest("table")!;
+    expect(within(year).queryByText("Karl Beispiel")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: /^Rechnung/ }));
+    const table = screen.getByText("Netto pro Person und Monat").nextElementSibling as HTMLElement;
+    expect(within(table).getByText("Karl Beispiel").closest("th")).toHaveTextContent("darf buchen");
+  });
+});

@@ -22,6 +22,10 @@ export function ProjectSelector({ projects, activeId, loading, onSelect, onCreat
         )}
         {projects.map((project) => {
           const active = project.id === activeId;
+          const details =
+            `${project.element_filter || "kein Element-Filter"} · ${project.team_size} ` +
+            (project.team_size === 1 ? "Person" : "Personen") +
+            (project.guest_count > 0 ? ` + ${project.guest_count} darf buchen` : "");
           return (
             <li key={project.id}>
               <button
@@ -34,10 +38,10 @@ export function ProjectSelector({ projects, activeId, loading, onSelect, onCreat
               >
                 <span className="block truncate text-sm font-medium">{project.name}</span>
                 <span
+                  title={details}
                   className={`block truncate text-xs ${active ? "text-slate-300" : "text-slate-500"}`}
                 >
-                  {project.element_filter || "kein Element-Filter"} · {project.team_size}{" "}
-                  {project.team_size === 1 ? "Person" : "Personen"}
+                  {details}
                 </span>
               </button>
             </li>

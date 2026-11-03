@@ -9,6 +9,7 @@ import {
 import { columnLetter, formatDate } from "../lib/format";
 import { parseDateList } from "../lib/dates";
 import { errorMessage } from "../lib/api";
+import { GuestEditor } from "./editor/GuestEditor";
 import { PeriodListEditor } from "./editor/PeriodListEditor";
 import { RulesEditor } from "./editor/RulesEditor";
 import { TeamEditor } from "./editor/TeamEditor";
@@ -137,6 +138,15 @@ export function ProjectEditor({ initial, onSave, onCancel, onDelete }: Props) {
         <TeamEditor
           team={draft.team}
           onChange={(team) => patch({ team })}
+          defaultFrom={defaultFrom}
+        />
+      </fieldset>
+
+      <fieldset className={ui.card}>
+        <legend className={ui.legend}>Darf buchen (ohne Zeiterfassung)</legend>
+        <GuestEditor
+          guests={draft.guests}
+          onChange={(guests) => patch({ guests })}
           defaultFrom={defaultFrom}
         />
       </fieldset>

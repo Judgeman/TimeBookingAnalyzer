@@ -78,6 +78,8 @@ pub fn parse_export_file(
         missing_checked_until: evaluation.missing_checked_until,
         missing_threshold_percent: config.missing_threshold_percent,
         outside: evaluation.outside,
+        guests: config.guests.iter().map(|g| g.name.clone()).collect(),
+        guest_bookings: evaluation.guest_bookings,
         overview,
     })
 }
@@ -149,25 +151,26 @@ mod tests {
             result.last_entry_date,
             NaiveDate::from_ymd_opt(2026, 10, 30)
         );
-        assert_eq!(result.entry_count, 888);
+        assert_eq!(result.entry_count, 892);
         assert!(result.skipped_rows.is_empty(), "{:?}", result.skipped_rows);
         assert!(result.missing_team_members.is_empty());
 
-        let persons: Vec<(&str, bool)> = result
+        let persons: Vec<(&str, bool, bool)> = result
             .persons
             .iter()
-            .map(|p| (p.name.as_str(), p.in_team))
+            .map(|p| (p.name.as_str(), p.in_team, p.guest))
             .collect();
         assert_eq!(
             persons,
             vec![
-                ("Erika Mustermann", true),
-                ("Lena Beispiel", true),
-                ("Max Mustermann", true),
-                ("Jonas Beispiel", false)
+                ("Erika Mustermann", true, false),
+                ("Lena Beispiel", true, false),
+                ("Max Mustermann", true, false),
+                ("Karl Beispiel", false, true),
+                ("Jonas Beispiel", false, false)
             ]
         );
-        let jonas = &result.persons[3];
+        let jonas = &result.persons[4];
         assert_eq!(jonas.project_hours, 3.0); // Code-Review am 01.10.
         assert!(result.persons[0].project_hours > 0.0);
 
@@ -203,6 +206,22 @@ mod tests {
             vec![
                 ("Lena Beispiel", "2026-03-02".to_string(), true, 160.0),
                 ("Jonas Beispiel", "2026-10-01".to_string(), false, 0.0),
+            ]
+        );
+
+        // Karl: Rolle „darf buchen“ – nur Projektbuchungen, abgerechnet nach Kost2Art
+        assert_eq!(auswertung.guests, vec!["Karl Beispiel".to_string()]);
+        let karl: Vec<(String, f64, bool, f64)> = auswertung
+            .guest_bookings
+            .iter()
+            .map(|b| (b.date.to_string(), b.hours, b.invoiced, b.net))
+            .collect();
+        assert_eq!(
+            karl,
+            vec![
+                ("2026-02-10".to_string(), 3.0, false, 0.0), // Management
+                ("2026-06-16".to_string(), 4.0, true, 480.0), // Delivery × 120 €
+                ("2026-09-22".to_string(), 2.0, false, 0.0),
             ]
         );
 
@@ -267,9 +286,10 @@ mod tests {
         let invoice = &auswertung.invoice;
         assert_eq!(invoice.months.len(), 10);
         assert!(!invoice.months[9].partial); // Stichtag 31.10. = Monatsende
-        assert_eq!(invoice.total.net, 319_385.0);
-        assert_eq!(invoice.total.vat, 60_628.27);
-        assert_eq!(invoice.total.gross, 380_013.27);
+        // inkl. Karl im Juni: 480 € netto + 91,20 € USt.
+        assert_eq!(invoice.total.net, 319_865.0);
+        assert_eq!(invoice.total.vat, 60_719.47);
+        assert_eq!(invoice.total.gross, 380_584.47);
         let march_lena = invoice.months[2]
             .lines
             .iter()

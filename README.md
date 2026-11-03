@@ -16,6 +16,7 @@ konfigurierbaren Projekt-Regeln. Details zu Regeln und Datenmodell: [CLAUDE.md](
 - [x] Rechnung: Netto pro Person und Monat, USt. je Steuersatz, Brutto, Positionen je Leistung
 - [x] Abrechnungsregeln (billable, Mult, Satz-Anteil, USt.), Arbeitszeit-Ausnahmen je Person
 - [x] Einsatzzeitraum je Person; Projektbuchungen außerhalb des Teams deutlich markiert
+- [x] Rolle „darf buchen“ (ohne Zeiterfassung, abgerechnet nach Kost2Art)
 - [x] Projekt-Editor mit Formularen für Team, Arbeitszeiten, Regeln, Feiertage
 - [x] Tests: Rust-Unit-Tests, Vitest (Unit/Komponenten/Integration), E2E, Vertragstest, CI
 - [ ] Spalten-Mapping per Drag & Drop auf eine Beispielzeile

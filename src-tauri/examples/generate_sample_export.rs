@@ -31,6 +31,7 @@ const ERIKA: &str = "Erika Mustermann";
 const MAX: &str = "Max Mustermann";
 const JONAS: &str = "Jonas Beispiel"; // nicht im Projektteam
 const LENA: &str = "Lena Beispiel"; // nur Januar/Februar im Projektteam
+const KARL: &str = "Karl Beispiel"; // Geschäftsführung, Rolle „darf buchen“
 
 /// Eine Zeile im Export-Layout (Spalten wie `ColumnMapping::default`).
 struct Row {
@@ -352,6 +353,19 @@ fn rows_for_day(date: NaiveDate, rows: &mut Vec<Row>) {
             "Entwicklung",
             "Büro",
         ));
+    }
+
+    // Karl (Geschäftsführung, Rolle „darf buchen“): bucht gelegentlich aufs
+    // Projekt – abgerechnet wird nur, was die Kost2Art als billable ausweist.
+    let karl = match (date.month(), date.day()) {
+        (2, 10) => Some((3.0, PROJECT, "Management", "Lenkungskreis")),
+        (3, 17) => Some((4.0, INTERN, "Internal", "Strategie")),
+        (6, 16) => Some((4.0, PROJECT, "Delivery (billable)", "Architektur-Review")),
+        (9, 22) => Some((2.0, PROJECT, "Management", "Lenkungskreis")),
+        _ => None,
+    };
+    if let Some((hours, element, kost2art, task)) = karl {
+        rows.push(work(KARL, date, hours, element, kost2art, task, "Büro"));
     }
 }
 

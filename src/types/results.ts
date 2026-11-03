@@ -7,6 +7,8 @@ export interface ProjectSummary {
   name: string;
   element_filter: string;
   team_size: number;
+  /** Personen mit der Rolle „darf buchen“. */
+  guest_count: number;
 }
 
 export interface TimeEntry {
@@ -41,6 +43,8 @@ export interface ParsedExport {
 export interface PersonOverview {
   name: string;
   in_team: boolean;
+  /** Rolle „darf buchen“ (ohne Zeiterfassung). */
+  guest: boolean;
   entry_count: number;
   hours: number;
   project_hours: number;
@@ -82,6 +86,10 @@ export interface AuswertungResult {
   missing_threshold_percent: number;
   /** Buchungen aufs Projekt außerhalb des Einsatzzeitraums oder von Nicht-Teammitgliedern. */
   outside: OutsideBooking[];
+  /** Personen mit der Rolle „darf buchen“ (Reihenfolge der Konfiguration). */
+  guests: string[];
+  /** Ihre Buchungen aufs Projekt im Auswertungszeitraum. */
+  guest_bookings: GuestBooking[];
   overview: ParsedExport;
 }
 
@@ -151,6 +159,20 @@ export interface OutsideBooking {
   hours: number;
   reason: OutsideReason;
   /** In der Rechnung enthalten (nur außerhalb des Einsatzzeitraums mit Regel). */
+  invoiced: boolean;
+  billed_hours: number;
+  net: number;
+}
+
+/** Buchung aufs Projekt von einer Person mit der Rolle „darf buchen“. */
+export interface GuestBooking {
+  person: string;
+  date: IsoDate;
+  element: string;
+  kost2art: string;
+  hours: number;
+  /** Passende Abrechnungsregel; `null` = keine (nicht abrechenbar). */
+  rule: string | null;
   invoiced: boolean;
   billed_hours: number;
   net: number;

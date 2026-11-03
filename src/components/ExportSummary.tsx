@@ -67,9 +67,20 @@ export function ExportSummary({ result, elementFilter }: Props) {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {result.persons.map((person) => (
-                <tr key={person.name} className={person.in_team ? "" : "text-slate-400"}>
+                <tr
+                  key={person.name}
+                  className={person.in_team || person.guest ? "" : "text-slate-400"}
+                >
                   <td className={td}>{person.name}</td>
-                  <td className={td}>{person.in_team ? "✓" : "–"}</td>
+                  <td className={td}>
+                    {person.in_team ? (
+                      "✓"
+                    ) : person.guest ? (
+                      <span className="text-sky-700">darf buchen</span>
+                    ) : (
+                      "–"
+                    )}
+                  </td>
                   <td className={tdNum}>{formatNumber(person.entry_count)}</td>
                   <td className={tdNum}>{formatHours(person.hours)}</td>
                   <td className={tdNum}>{formatHours(person.project_hours)}</td>

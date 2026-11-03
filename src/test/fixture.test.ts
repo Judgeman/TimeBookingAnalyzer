@@ -91,4 +91,21 @@ describe("Vertrag Rust ↔ Frontend (Beispieldaten)", () => {
     const march = r.invoice.months.find((m) => m.month === "2026-03")!;
     expect(march.lines.find((l) => l.person === "Lena Beispiel")).toMatchObject({ outside_hours: 2, net: 160 });
   });
+
+  it("„darf buchen“: Buchungen aufs Projekt nach Kost2Art abgerechnet, ohne Zeiterfassung", () => {
+    const r = sampleResult();
+    expect(r.guests).toEqual(["Karl Beispiel"]);
+    expect(r.persons.map((p) => p.name)).not.toContain("Karl Beispiel");
+    expect(r.outside.map((o) => o.person)).not.toContain("Karl Beispiel");
+    expect(r.guest_bookings.map((b) => [b.date, b.kost2art, b.rule, b.invoiced, b.net])).toEqual([
+      ["2026-02-10", "Management", null, false, 0],
+      ["2026-06-16", "Delivery (billable)", "Delivery", true, 480],
+      ["2026-09-22", "Management", null, false, 0],
+    ]);
+    const june = r.invoice.months.find((m) => m.month === "2026-06")!;
+    expect(june.lines.at(-1)).toMatchObject({ person: "Karl Beispiel", hours: 4, rate: 120, net: 480 });
+    // Rechnung = Team (Billable €) + „darf buchen“
+    const guestNet = sum(r.guest_bookings.map((b) => b.net));
+    expect(r.invoice.total.net).toBeCloseTo(r.team.ytd.bill_eur + guestNet, 2);
+  });
 });

@@ -7544,10 +7544,21 @@
             "net": 180.0,
             "vat_percent": 19.0,
             "outside_hours": 0.0
+          },
+          {
+            "person": "Karl Beispiel",
+            "service": "Delivery",
+            "base_rate": 120.0,
+            "rate_percent": 100.0,
+            "rate": 120.0,
+            "hours": 4.0,
+            "net": 480.0,
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           }
         ],
-        "hours": 331.75,
-        "net": 31495.0,
+        "hours": 335.75,
+        "net": 31975.0,
         "vat_groups": [
           {
             "vat_percent": 7.0,
@@ -7556,12 +7567,12 @@
           },
           {
             "vat_percent": 19.0,
-            "net": 31345.0,
-            "vat": 5955.55
+            "net": 31825.0,
+            "vat": 6046.75
           }
         ],
-        "vat": 5966.05,
-        "gross": 37461.05
+        "vat": 6057.25,
+        "gross": 38032.25
       },
       {
         "month": "2026-07",
@@ -7781,8 +7792,8 @@
       }
     ],
     "total": {
-      "hours": 3354.5,
-      "net": 319385.0,
+      "hours": 3358.5,
+      "net": 319865.0,
       "vat_groups": [
         {
           "vat_percent": 7.0,
@@ -7791,12 +7802,12 @@
         },
         {
           "vat_percent": 19.0,
-          "net": 318927.5,
-          "vat": 60596.24
+          "net": 319407.5,
+          "vat": 60687.44
         }
       ],
-      "vat": 60628.27,
-      "gross": 380013.27
+      "vat": 60719.47,
+      "gross": 380584.47
     }
   },
   "holiday_region": "HE",
@@ -7898,6 +7909,44 @@
       "net": 0.0
     }
   ],
+  "guests": [
+    "Karl Beispiel"
+  ],
+  "guest_bookings": [
+    {
+      "person": "Karl Beispiel",
+      "date": "2026-02-10",
+      "element": "P100 Lager-App",
+      "kost2art": "Management",
+      "hours": 3.0,
+      "rule": null,
+      "invoiced": false,
+      "billed_hours": 0.0,
+      "net": 0.0
+    },
+    {
+      "person": "Karl Beispiel",
+      "date": "2026-06-16",
+      "element": "P100 Lager-App",
+      "kost2art": "Delivery (billable)",
+      "hours": 4.0,
+      "rule": "Delivery",
+      "invoiced": true,
+      "billed_hours": 4.0,
+      "net": 480.0
+    },
+    {
+      "person": "Karl Beispiel",
+      "date": "2026-09-22",
+      "element": "P100 Lager-App",
+      "kost2art": "Management",
+      "hours": 2.0,
+      "rule": null,
+      "invoiced": false,
+      "billed_hours": 0.0,
+      "net": 0.0
+    }
+  ],
   "overview": {
     "project_id": "beispiel-lager-app",
     "project_name": "Musterkunde GmbH / Lager-App",
@@ -7906,13 +7955,14 @@
     "export_date": "2026-10-31",
     "first_entry_date": "2026-01-02",
     "last_entry_date": "2026-10-30",
-    "entry_count": 888,
-    "total_hours": 6391.0,
-    "element_match_count": 481,
+    "entry_count": 892,
+    "total_hours": 6404.0,
+    "element_match_count": 484,
     "persons": [
       {
         "name": "Erika Mustermann",
         "in_team": true,
+        "guest": false,
         "entry_count": 249,
         "hours": 1682.0,
         "project_hours": 1542.0
@@ -7920,6 +7970,7 @@
       {
         "name": "Lena Beispiel",
         "in_team": true,
+        "guest": false,
         "entry_count": 211,
         "hours": 1680.0,
         "project_hours": 330.0
@@ -7927,13 +7978,23 @@
       {
         "name": "Max Mustermann",
         "in_team": true,
+        "guest": false,
         "entry_count": 259,
         "hours": 1685.0,
         "project_hours": 1535.0
       },
       {
+        "name": "Karl Beispiel",
+        "in_team": false,
+        "guest": true,
+        "entry_count": 4,
+        "hours": 13.0,
+        "project_hours": 9.0
+      },
+      {
         "name": "Jonas Beispiel",
         "in_team": false,
+        "guest": false,
         "entry_count": 169,
         "hours": 1344.0,
         "project_hours": 3.0

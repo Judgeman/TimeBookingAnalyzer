@@ -16,6 +16,8 @@ pub struct ProjectSummary {
     pub name: String,
     pub element_filter: String,
     pub team_size: usize,
+    /// Personen mit der Rolle „darf buchen“.
+    pub guest_count: usize,
 }
 
 /// Übersicht über die eingelesenen Rohdaten (Teil von `AuswertungResult`).
@@ -47,6 +49,8 @@ pub struct ParsedExport {
 pub struct PersonOverview {
     pub name: String,
     pub in_team: bool,
+    /// Rolle „darf buchen“ (ohne Zeiterfassung).
+    pub guest: bool,
     pub entry_count: usize,
     /// Summe der gebuchten Stunden (ohne Multiplikator), gerundet auf 2 Stellen.
     pub hours: f64,
@@ -103,6 +107,10 @@ pub struct AuswertungResult {
     /// Buchungen aufs Projekt „außerhalb des Teams“: außerhalb des
     /// Einsatzzeitraums (abgerechnet) oder von Nicht-Teammitgliedern (nicht abgerechnet).
     pub outside: Vec<OutsideBooking>,
+    /// Personen mit der Rolle „darf buchen“ (Reihenfolge der Konfiguration).
+    pub guests: Vec<String>,
+    /// Ihre Buchungen aufs Projekt im Auswertungszeitraum.
+    pub guest_bookings: Vec<GuestBooking>,
     pub overview: ParsedExport,
 }
 
@@ -137,6 +145,25 @@ pub struct OutsideBooking {
     /// Abgerechnete Stunden (nach Regel, z. B. × Mult).
     pub billed_hours: f64,
     /// Angesetzter Nettobetrag (0, wenn nicht abgerechnet oder ohne Stundensatz).
+    pub net: f64,
+}
+
+/// Buchung aufs Projekt von einer Person mit der Rolle „darf buchen“.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct GuestBooking {
+    pub person: String,
+    pub date: NaiveDate,
+    pub element: String,
+    pub kost2art: String,
+    /// Gebuchte Stunden.
+    pub hours: f64,
+    /// Passende Abrechnungsregel; `None` = keine (nicht abrechenbar).
+    pub rule: Option<String>,
+    /// In der Rechnung enthalten (Regel mit „in Rechnung“).
+    pub invoiced: bool,
+    /// Abgerechnete Stunden (nach Regel, z. B. × Mult).
+    pub billed_hours: f64,
+    /// Nettobetrag (0, wenn nicht abgerechnet oder ohne Stundensatz).
     pub net: f64,
 }
 

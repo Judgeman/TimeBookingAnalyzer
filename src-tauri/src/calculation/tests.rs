@@ -9,7 +9,7 @@ use chrono::NaiveDate;
 
 use super::*;
 use crate::models::config::{
-    AssignmentPeriod, BillingRule, ExportFormat, HolidayConfig, MatchMode, ProjectConfig,
+    AssignmentPeriod, BillingRule, ExportFormat, Guest, HolidayConfig, MatchMode, ProjectConfig,
     RatePeriod, TeamMember, WorkingHoursPeriod, default_billing_rules,
 };
 
@@ -43,6 +43,7 @@ fn config() -> ProjectConfig {
                 assignments: vec![],
             },
         ],
+        guests: vec![],
         working_hours: vec![
             WorkingHoursPeriod {
                 from: d(2026, 1, 1),
@@ -646,4 +647,117 @@ fn assignment_period_limits_person_but_project_bookings_are_still_billed() {
     );
     // Team-Summen ohne Max' Zeit außerhalb
     assert_eq!(result.team.ytd.soll_b, 78.0 + 8.0);
+}
+
+#[test]
+fn guests_may_book_on_the_project_without_time_tracking() {
+    // Karl (Rolle „darf buchen“): 120 € bis 09.01., danach kein Satz.
+    let mut config = config();
+    config.guests = vec![Guest {
+        name: "Karl Beispiel".into(),
+        rates: vec![rate(d(2026, 1, 1), Some(d(2026, 1, 9)), 120.0)],
+    }];
+    const KARL: &str = "karl beispiel "; // Schreibweise im Export
+    let mut entries = entries();
+    entries.extend([
+        e(KARL, d(2026, 1, 5), 2.0, 1.0, P100, DELIVERY),
+        e(KARL, d(2026, 1, 6), 3.0, 1.0, P100, "Management"), // keine Regel
+        e(KARL, d(2026, 1, 7), 1.0, 0.5, P100, "Travel (billable)"), // ohne Mult
+        e(KARL, d(2026, 1, 8), 4.0, 1.0, "Z900 Intern", "Internal"), // anderes Element
+        e(KARL, d(2026, 1, 9), 8.0, 1.0, "(Vacation)", ""),   // Abwesenheit
+        e(KARL, d(2026, 1, 13), 1.0, 1.0, P100, DELIVERY),    // kein Satz
+        e(KARL, d(2026, 1, 17), 2.0, 1.0, P100, DELIVERY),    // nach Stichtag
+    ]);
+    let result = evaluate(&config, &entries, d(2026, 1, 16), Some(d(2026, 1, 16)));
+    let baseline = run();
+
+    // Keine Zeiterfassung: weder Person noch Teil der Team-Summen, nicht „außerhalb“
+    assert_eq!(result.persons.len(), 2);
+    assert_eq!(result.team.ytd, baseline.team.ytd);
+    assert_eq!(result.missing, baseline.missing);
+    assert!(result.outside.is_empty());
+    assert!(!result.flagged.iter().any(|f| f.person.contains("Karl")));
+
+    type Row<'a> = (&'a str, NaiveDate, Option<&'a str>, bool, f64, f64);
+    let bookings: Vec<Row> = result
+        .guest_bookings
+        .iter()
+        .map(|b| {
+            (
+                b.person.as_str(),
+                b.date,
+                b.rule.as_deref(),
+                b.invoiced,
+                b.billed_hours,
+                b.net,
+            )
+        })
+        .collect();
+    let karl = "Karl Beispiel";
+    assert_eq!(
+        bookings,
+        vec![
+            (karl, d(2026, 1, 5), Some("Delivery"), true, 2.0, 240.0),
+            (karl, d(2026, 1, 6), None, false, 0.0, 0.0),
+            (
+                karl,
+                d(2026, 1, 7),
+                Some("Sonstige billable (z. B. Travel)"),
+                true,
+                1.0,
+                120.0
+            ),
+            (karl, d(2026, 1, 13), Some("Delivery"), true, 1.0, 0.0),
+        ]
+    );
+    assert_eq!(result.guest_bookings[1].hours, 3.0);
+
+    // Rechnung: Positionen nach dem Team, Netto = Team + 360 €
+    let jan = &result.invoice.months[0];
+    assert_eq!(jan.net, baseline.invoice.months[0].net + 360.0);
+    let karl_lines: Vec<(&str, f64, Option<f64>, f64)> = jan
+        .lines
+        .iter()
+        .skip_while(|l| l.person != karl)
+        .map(|l| (l.service.as_str(), l.hours, l.rate, l.net))
+        .collect();
+    assert_eq!(
+        karl_lines,
+        vec![
+            ("Delivery", 1.0, None, 0.0), // „kein Satz“ zuerst
+            ("Delivery", 2.0, Some(120.0), 240.0),
+            ("Sonstige billable (z. B. Travel)", 1.0, Some(120.0), 120.0),
+        ]
+    );
+    assert!(
+        jan.lines
+            .iter()
+            .skip_while(|l| l.person != karl)
+            .all(|l| l.person == karl)
+    );
+
+    let rate_warning: Vec<&String> = result
+        .warnings
+        .iter()
+        .filter(|w| w.starts_with("Karl Beispiel: kein Stundensatz"))
+        .collect();
+    assert_eq!(rate_warning.len(), 1, "{:?}", result.warnings);
+    assert!(
+        rate_warning[0].contains("13.01.2026"),
+        "{}",
+        rate_warning[0]
+    );
+    // Buchungen nach dem Stichtag: Hinweis zählt nur das Team
+    assert_eq!(
+        result
+            .warnings
+            .iter()
+            .filter(|w| w.contains("nach dem Stichtag"))
+            .collect::<Vec<_>>(),
+        baseline
+            .warnings
+            .iter()
+            .filter(|w| w.contains("nach dem Stichtag"))
+            .collect::<Vec<_>>()
+    );
 }

@@ -16,7 +16,9 @@ Wochenend-Buchungen (eine davon mit Mult 0), Reisezeit mit Mult 0,5, Key-User-Sc
 des Projektteams („Jonas Beispiel“, bucht am 01.10. 3 h aufs Projekt → nicht abgerechnet).
 „Lena Beispiel“ ist nur im Januar/Februar im Projekt (Einsatzzeitraum) und bucht danach
 auf ein anderes Projekt – bis auf 2 h Übergabe am 02.03. (außerhalb des Einsatzzeitraums,
-wird abgerechnet und markiert). Arbeitsorte: „Home Office“, „Büro“, „Kunde vor Ort“.
+wird abgerechnet und markiert). „Karl Beispiel“ (Geschäftsführung) hat die Rolle „darf
+buchen“: 3 h + 2 h „Management“ (keine Abrechnungsregel → nicht abgerechnet) und 4 h
+„Delivery (billable)“ am 16.06. (→ 480 € netto). Arbeitsorte: „Home Office“, „Büro“, „Kunde vor Ort“.
 Fehlende Buchungen: Erika am 20.10. ohne Buchung, Max am 22.10. nur 2 von 6 h; Erika am 16.09. mit 4 von 7,5 h
 (53 %) liegt knapp über der 50-%-Schwelle. Max Mustermann hat ab September eine abweichende
 Arbeitszeit von 6 h/Tag.

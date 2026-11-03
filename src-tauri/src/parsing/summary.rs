@@ -44,13 +44,15 @@ pub fn summarize(
         .map(|(name, acc)| PersonOverview {
             name: name.to_string(),
             in_team: in_team(name),
+            guest: config.guest_index(name).is_some(),
             entry_count: acc.entries,
             hours: round2(acc.hours),
             project_hours: round2(acc.project_hours),
         })
         .collect();
-    // Teammitglieder zuerst, dann alphabetisch (BTreeMap liefert bereits sortiert).
-    persons.sort_by_key(|p| !p.in_team);
+    // Teammitglieder zuerst, dann „darf buchen“, dann alphabetisch (BTreeMap
+    // liefert bereits sortiert).
+    persons.sort_by_key(|p| (!p.in_team, !p.guest));
 
     let missing_team_members = config
         .team
@@ -85,7 +87,9 @@ pub fn summarize(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::config::{ExportFormat, HolidayConfig, TeamMember, default_billing_rules};
+    use crate::models::config::{
+        ExportFormat, Guest, HolidayConfig, TeamMember, default_billing_rules,
+    };
     use crate::models::entry::TimeEntry;
     use crate::models::results::SkippedRow;
 
@@ -121,6 +125,10 @@ mod tests {
                 member("Max Mustermann"),
                 member("Neu Person"),
             ],
+            guests: vec![Guest {
+                name: "Karl Beispiel".into(),
+                rates: vec![],
+            }],
             working_hours: vec![],
             holidays: HolidayConfig::default(),
             export_format: ExportFormat::default(),
@@ -135,6 +143,7 @@ mod tests {
                 entry("Zoe Extern", 6, 3.0, "Anderes Projekt"),
                 entry("erika mustermann", 6, 1.111, "Intern"),
                 entry("Max Mustermann", 2, 8.0, "P100 Lager-App"),
+                entry("karl beispiel", 6, 2.0, "P100 Lager-App"),
             ],
             skipped: vec![SkippedRow {
                 row: 9,
@@ -144,9 +153,9 @@ mod tests {
 
         let result = summarize(&config, "export.xlsx".into(), None, outcome);
 
-        assert_eq!(result.entry_count, 4);
-        assert_eq!(result.element_match_count, 2);
-        assert_eq!(result.total_hours, 19.61);
+        assert_eq!(result.entry_count, 5);
+        assert_eq!(result.element_match_count, 3);
+        assert_eq!(result.total_hours, 21.61);
         assert_eq!(
             result.first_entry_date,
             NaiveDate::from_ymd_opt(2026, 10, 2)
@@ -155,18 +164,19 @@ mod tests {
         assert_eq!(result.missing_team_members, vec!["Neu Person".to_string()]);
         assert_eq!(result.skipped_rows.len(), 1);
 
-        let names: Vec<(&str, bool)> = result
+        let names: Vec<(&str, bool, bool)> = result
             .persons
             .iter()
-            .map(|p| (p.name.as_str(), p.in_team))
+            .map(|p| (p.name.as_str(), p.in_team, p.guest))
             .collect();
         assert_eq!(
             names,
             vec![
-                ("Erika Mustermann", true),
-                ("Max Mustermann", true),
-                ("erika mustermann", true),
-                ("Zoe Extern", false)
+                ("Erika Mustermann", true, false),
+                ("Max Mustermann", true, false),
+                ("erika mustermann", true, false),
+                ("karl beispiel", false, true),
+                ("Zoe Extern", false, false)
             ]
         );
         assert_eq!(result.persons[0].project_hours, 7.5);

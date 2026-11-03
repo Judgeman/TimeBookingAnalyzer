@@ -46,6 +46,7 @@ function backend(command: string, args: Record<string, unknown> = {}) {
         name: p.name,
         element_filter: p.element_filter,
         team_size: p.team.length,
+        guest_count: p.guests.length,
       }));
     case "get_project":
       return structuredClone(projects.find((p) => p.id === args.id)!);

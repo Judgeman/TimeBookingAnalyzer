@@ -7,6 +7,8 @@ interface Props {
   invoice: InvoiceSummary;
   /** Teammitglieder in Konfigurations-Reihenfolge (Spalten der Übersicht). */
   persons: string[];
+  /** Personen mit der Rolle „darf buchen“ (eigene Spalten, wenn abgerechnet). */
+  guests?: string[];
   cutoffDate: string;
   /** Buchungen aufs Projekt außerhalb des Teams (für die Hinweise). */
   outside?: OutsideBooking[];
@@ -24,8 +26,14 @@ function vatLabelOf(groups: VatGroup[], fallback: number): string {
  * Rechnungsübersicht: pro Monat eine Rechnung. Netto je Position = Stunden ×
  * Satz, USt. je Steuersatz auf die Monats-Nettosumme, Brutto = Netto + USt.
  */
-export function InvoiceView({ invoice, persons, cutoffDate, outside = [] }: Props) {
+export function InvoiceView({ invoice, persons, guests = [], cutoffDate, outside = [] }: Props) {
   const vatLabel = vatLabelOf(invoice.total.vat_groups, invoice.vat_percent);
+  const isGuest = (person: string) => guests.includes(person);
+  // Spalten: Team, danach „darf buchen“ mit Rechnungspositionen.
+  const columns = [
+    ...persons,
+    ...guests.filter((g) => invoice.months.some((m) => m.lines.some((l) => l.person === g))),
+  ];
 
   if (invoice.months.length === 0) {
     return (
@@ -98,9 +106,10 @@ export function InvoiceView({ invoice, persons, cutoffDate, outside = [] }: Prop
             <thead className={styles.thead}>
               <tr>
                 <th className={styles.th}>Monat</th>
-                {persons.map((p) => (
+                {columns.map((p) => (
                   <th key={p} className={styles.thNum}>
                     {p}
+                    {isGuest(p) && <GuestNote />}
                   </th>
                 ))}
                 <th className={`${styles.thNum} bg-slate-100`}>Netto</th>
@@ -115,7 +124,7 @@ export function InvoiceView({ invoice, persons, cutoffDate, outside = [] }: Prop
                     {formatMonth(month.month)}
                     {month.partial && <PartialBadge cutoffDate={cutoffDate} />}
                   </td>
-                  {persons.map((p) => (
+                  {columns.map((p) => (
                     <td key={p} className={styles.tdNum}>
                       {outsideOf(month, p) > 0 && (
                         <span
@@ -143,7 +152,7 @@ export function InvoiceView({ invoice, persons, cutoffDate, outside = [] }: Prop
             <tfoot className="border-t-2 border-slate-200 bg-slate-50 font-medium">
               <tr>
                 <td className={styles.td}>Gesamt</td>
-                {persons.map((p) => (
+                {columns.map((p) => (
                   <td key={p} className={styles.tdNum}>
                     {formatEuro(personTotal(p))}
                   </td>
@@ -186,7 +195,7 @@ export function InvoiceView({ invoice, persons, cutoffDate, outside = [] }: Prop
                 brutto {formatEuro(month.gross)}
               </span>
             </summary>
-            <MonthLines month={month} />
+            <MonthLines month={month} isGuest={isGuest} />
           </details>
         ))}
       </section>
@@ -194,7 +203,13 @@ export function InvoiceView({ invoice, persons, cutoffDate, outside = [] }: Prop
   );
 }
 
-function MonthLines({ month }: { month: InvoiceMonth }) {
+function MonthLines({
+  month,
+  isGuest,
+}: {
+  month: InvoiceMonth;
+  isGuest: (person: string) => boolean;
+}) {
   const multipleVat = month.vat_groups.length > 1;
   return (
     <div className="overflow-x-auto border-t border-slate-200">
@@ -212,7 +227,10 @@ function MonthLines({ month }: { month: InvoiceMonth }) {
         <tbody className="divide-y divide-slate-100">
           {month.lines.map((line, i) => (
             <tr key={i} className={line.outside_hours > 0 ? "bg-red-50" : ""}>
-              <td className={styles.td}>{line.person}</td>
+              <td className={styles.td}>
+                {line.person}
+                {isGuest(line.person) && <GuestNote />}
+              </td>
               <td className={styles.td}>
                 {line.service}
                 {line.outside_hours > 0 && (
@@ -287,6 +305,13 @@ function TotalRow({
       <td colSpan={2} />
       <td className={styles.tdNum}>{value}</td>
     </tr>
+  );
+}
+
+/** Kennzeichnung der Rolle „darf buchen“ (neutral). */
+function GuestNote() {
+  return (
+    <span className="block text-[11px] font-normal text-sky-700">darf buchen</span>
   );
 }
 

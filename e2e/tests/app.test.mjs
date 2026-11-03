@@ -74,7 +74,7 @@ test("Tabs: Monate, Stundenkonto, Arbeitsort, Rechnung", () =>
     await app.tab("Rechnung");
     await app.waitForText("Netto pro Person und Monat");
     const text = await app.text();
-    for (const expected of ["319.385,00 €", "60.628,27 €", "380.013,27 €", "USt. 7 % / 19 %"]) {
+    for (const expected of ["319.865,00 €", "60.719,47 €", "380.584,47 €", "USt. 7 % / 19 %"]) {
       assert.ok(text.includes(expected), `fehlt: ${expected}`);
     }
   }));
@@ -102,7 +102,7 @@ test("Editor: Überschneidung wird abgelehnt, Regeländerung wirkt auf die Rechn
     await app.waitForText("Auswertung 01.01.2026");
     await app.tab("Rechnung");
     // 9 Reise-Montage à 2 h: 1.660 € → 2 h × Mult 0,5 × 50 % = 415 € ⇒ netto −1.245 €
-    await app.waitForText("318.140,00 €");
+    await app.waitForText("318.620,00 €");
   }));
 
 test("Einsatzzeitraum: Buchungen außerhalb des Teams fallen sofort auf", () =>
@@ -138,6 +138,52 @@ test("Einsatzzeitraum: Buchungen außerhalb des Teams fallen sofort auf", () =>
     ]) {
       assert.ok(text.includes(expected), `fehlt: ${expected}`);
     }
+  }));
+
+test("Darf buchen: Buchungen ohne Zeiterfassung, abgerechnet nach Kost2Art", () =>
+  withApp("darf-buchen", {}, async (app) => {
+    await loadSample(app);
+    let text = await app.text();
+    assert.ok(
+      text.includes(
+        "ℹ Darf buchen (ohne Zeiterfassung): 9,00 h aufs Projekt · 4,00 h abgerechnet (480,00 € netto) · 5,00 h nicht abgerechnet",
+      ),
+    );
+    assert.ok(text.includes("2 Buchungen auf das Projekt außerhalb des Teams"));
+
+    await app.tab("Rechnung");
+    await app.waitForText("Netto pro Person und Monat");
+    const header = await app.execute(
+      "return [...document.querySelectorAll('th')].find((th) => th.textContent.startsWith('Karl Beispiel')).textContent",
+    );
+    assert.equal(header, "Karl Beispieldarf buchen");
+
+    // Jonas (bisher „nicht im Team“) bekommt die Rolle „darf buchen“ mit 100 €/h
+    await app.click("button", "Projekt bearbeiten");
+    await app.waitForText("Darf buchen (ohne Zeiterfassung)");
+    await app.click("button", "+ Person (darf buchen)");
+    await app.execute(`const fs = [...document.querySelectorAll("fieldset")]
+      .find((f) => f.querySelector("legend").textContent === "Darf buchen (ohne Zeiterfassung)");
+      const set = (el, value) => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, value);
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      };
+      const names = fs.querySelectorAll('input[aria-label="Name (darf buchen)"]');
+      set(names[names.length - 1], "Jonas Beispiel");
+      const add = [...fs.querySelectorAll("button")].filter((b) => b.textContent === "+ Stundensatz");
+      add[add.length - 1].click();`);
+    await app.execute(`const fs = [...document.querySelectorAll("fieldset")]
+      .find((f) => f.querySelector("legend").textContent === "Darf buchen (ohne Zeiterfassung)");
+      const rates = fs.querySelectorAll('input[type="number"]');
+      const el = rates[rates.length - 1];
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, "100");
+      el.dispatchEvent(new Event("input", { bubbles: true }));`);
+    await app.click("button", "Speichern");
+    await app.waitForText("1 Buchung auf das Projekt außerhalb des Teams");
+    text = await app.text();
+    assert.ok(text.includes("12,00 h aufs Projekt · 7,00 h abgerechnet (780,00 € netto)"), text.slice(0, 2000));
+    await app.tab("Rechnung");
+    await app.waitForText("320.165,00 €"); // + 3 h × 100 € (Code-Review am 01.10.)
   }));
 
 test("Fehlende Buchungen: Schwelle im Projekt einstellbar", () =>

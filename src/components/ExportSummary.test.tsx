@@ -7,10 +7,14 @@ describe("ExportSummary (Import)", () => {
   it("zeigt Zeitraum, Personen und Vorschau", () => {
     render(<ExportSummary result={sampleResult().overview} elementFilter="P100 Lager-App" />);
     expect(screen.getByText("02.01.2026 – 30.10.2026")).toBeInTheDocument();
-    expect(screen.getByText("888")).toBeInTheDocument();
-    // Personen-Tabelle (erste Fundstelle): Nicht-Teammitglieder ausgegraut
+    expect(screen.getByText("892")).toBeInTheDocument();
+    // Personen-Tabelle (erste Fundstelle): Nicht-Teammitglieder ausgegraut,
+    // „darf buchen“ gekennzeichnet
     expect(screen.getAllByText("Jonas Beispiel")[0].closest("tr")).toHaveClass("text-slate-400");
-    expect(screen.getByText(/Erste 25 von 888 Buchungen/)).toBeInTheDocument();
+    const karl = screen.getAllByText("Karl Beispiel")[0].closest("tr")!;
+    expect(karl).not.toHaveClass("text-slate-400");
+    expect(karl).toHaveTextContent("darf buchen");
+    expect(screen.getByText(/Erste 25 von 892 Buchungen/)).toBeInTheDocument();
   });
 
   it("warnt bei fehlenden Teammitgliedern, Element-Treffern und übersprungenen Zeilen", () => {

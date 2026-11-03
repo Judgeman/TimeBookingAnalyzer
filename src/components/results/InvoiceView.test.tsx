@@ -14,15 +14,48 @@ describe("InvoiceView", () => {
     render(
       <InvoiceView invoice={r.invoice} persons={r.persons.map((p) => p.name)} cutoffDate={r.cutoff_date} />,
     );
-    expect(text()).toContain("319.385,00 €");
-    expect(text()).toContain("60.628,27 €");
-    expect(text()).toContain("380.013,27 €");
+    expect(text()).toContain("319.865,00 €");
+    expect(text()).toContain("60.719,47 €");
+    expect(text()).toContain("380.584,47 €");
     expect(text()).toContain("USt. 7 % / 19 %");
     expect(text()).toContain("7 %: 32,03 €");
 
     const table = screen.getByText("Netto pro Person und Monat").nextElementSibling as HTMLElement;
     const october = within(table).getByText("Oktober 2026").closest("tr")!;
     expect(october.textContent!.replace(/ /g, " ")).toContain("17.036,25 €");
+  });
+
+  it("zeigt Personen mit „darf buchen“ als eigene Spalte und Position", async () => {
+    const user = userEvent.setup();
+    const r = sampleResult();
+    render(
+      <InvoiceView
+        invoice={r.invoice}
+        persons={r.persons.map((p) => p.name)}
+        guests={r.guests}
+        cutoffDate={r.cutoff_date}
+      />,
+    );
+    const table = screen.getByText("Netto pro Person und Monat").nextElementSibling as HTMLElement;
+    const header = within(table).getByText("Karl Beispiel").closest("th")!;
+    expect(header).toHaveTextContent("darf buchen");
+    const cells = (month: string) =>
+      [...within(table).getByText(month).closest("tr")!.querySelectorAll("td")].map((td) =>
+        td.textContent!.replace(/\u00a0|\u202f/g, " "),
+      );
+    // Spalten: Monat, Erika, Max, Lena, Karl, Netto, USt., Brutto
+    expect(cells("Juni 2026")[4]).toBe("480,00 €");
+    expect(cells("Mai 2026")[4]).toBe("–");
+    expect(cells("Gesamt")[4]).toBe("480,00 €");
+
+    await user.click(screen.getByText("Juni 2026", { selector: "summary span" }));
+    const line = screen
+      .getAllByText("Karl Beispiel")
+      .map((el) => el.closest("tr")!)
+      .find((tr) => tr.closest("details"))!;
+    expect(line).toHaveTextContent("darf buchen");
+    expect(line).toHaveTextContent("Delivery");
+    expect(line).not.toHaveClass("bg-red-50");
   });
 
   it("öffnet Monatsdetails mit Leistung, Satz-Anteil und USt.-Gruppen", async () => {

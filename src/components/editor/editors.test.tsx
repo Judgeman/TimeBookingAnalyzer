@@ -5,9 +5,11 @@ import { describe, expect, it, vi } from "vitest";
 import {
   defaultBillingRules,
   type BillingRule,
+  type Guest,
   type TeamMember,
   type WorkingHoursPeriod,
 } from "../../types/config";
+import { GuestEditor } from "./GuestEditor";
 import { PeriodListEditor } from "./PeriodListEditor";
 import { RulesEditor } from "./RulesEditor";
 import { TeamEditor } from "./TeamEditor";
@@ -172,5 +174,32 @@ describe("TeamEditor – Einsatzzeitraum", () => {
     expect(onChange.mock.calls.at(-1)![0][0].assignments).toEqual([{ from: "2026-01-15", to: "2026-02-28" }]);
     await user.click(screen.getByTitle("Einsatzzeitraum entfernen"));
     expect(onChange.mock.calls.at(-1)![0][0].assignments).toEqual([]);
+  });
+});
+
+describe("GuestEditor (darf buchen)", () => {
+  it("legt Personen mit Stundensatz an, benennt sie und entfernt sie", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <Stateful<Guest[]>
+        initial={[]}
+        onChange={onChange}
+        render={(guests, set) => <GuestEditor guests={guests} onChange={set} defaultFrom="2026-01-01" />}
+      />,
+    );
+    expect(screen.getByText(/entscheiden die Abrechnungsregeln \(Kost2Art\)/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "+ Person (darf buchen)" }));
+    await user.type(screen.getByLabelText("Name (darf buchen)"), "Karl Beispiel");
+    await user.click(screen.getByRole("button", { name: "+ Stundensatz" }));
+    fireEvent.change(screen.getByRole("spinbutton"), { target: { value: "120" } });
+    expect(onChange).toHaveBeenLastCalledWith([
+      { name: "Karl Beispiel", rates: [{ from: "2026-01-01", to: null, rate: 120 }] },
+    ]);
+    // keine Arbeitszeit, kein Einsatzzeitraum
+    expect(screen.queryByText("Abweichende Arbeitszeit")).not.toBeInTheDocument();
+    expect(screen.queryByText("Einsatzzeitraum im Projekt")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Person entfernen" }));
+    expect(onChange).toHaveBeenLastCalledWith([]);
   });
 });

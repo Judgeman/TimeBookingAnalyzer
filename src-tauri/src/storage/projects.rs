@@ -52,6 +52,7 @@ impl ProjectStore {
                     name: config.name,
                     element_filter: config.element_filter,
                     team_size: config.team.len(),
+                    guest_count: config.guests.len(),
                 }),
                 Err(e) => eprintln!("Überspringe {}: {e}", path.display()),
             }
@@ -168,6 +169,7 @@ mod tests {
                 working_hours: vec![],
                 assignments: vec![],
             }],
+            guests: vec![],
             working_hours: vec![],
             holidays: HolidayConfig::default(),
             export_format: ExportFormat::default(),

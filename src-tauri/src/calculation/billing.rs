@@ -2,7 +2,7 @@
 
 use chrono::NaiveDate;
 
-use crate::models::config::{BillingRule, MatchMode, TeamMember};
+use crate::models::config::{BillingRule, MatchMode, RatePeriod};
 use crate::models::entry::TimeEntry;
 
 /// Erste Regel, die zur Buchung passt (Index + Regel).
@@ -42,10 +42,9 @@ pub fn billed_hours(entry: &TimeEntry, rule: &BillingRule) -> f64 {
     }
 }
 
-/// Stundensatz einer Person an einem Tag; `None`, wenn kein Zeitraum passt.
-pub fn rate_for(member: &TeamMember, date: NaiveDate) -> Option<f64> {
-    member
-        .rates
+/// Stundensatz an einem Tag; `None`, wenn kein Zeitraum passt.
+pub fn rate_for(rates: &[RatePeriod], date: NaiveDate) -> Option<f64> {
+    rates
         .iter()
         .find(|r| r.from <= date && r.to.is_none_or(|to| date <= to))
         .map(|r| r.rate)
@@ -54,7 +53,7 @@ pub fn rate_for(member: &TeamMember, date: NaiveDate) -> Option<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::config::{RatePeriod, default_billing_rules};
+    use crate::models::config::default_billing_rules;
 
     fn d(m: u32, day: u32) -> NaiveDate {
         NaiveDate::from_ymd_opt(2026, m, day).unwrap()
@@ -126,27 +125,22 @@ mod tests {
 
     #[test]
     fn rate_periods() {
-        let member = TeamMember {
-            name: "Erika Mustermann".into(),
-            rates: vec![
-                RatePeriod {
-                    from: d(1, 1),
-                    to: Some(d(6, 30)),
-                    rate: 100.0,
-                },
-                RatePeriod {
-                    from: d(7, 1),
-                    to: None,
-                    rate: 105.0,
-                },
-            ],
-            working_hours: vec![],
-            assignments: vec![],
-        };
-        assert_eq!(rate_for(&member, d(6, 30)), Some(100.0));
-        assert_eq!(rate_for(&member, d(7, 1)), Some(105.0));
+        let rates = vec![
+            RatePeriod {
+                from: d(1, 1),
+                to: Some(d(6, 30)),
+                rate: 100.0,
+            },
+            RatePeriod {
+                from: d(7, 1),
+                to: None,
+                rate: 105.0,
+            },
+        ];
+        assert_eq!(rate_for(&rates, d(6, 30)), Some(100.0));
+        assert_eq!(rate_for(&rates, d(7, 1)), Some(105.0));
         assert_eq!(
-            rate_for(&member, NaiveDate::from_ymd_opt(2025, 12, 1).unwrap()),
+            rate_for(&rates, NaiveDate::from_ymd_opt(2025, 12, 1).unwrap()),
             None
         );
     }

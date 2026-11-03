@@ -25,6 +25,7 @@ import {
 import { ExportSummary } from "../ExportSummary";
 import { AccountView } from "./AccountView";
 import { colorMapFor } from "./chartColors";
+import { GuestBookings } from "./GuestBookings";
 import { InvoiceView } from "./InvoiceView";
 import { LocationView } from "./LocationView";
 import { OutsideBookings } from "./OutsideBookings";
@@ -197,6 +198,8 @@ export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Pro
 
       {result.flagged.length > 0 && <FlaggedList flagged={result.flagged} />}
 
+      {result.guest_bookings.length > 0 && <GuestBookings bookings={result.guest_bookings} />}
+
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200">
         <nav className="flex gap-1" role="tablist">
           {TABS.map(([key, label]) => (
@@ -293,6 +296,7 @@ export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Pro
               invoice={result.invoice}
               outside={result.outside}
               persons={result.persons.map((p) => p.name)}
+              guests={result.guests}
               cutoffDate={result.cutoff_date}
             />
           )}

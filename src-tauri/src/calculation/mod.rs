@@ -17,11 +17,11 @@ use std::ops::AddAssign;
 
 use chrono::{Datelike, NaiveDate, Weekday};
 
-use crate::models::config::{ProjectConfig, TeamMember};
+use crate::models::config::{BillingRule, ProjectConfig, RatePeriod, TeamMember};
 use crate::models::entry::TimeEntry;
 use crate::models::results::{
-    AbsenceKind, FlaggedBooking, InvoiceSummary, MissingBooking, OutsideBooking, OutsideReason,
-    PeriodBreakdown, PeriodData, PersonResult,
+    AbsenceKind, FlaggedBooking, GuestBooking, InvoiceSummary, MissingBooking, OutsideBooking,
+    OutsideReason, PeriodBreakdown, PeriodData, PersonResult,
 };
 use gearb::Absence;
 use holidays::Holiday;
@@ -39,6 +39,7 @@ pub struct Evaluation {
     pub missing: Vec<MissingBooking>,
     pub missing_checked_until: NaiveDate,
     pub outside: Vec<OutsideBooking>,
+    pub guest_bookings: Vec<GuestBooking>,
 }
 
 /// Wertet alle Teammitglieder vom 1. Januar des Stichtag-Jahres bis zum
@@ -88,15 +89,20 @@ pub fn evaluate(
         vec![BTreeMap::new(); config.team.len()];
     let mut after_cutoff = 0usize;
     let mut outside = Vec::new();
+    let mut guest_entries: Vec<(usize, &TimeEntry)> = Vec::new();
     for entry in entries {
         let Some(index) = config.team_index(&entry.name) else {
-            // Buchung aufs Projekt von jemandem, der nicht im Team ist: nicht
-            // abrechenbar (kein Stundensatz), aber deutlich markieren.
+            // Buchung aufs Projekt von jemandem außerhalb des Teams: mit der
+            // Rolle „darf buchen“ normal abrechnen, sonst nicht abrechenbar
+            // (kein Stundensatz), aber deutlich markieren.
             if (period_start..=cutoff).contains(&entry.date)
                 && gearb::absence(entry, special).is_none()
                 && is_project_booking(config, entry)
             {
-                outside.push(outside_booking(entry, OutsideReason::NotInTeam));
+                match config.guest_index(&entry.name) {
+                    Some(guest) => guest_entries.push((guest, entry)),
+                    None => outside.push(outside_booking(entry, OutsideReason::NotInTeam)),
+                }
             }
             continue;
         };
@@ -144,6 +150,14 @@ pub fn evaluate(
     for (index, member) in config.team.iter().enumerate() {
         let mut breakdown = BreakdownAcc::default();
         let mut missing_rate = Missing::default();
+        let mut biller = Biller {
+            config,
+            person: &member.name,
+            rates: &member.rates,
+            index,
+            invoice: &mut invoice,
+            missing_rate: &mut missing_rate,
+        };
 
         for &date in &days {
             let workday = is_workday(date);
@@ -174,20 +188,12 @@ pub fn evaluate(
                     let mut item = outside_booking(entry, OutsideReason::OutsideAssignment);
                     if let Some((rule_index, rule)) =
                         billing::matching_rule(&config.billing_rules, entry, filter)
+                        && let Some((billed, net)) =
+                            biller.bill_day(&mut day, entry, rule_index, rule, true)
                     {
-                        let mut ctx = BillingContext {
-                            config,
-                            member,
-                            index,
-                            day: &mut day,
-                            invoice: &mut invoice,
-                            missing_rate: &mut missing_rate,
-                        };
-                        if let Some((billed, net)) = ctx.bill(entry, rule_index, rule, true) {
-                            item.invoiced = true;
-                            item.billed_hours = round2(billed);
-                            item.net = round2(net);
-                        }
+                        item.invoiced = true;
+                        item.billed_hours = round2(billed);
+                        item.net = round2(net);
                     }
                     outside.push(item);
                     continue;
@@ -209,18 +215,9 @@ pub fn evaluate(
                         if !in_bill_h && gearb::counts_as_work(entry.mult) {
                             day.nonbill_h += entry.hours;
                         }
-                        let Some((rule_index, rule)) = rule else {
-                            continue;
-                        };
-                        BillingContext {
-                            config,
-                            member,
-                            index,
-                            day: &mut day,
-                            invoice: &mut invoice,
-                            missing_rate: &mut missing_rate,
+                        if let Some((rule_index, rule)) = rule {
+                            biller.bill_day(&mut day, entry, rule_index, rule, false);
                         }
-                        .bill(entry, rule_index, rule, false);
                     }
                 }
             }
@@ -282,15 +279,7 @@ pub fn evaluate(
             breakdown.locations.add_day(date, &day_locations);
         }
 
-        if let Some((first, last, hours)) = missing_rate.range() {
-            warnings.push(format!(
-                "{}: kein Stundensatz für {} billable Stunden zwischen {} und {} – nicht in EUR enthalten.",
-                member.name,
-                fmt_hours(hours),
-                fmt_date(first),
-                fmt_date(last)
-            ));
-        }
+        warnings.extend(missing_rate.warning(&member.name));
 
         team.add_all(&breakdown);
         persons.push(PersonResult {
@@ -298,6 +287,47 @@ pub fn evaluate(
             assignments: member.assignments.clone(),
             periods: breakdown.finish(&location_names),
         });
+    }
+
+    // Rolle „darf buchen“: keine Zeiterfassung, nur Abrechnung nach Regel
+    // (Kost2Art) mit dem eigenen Stundensatz.
+    guest_entries.sort_by_key(|(guest, entry)| (entry.date, *guest));
+    let mut guest_missing_rate: Vec<Missing> =
+        config.guests.iter().map(|_| Missing::default()).collect();
+    let mut guest_bookings = Vec::with_capacity(guest_entries.len());
+    for (g, entry) in guest_entries {
+        let guest = &config.guests[g];
+        let rule = billing::matching_rule(&config.billing_rules, entry, filter);
+        let mut booking = GuestBooking {
+            person: guest.name.clone(),
+            date: entry.date,
+            element: entry.element.clone(),
+            kost2art: entry.kost2art.clone(),
+            hours: round2(entry.hours),
+            rule: rule.map(|(_, r)| r.name.clone()),
+            invoiced: false,
+            billed_hours: 0.0,
+            net: 0.0,
+        };
+        if let Some((rule_index, rule)) = rule {
+            let mut biller = Biller {
+                config,
+                person: &guest.name,
+                rates: &guest.rates,
+                index: config.team.len() + g,
+                invoice: &mut invoice,
+                missing_rate: &mut guest_missing_rate[g],
+            };
+            if let Some((billed, net)) = biller.invoice(entry, rule_index, rule, false) {
+                booking.invoiced = true;
+                booking.billed_hours = round2(billed);
+                booking.net = round2(net);
+            }
+        }
+        guest_bookings.push(booking);
+    }
+    for (guest, missing_rate) in config.guests.iter().zip(&guest_missing_rate) {
+        warnings.extend(missing_rate.warning(&guest.name));
     }
 
     Evaluation {
@@ -314,37 +344,36 @@ pub fn evaluate(
             outside.sort_by(|a, b| a.date.cmp(&b.date).then_with(|| a.person.cmp(&b.person)));
             outside
         },
+        guest_bookings,
     }
 }
 
-/// Bündelt, was die Abrechnung einer Buchung verändert.
-struct BillingContext<'a, 'b> {
+/// Stellt Buchungen einer Person nach ihrer Abrechnungsregel in Rechnung.
+struct Biller<'a, 'b> {
     config: &'a ProjectConfig,
-    member: &'a TeamMember,
+    person: &'a str,
+    rates: &'a [RatePeriod],
+    /// Reihenfolge in der Rechnung (Team, danach „darf buchen“).
     index: usize,
-    day: &'b mut Acc,
     invoice: &'b mut InvoiceBuilder,
     missing_rate: &'b mut Missing,
 }
 
-impl BillingContext<'_, '_> {
-    /// Rechnet eine Buchung nach ihrer Regel ab. Liefert (abgerechnete
-    /// Stunden, Netto), wenn die Regel abgerechnet wird.
-    fn bill(
+impl Biller<'_, '_> {
+    /// Rechnungsposition für eine Buchung. Liefert (abgerechnete Stunden,
+    /// Netto), wenn die Regel in Rechnung gestellt wird.
+    fn invoice(
         &mut self,
         entry: &TimeEntry,
         rule_index: usize,
-        rule: &crate::models::config::BillingRule,
+        rule: &BillingRule,
         outside: bool,
     ) -> Option<(f64, f64)> {
-        let billed = billing::billed_hours(entry, rule);
-        if rule.billable_hours {
-            self.day.bill_h += billed;
-        }
         if !rule.invoice {
             return None;
         }
-        let base_rate = billing::rate_for(self.member, entry.date);
+        let billed = billing::billed_hours(entry, rule);
+        let base_rate = billing::rate_for(self.rates, entry.date);
         let net = match base_rate {
             Some(rate) => billed * rate * rule.rate_percent / 100.0,
             None => {
@@ -352,11 +381,10 @@ impl BillingContext<'_, '_> {
                 0.0
             }
         };
-        self.day.bill_eur += net;
         self.invoice.add(InvoiceItem {
             month: month_key(entry.date),
             person_index: self.index,
-            person: &self.member.name,
+            person: self.person,
             rule_index,
             service: &rule.name,
             base_rate,
@@ -366,6 +394,25 @@ impl BillingContext<'_, '_> {
             outside,
         });
         Some((billed, net))
+    }
+
+    /// Wie `invoice`, schreibt zusätzlich Billable (h) und (€) des Tages fort.
+    fn bill_day(
+        &mut self,
+        day: &mut Acc,
+        entry: &TimeEntry,
+        rule_index: usize,
+        rule: &BillingRule,
+        outside: bool,
+    ) -> Option<(f64, f64)> {
+        if rule.billable_hours {
+            day.bill_h += billing::billed_hours(entry, rule);
+        }
+        let result = self.invoice(entry, rule_index, rule, outside);
+        if let Some((_, net)) = result {
+            day.bill_eur += net;
+        }
+        result
     }
 }
 
@@ -599,6 +646,16 @@ impl Missing {
 
     fn range(&self) -> Option<(NaiveDate, NaiveDate, f64)> {
         Some((self.first?, self.last?, self.hours))
+    }
+
+    fn warning(&self, person: &str) -> Option<String> {
+        let (first, last, hours) = self.range()?;
+        Some(format!(
+            "{person}: kein Stundensatz für {} billable Stunden zwischen {} und {} – nicht in EUR enthalten.",
+            fmt_hours(hours),
+            fmt_date(first),
+            fmt_date(last)
+        ))
     }
 }
 

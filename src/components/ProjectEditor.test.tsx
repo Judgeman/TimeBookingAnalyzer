@@ -68,6 +68,10 @@ describe("ProjectEditor", () => {
     expect(screen.getByDisplayValue("Erika Mustermann")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Schulung")).toBeInTheDocument();
     expect(screen.getByDisplayValue("6")).toBeInTheDocument(); // Ausnahme Max: 6 h/Tag
+    // Rolle „darf buchen“ in eigenem Abschnitt
+    const guests = screen.getByText("Darf buchen (ohne Zeiterfassung)").closest("fieldset")!;
+    expect(within(guests).getByDisplayValue("Karl Beispiel")).toBeInTheDocument();
+    expect(within(guests).getByDisplayValue("120")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Projekt löschen" }));
     await user.click(screen.getByRole("button", { name: "Nein" }));

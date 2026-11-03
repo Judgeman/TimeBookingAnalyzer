@@ -57,6 +57,18 @@
       ]
     }
   ],
+  "guests": [
+    {
+      "name": "Karl Beispiel",
+      "rates": [
+        {
+          "from": "2026-01-01",
+          "to": null,
+          "rate": 120
+        }
+      ]
+    }
+  ],
   "working_hours": [
     {
       "from": "2026-01-01",

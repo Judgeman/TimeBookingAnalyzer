@@ -11,8 +11,8 @@ describe("ProjectSelector", () => {
     render(
       <ProjectSelector
         projects={[
-          { id: "a", name: "Musterkunde GmbH / Lager-App", element_filter: "P100 Lager-App", team_size: 2 },
-          { id: "b", name: "Zweites Projekt", element_filter: "", team_size: 1 },
+          { id: "a", name: "Musterkunde GmbH / Lager-App", element_filter: "P100 Lager-App", team_size: 2, guest_count: 1 },
+          { id: "b", name: "Zweites Projekt", element_filter: "", team_size: 1, guest_count: 0 },
         ]}
         activeId="a"
         loading={false}
@@ -20,7 +20,10 @@ describe("ProjectSelector", () => {
         onCreate={onCreate}
       />,
     );
-    expect(screen.getByText("P100 Lager-App · 2 Personen")).toBeInTheDocument();
+    expect(screen.getByText("P100 Lager-App · 2 Personen + 1 darf buchen")).toHaveAttribute(
+      "title",
+      "P100 Lager-App · 2 Personen + 1 darf buchen",
+    );
     expect(screen.getByText("kein Element-Filter · 1 Person")).toBeInTheDocument();
     expect(screen.getByText("Musterkunde GmbH / Lager-App").closest("button")).toHaveAttribute("aria-current", "true");
 
