@@ -17,6 +17,7 @@ import {
   isoWeekKey,
   isoWeekRange,
   monthRange,
+  formatDateTime,
   shortPath,
   todayIso,
 } from "./format";
@@ -102,6 +103,11 @@ describe("Sonstiges", () => {
     expect(fileNameOf("C:\\Exporte\\export.xlsx")).toBe("export.xlsx");
     expect(fileNameOf("/home/u/export.xlsx")).toBe("export.xlsx");
     expect(fileNameOf("export.xlsx")).toBe("export.xlsx");
+  });
+
+  it("formatiert Zeitpunkte", () => {
+    expect(formatDateTime("2026-11-03T11:20:15")).toBe("03.11.2026, 11:20");
+    expect(formatDateTime("unbekannt")).toBe("unbekannt");
   });
 
   it("kürzt Ordnerpfade auf die letzten beiden Teile", () => {

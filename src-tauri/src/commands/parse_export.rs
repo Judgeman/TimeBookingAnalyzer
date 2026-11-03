@@ -124,6 +124,25 @@ mod tests {
         );
     }
 
+    /// Die gemerkte Kopie im Ordner `Import` ergibt dieselbe Auswertung
+    /// (Dateiname → „Stand“ des Exports bleibt erhalten).
+    #[test]
+    fn remembered_copy_evaluates_like_the_original() {
+        use crate::storage::imports::ImportStore;
+        let json = std::fs::read_to_string(sample("beispiel-projekt.json")).unwrap();
+        let config: ProjectConfig = serde_json::from_str(&json).unwrap();
+        let original = sample("Beispiel-Export_2026-10-31.xlsx");
+        let tmp = tempfile::tempdir().unwrap();
+        let imports = ImportStore::new(tmp.path().join("Import"));
+        let copy = imports.remember(&config.id, &original).unwrap();
+
+        let a = parse_export_file(&original, &config, None).unwrap();
+        let b = parse_export_file(Path::new(&copy.path), &config, None).unwrap();
+        assert_eq!(b.export_date_source, Some(ExportDateSource::FileName));
+        assert_eq!((b.file_name, b.cutoff_date), (a.file_name, a.cutoff_date));
+        assert_eq!(b.invoice.total, a.invoice.total);
+    }
+
     /// Hält die fiktiven Beispieldaten in `sample-data/` und den Parser synchron.
     #[test]
     fn parses_bundled_sample_export() {

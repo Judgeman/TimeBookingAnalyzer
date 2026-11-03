@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { open } from "@tauri-apps/plugin-dialog";
-import { formatDate } from "../lib/format";
+import { formatDate, formatDateTime } from "../lib/format";
+import type { LastImport } from "../types/results";
 
 type HoverState = "none" | "valid" | "invalid";
 
@@ -12,6 +13,8 @@ interface Props {
   busy: boolean;
   /** Zuletzt eingelesene Datei (für die Anzeige). */
   current: { fileName: string; exportDate: string | null } | null;
+  /** Gemerkte letzte Import-Datei des Projekts (Kopie im Ordner „Import“). */
+  lastImport?: LastImport | null;
   onFile: (path: string) => void;
   onError: (message: string) => void;
 }
@@ -25,7 +28,7 @@ const isXlsx = (path: string) => path.toLowerCase().endsWith(".xlsx");
  * auf die Drag-Drop-Events des Webviews. Diese gelten für das ganze Fenster –
  * die Datei kann also überall abgelegt werden, der Bereich zeigt den Zustand an.
  */
-export function DropZone({ disabled, busy, current, onFile, onError }: Props) {
+export function DropZone({ disabled, busy, current, lastImport, onFile, onError }: Props) {
   const [hover, setHover] = useState<HoverState>("none");
 
   // Callbacks in Refs halten, damit der Listener nur einmal registriert wird.
@@ -130,6 +133,23 @@ export function DropZone({ disabled, busy, current, onFile, onError }: Props) {
         <p className="mt-4 text-sm text-slate-600">
           <span className="font-medium text-slate-800">{current.fileName}</span>
           {" · "}Stand {formatDate(current.exportDate)}
+        </p>
+      )}
+      {lastImport && (
+        <p
+          className="mt-1 text-xs text-slate-500"
+          title={[
+            `Kopie: ${lastImport.path}`,
+            lastImport.original_path && `Original: ${lastImport.original_path}`,
+          ]
+            .filter(Boolean)
+            .join("\n")}
+        >
+          {current?.fileName === lastImport.file_name
+            ? "Als letzter Import gemerkt"
+            : `Letzter Import: ${lastImport.file_name}`}
+          {lastImport.imported_at && ` (${formatDateTime(lastImport.imported_at)})`} – wird beim
+          nächsten Öffnen automatisch geladen.
         </p>
       )}
     </section>

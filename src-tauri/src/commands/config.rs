@@ -3,7 +3,8 @@
 use tauri::State;
 
 use crate::models::config::ProjectConfig;
-use crate::models::results::{ProjectFolder, ProjectSummary};
+use crate::models::results::{LastImport, ProjectFolder, ProjectSummary};
+use crate::storage::imports::ImportStore;
 use crate::storage::projects::ProjectStore;
 
 #[tauri::command]
@@ -28,9 +29,15 @@ pub async fn save_project(
     store.save(config)
 }
 
+/// Löscht das Projekt samt gemerkter Import-Datei.
 #[tauri::command]
-pub async fn delete_project(id: String, store: State<'_, ProjectStore>) -> Result<(), String> {
-    store.delete(&id)
+pub async fn delete_project(
+    id: String,
+    store: State<'_, ProjectStore>,
+    imports: State<'_, ImportStore>,
+) -> Result<(), String> {
+    store.delete(&id)?;
+    imports.forget(&id)
 }
 
 /// Projektordner dieser Instanz (neben der Programmdatei).
@@ -43,4 +50,23 @@ pub async fn project_folder(store: State<'_, ProjectStore>) -> Result<ProjectFol
 #[tauri::command]
 pub async fn import_legacy_projects(store: State<'_, ProjectStore>) -> Result<usize, String> {
     store.import_legacy()
+}
+
+/// Zuletzt eingelesene Export-Datei des Projekts (Kopie im Ordner `Import`).
+#[tauri::command]
+pub async fn last_import(
+    project_id: String,
+    imports: State<'_, ImportStore>,
+) -> Result<Option<LastImport>, String> {
+    imports.last(&project_id)
+}
+
+/// Merkt sich die Datei als letzten Import des Projekts (legt eine Kopie ab).
+#[tauri::command]
+pub async fn remember_import(
+    project_id: String,
+    file_path: String,
+    imports: State<'_, ImportStore>,
+) -> Result<LastImport, String> {
+    imports.remember(&project_id, std::path::Path::new(&file_path))
 }

@@ -1,6 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { ProjectConfig } from "../types/config";
-import type { AuswertungResult, ProjectFolder, ProjectSummary } from "../types/results";
+import type {
+  AuswertungResult,
+  LastImport,
+  ProjectFolder,
+  ProjectSummary,
+} from "../types/results";
 
 // Tauri wandelt camelCase-Argumente automatisch in snake_case (Rust) um.
 export const api = {
@@ -12,6 +17,11 @@ export const api = {
   projectFolder: () => invoke<ProjectFolder>("project_folder"),
   /** Kopiert Projekte aus dem früheren Ablageort; liefert die Anzahl. */
   importLegacyProjects: () => invoke<number>("import_legacy_projects"),
+  /** Zuletzt eingelesene Export-Datei des Projekts (Kopie im Ordner „Import“). */
+  lastImport: (projectId: string) => invoke<LastImport | null>("last_import", { projectId }),
+  /** Legt eine Kopie als letzten Import des Projekts ab. */
+  rememberImport: (projectId: string, filePath: string) =>
+    invoke<LastImport>("remember_import", { projectId, filePath }),
   /** `cutoffDate` = Stichtag (ISO-Datum); `null` → Stand des Exports. */
   parseExport: (filePath: string, projectId: string, cutoffDate: string | null) =>
     invoke<AuswertungResult>("parse_export", { filePath, projectId, cutoffDate }),

@@ -13,6 +13,9 @@ export const env = {
 /** Projektordner der App: `projects` neben der Programmdatei. */
 export const projectsDir = () => join(dirname(env.app), "projects");
 
+/** Letzte Import-Dateien je Projekt: `Import` neben der Programmdatei. */
+export const importDir = () => join(dirname(env.app), "Import");
+
 /** Früherer Ablageort im App-Datenverzeichnis (Linux: XDG_DATA_HOME, Windows: APPDATA). */
 export const legacyDir = () => join(env.dataDir, "de.judgeman.billingtracker", "projects");
 
@@ -21,6 +24,7 @@ export const legacyDir = () => join(env.dataDir, "de.judgeman.billingtracker", "
  * (`withSample` im Projektordner, `legacySample` am früheren Ablageort).
  */
 export function resetProjects({ withSample, legacySample = false }) {
+  rmSync(importDir(), { recursive: true, force: true });
   for (const dir of [projectsDir(), legacyDir()]) {
     rmSync(dir, { recursive: true, force: true });
     mkdirSync(dir, { recursive: true });
@@ -34,9 +38,14 @@ export function resetProjects({ withSample, legacySample = false }) {
  * Verbindungsabbruch des Treibers wird der Test einmal wiederholt; bei einem
  * Fehlschlag landet ein Screenshot in e2e/artifacts.
  */
-export async function withApp(name, { withSample = true, legacySample = false } = {}, body) {
+export async function withApp(
+  name,
+  { withSample = true, legacySample = false, keepData = false } = {},
+  body,
+) {
   for (let attempt = 1; ; attempt++) {
-    resetProjects({ withSample, legacySample });
+    // keepData: Projekte und Importe vom vorigen Start behalten (Neustart der App)
+    if (!keepData) resetProjects({ withSample, legacySample });
     let session;
     try {
       session = await AppSession.start(env.app);

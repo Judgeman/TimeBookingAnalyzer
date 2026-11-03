@@ -28,6 +28,17 @@ export interface ProjectFolder {
   legacy_count: number;
 }
 
+/** Zuletzt eingelesene Export-Datei eines Projekts (Kopie im Ordner „Import“). */
+export interface LastImport {
+  /** Pfad der Kopie – wird beim nächsten Öffnen ausgewertet. */
+  path: string;
+  file_name: string;
+  /** Ursprünglicher Pfad (fehlt bei von Hand abgelegten Dateien). */
+  original_path: string | null;
+  /** Zeitpunkt der Übernahme (Ortszeit, "2026-11-03T11:20:00"). */
+  imported_at: string | null;
+}
+
 /** Übersicht über die eingelesenen Rohdaten (Teil der Auswertung). */
 export interface ParsedExport {
   project_id: string;

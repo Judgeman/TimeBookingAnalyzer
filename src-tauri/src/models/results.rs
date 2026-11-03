@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use chrono::NaiveDate;
+use chrono::{NaiveDate, NaiveDateTime};
 use serde::Serialize;
 
 use super::config::AssignmentPeriod;
@@ -27,6 +27,18 @@ pub struct ProjectFolder {
     pub dir: String,
     /// Projekte am früheren Ablageort (App-Datenverzeichnis), die hier fehlen.
     pub legacy_count: usize,
+}
+
+/// Zuletzt eingelesene Export-Datei eines Projekts (Kopie im Ordner `Import`).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct LastImport {
+    /// Pfad der Kopie – wird beim nächsten Öffnen ausgewertet.
+    pub path: String,
+    pub file_name: String,
+    /// Ursprünglicher Pfad beim Einlesen (fehlt bei von Hand abgelegten Dateien).
+    pub original_path: Option<String>,
+    /// Zeitpunkt der Übernahme (Ortszeit).
+    pub imported_at: Option<NaiveDateTime>,
 }
 
 /// Übersicht über die eingelesenen Rohdaten (Teil von `AuswertungResult`).

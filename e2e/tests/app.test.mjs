@@ -1,10 +1,10 @@
 // E2E-Tests der Desktop-App mit den fiktiven Beispieldaten (sample-data/).
 // Start: npm run build:e2e && npm run test:e2e   (Details: e2e/README.md)
 import assert from "node:assert/strict";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, sep } from "node:path";
 import { test } from "node:test";
-import { env, legacyDir, projectsDir, withApp } from "../helpers.mjs";
+import { env, importDir, legacyDir, projectsDir, withApp } from "../helpers.mjs";
 
 async function loadSample(app) {
   await app.waitForText("Musterkunde GmbH / Lager-App");
@@ -203,6 +203,31 @@ test("Darf buchen: Buchungen ohne Zeiterfassung, abgerechnet nach Kost2Art", () 
     await app.tab("Rechnung");
     await app.waitForText("320.165,00 €"); // + 3 h × 100 € (Code-Review am 01.10.)
   }));
+
+test("Letzte Import-Datei: Kopie im Ordner „Import“, beim Neustart automatisch geladen", async () => {
+  const copy = join(importDir(), "beispiel-lager-app", "Beispiel-Export_2026-10-31.xlsx");
+  await withApp("import-merken", {}, async (app) => {
+    await loadSample(app);
+    await app.waitForText("Als letzter Import gemerkt");
+    assert.ok(existsSync(copy));
+    const meta = JSON.parse(readFileSync(join(importDir(), "beispiel-lager-app", "import.json"), "utf8"));
+    assert.equal(meta.original_path, env.sample);
+  });
+  // Neustart ohne Drop: die Kopie wird ausgewertet
+  await withApp("import-neustart", { keepData: true }, async (app) => {
+    await app.waitForText("Auswertung 01.01.");
+    await app.waitForText("Als letzter Import gemerkt");
+    await app.click("button", "Stand des Exports");
+    await app.waitForText("Auswertung 01.01.2026 – 31.10.2026");
+    assert.ok((await app.text()).includes("Stand des Exports: 31.10.2026 (aus Dateiname)"));
+    // Projekt löschen entfernt auch die Kopie
+    await app.click("button", "Projekt bearbeiten");
+    await app.click("button", "Projekt löschen");
+    await app.click("button", "Ja, löschen");
+    await app.waitForText("Noch keine Projekte angelegt.");
+    assert.ok(!existsSync(copy));
+  });
+});
 
 test("Fehlende Buchungen: Schwelle im Projekt einstellbar", () =>
   withApp("schwelle", {}, async (app) => {

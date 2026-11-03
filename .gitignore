@@ -27,5 +27,6 @@ dist-ssr
 coverage
 e2e/artifacts
 
-# Projektordner der App (echte Konfigurationen – nie committen)
+# Projekt- und Importordner der App (echte Konfigurationen/Exporte – nie committen)
 projects/
+Import/

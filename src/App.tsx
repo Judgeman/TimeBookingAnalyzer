@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { DropZone } from "./components/DropZone";
 import { ProjectEditor } from "./components/ProjectEditor";
@@ -7,13 +7,24 @@ import { ResultsView } from "./components/results/ResultsView";
 import { api, errorMessage } from "./lib/api";
 import { todayIso } from "./lib/format";
 import { newProject, type ProjectConfig } from "./types/config";
-import type { AuswertungResult, ProjectFolder, ProjectSummary } from "./types/results";
+import type {
+  AuswertungResult,
+  LastImport,
+  ProjectFolder,
+  ProjectSummary,
+} from "./types/results";
 
 const ACTIVE_PROJECT_KEY = "billing-tracker.active-project";
 
-/** Datei-Anfrage mit Zähler, damit dieselbe Datei erneut eingelesen werden kann. */
+/**
+ * Datei-Anfrage für ein Projekt. `seq` macht jede Anfrage eindeutig (dieselbe
+ * Datei kann erneut eingelesen werden); `remember` = nach erfolgreichem
+ * Einlesen als letzten Import des Projekts merken (Kopie im Ordner „Import“).
+ */
 interface FileRequest {
   path: string;
+  projectId: string;
+  remember: boolean;
   seq: number;
 }
 
@@ -25,6 +36,11 @@ export default function App() {
   const [activeProject, setActiveProject] = useState<ProjectConfig | null>(null);
   const [editing, setEditing] = useState<ProjectConfig | null>(null);
   const [file, setFile] = useState<FileRequest | null>(null);
+  const [lastImport, setLastImport] = useState<LastImport | null>(null);
+  const fileSeq = useRef(0);
+  const remembered = useRef(new Set<number>());
+  const activeIdRef = useRef(activeId);
+  activeIdRef.current = activeId;
   /** Stichtag der Auswertung – beim Programmstart heute. */
   const [cutoff, setCutoff] = useState<string>(todayIso);
   const [result, setResult] = useState<AuswertungResult | null>(null);
@@ -74,19 +90,47 @@ export default function App() {
     };
   }, [activeId]);
 
-  // Export auswerten – nach jedem Drop, bei Projektwechsel und neuem Stichtag.
+  // Zuletzt eingelesene Datei des Projekts laden (Kopie im Ordner „Import“).
   useEffect(() => {
-    if (!file || !activeProject) {
+    setFile(null);
+    setLastImport(null);
+    if (!activeId) return;
+    let stale = false;
+    api
+      .lastImport(activeId)
+      .then((info) => {
+        if (stale || !info) return;
+        setLastImport(info);
+        setFile({ path: info.path, projectId: activeId, remember: false, seq: ++fileSeq.current });
+      })
+      .catch((e) => !stale && setError(errorMessage(e)));
+    return () => {
+      stale = true;
+    };
+  }, [activeId]);
+
+  // Export auswerten – nach jedem Drop, beim Öffnen eines Projekts, nach dem
+  // Speichern der Konfiguration und bei neuem Stichtag.
+  useEffect(() => {
+    if (!file || !activeProject || file.projectId !== activeProject.id) {
       setResult(null);
       setBusy(false);
       return;
     }
     let stale = false;
+    const request = file;
     setBusy(true);
     setError(null);
     api
-      .parseExport(file.path, activeProject.id, cutoff)
-      .then((parsed) => !stale && setResult(parsed))
+      .parseExport(request.path, activeProject.id, cutoff)
+      .then((parsed) => {
+        if (stale) return;
+        setResult(parsed);
+        if (request.remember && !remembered.current.has(request.seq)) {
+          remembered.current.add(request.seq);
+          rememberImport(request);
+        }
+      })
       .catch((e) => {
         if (stale) return;
         setResult(null);
@@ -97,6 +141,16 @@ export default function App() {
       stale = true;
     };
   }, [file, activeProject, cutoff]);
+
+  /** Eingelesene Datei als letzten Import des Projekts merken. */
+  function rememberImport(request: FileRequest) {
+    api
+      .rememberImport(request.projectId, request.path)
+      .then((info) => activeIdRef.current === request.projectId && setLastImport(info))
+      .catch((e) =>
+        setError(`Ausgewertet, aber nicht als letzter Import gemerkt: ${errorMessage(e)}`),
+      );
+  }
 
   function selectProject(id: string) {
     setEditing(null);
@@ -211,7 +265,11 @@ export default function App() {
                 current={
                   result ? { fileName: result.file_name, exportDate: result.export_date } : null
                 }
-                onFile={(path) => setFile((prev) => ({ path, seq: (prev?.seq ?? 0) + 1 }))}
+                lastImport={lastImport}
+                onFile={(path) =>
+                  activeId &&
+                  setFile({ path, projectId: activeId, remember: true, seq: ++fileSeq.current })
+                }
                 onError={setError}
               />
               {result && activeProject && (

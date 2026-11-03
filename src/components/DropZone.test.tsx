@@ -81,4 +81,34 @@ describe("DropZone", () => {
     expect(openDialog).toHaveBeenCalledWith(expect.objectContaining({ multiple: false }));
     expect(onFile).toHaveBeenCalledWith("C:\\Exporte\\export_2026-10-31.xlsx");
   });
+
+  it("zeigt die gemerkte letzte Import-Datei", () => {
+    const lastImport = {
+      path: "C:\\Tools\\Kunde-A\\Import\\p1\\export_2026-10-31.xlsx",
+      file_name: "export_2026-10-31.xlsx",
+      original_path: "C:\\Downloads\\export_2026-10-31.xlsx",
+      imported_at: "2026-11-03T11:20:15",
+    };
+    const props = { disabled: false, busy: false, onFile: vi.fn(), onError: vi.fn() };
+    const { rerender } = render(
+      <DropZone
+        {...props}
+        current={{ fileName: "export_2026-10-31.xlsx", exportDate: "2026-10-31" }}
+        lastImport={lastImport}
+      />,
+    );
+    const note = screen.getByText(/Als letzter Import gemerkt \(03\.11\.2026, 11:20\)/);
+    expect(note).toHaveTextContent("wird beim nächsten Öffnen automatisch geladen");
+    expect(note.title).toBe(
+      "Kopie: C:\\Tools\\Kunde-A\\Import\\p1\\export_2026-10-31.xlsx\nOriginal: C:\\Downloads\\export_2026-10-31.xlsx",
+    );
+
+    // noch nicht (oder nicht mehr) ausgewertet, von Hand abgelegt
+    rerender(
+      <DropZone {...props} current={null} lastImport={{ ...lastImport, original_path: null, imported_at: null }} />,
+    );
+    const manual = screen.getByText(/Letzter Import: export_2026-10-31\.xlsx/);
+    expect(manual.title).toBe("Kopie: C:\\Tools\\Kunde-A\\Import\\p1\\export_2026-10-31.xlsx");
+    expect(manual).not.toHaveTextContent("(");
+  });
 });

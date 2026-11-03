@@ -10,13 +10,6 @@ use std::path::{Path, PathBuf};
 use crate::models::config::ProjectConfig;
 use crate::models::results::{ProjectFolder, ProjectSummary};
 
-/// Projektordner neben der Programmdatei (`<Ordner der Exe>/projects`).
-pub fn projects_dir_beside(exe: &Path) -> PathBuf {
-    exe.parent()
-        .unwrap_or_else(|| Path::new("."))
-        .join("projects")
-}
-
 pub struct ProjectStore {
     dir: PathBuf,
     /// Früherer Ablageort, aus dem Projekte übernommen werden können.
@@ -178,7 +171,7 @@ impl ProjectStore {
 
 /// IDs werden als Dateinamen verwendet – nur unbedenkliche Zeichen zulassen
 /// (verhindert u. a. Pfade wie `../../etc/passwd`).
-fn validate_id(id: &str) -> Result<(), String> {
+pub(crate) fn validate_id(id: &str) -> Result<(), String> {
     let valid = !id.is_empty()
         && id.len() <= 64
         && id
@@ -242,17 +235,18 @@ mod tests {
     }
 
     #[test]
-    fn projects_live_beside_the_executable() {
+    fn folders_live_beside_the_executable() {
+        use crate::storage::beside_exe;
         let exe = Path::new("tools")
             .join("BillingTracker")
             .join("billing-tracker.exe");
         assert_eq!(
-            projects_dir_beside(&exe),
+            beside_exe(&exe, "projects"),
             Path::new("tools").join("BillingTracker").join("projects")
         );
         assert_eq!(
-            projects_dir_beside(Path::new("")),
-            Path::new(".").join("projects")
+            beside_exe(Path::new(""), "Import"),
+            Path::new(".").join("Import")
         );
     }
 

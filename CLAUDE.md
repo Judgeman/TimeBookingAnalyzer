@@ -75,6 +75,7 @@ src-tauri/
       summary.rs            # Übersicht (Personen, Team-Abgleich, Vorschau)
     storage/
       projects.rs           # ProjectStore: <Ordner der Exe>/projects/<id>.json, Übernahme alter Projekte
+      imports.rs            # ImportStore: letzte Export-Datei je Projekt (<Ordner der Exe>/Import/<id>/)
     calculation/
       mod.rs                # evaluate(): Tageswerte → Jahr/Monat/KW/Monat×KW, Hinweise
       gearb.rs              # Arbeitszeit-Berechnung, Urlaub/Krank-Erkennung
@@ -375,6 +376,14 @@ async fn project_folder() -> Result<ProjectFolder, String>   // { dir, legacy_co
 
 #[tauri::command]
 async fn import_legacy_projects() -> Result<usize, String>
+
+// Letzte Import-Datei je Projekt (Kopie im Ordner „Import“ neben der Exe)
+#[tauri::command]
+async fn last_import(project_id: String) -> Result<Option<LastImport>, String>
+
+#[tauri::command]
+async fn remember_import(project_id: String, file_path: String) -> Result<LastImport, String>
+// LastImport { path (Kopie), file_name, original_path, imported_at }
 ```
 
 ---
@@ -479,6 +488,11 @@ interface PeriodData {
    mehrere Instanzen laufen parallel. Früherer Ort `app_data_dir()/projects/`: fehlende Projekte
    lassen sich in einer leeren Instanz per Button übernehmen (`import_legacy_projects`, kopiert).
    Im Dev-Modus liegt der Ordner unter `src-tauri/target/debug/projects/` (nicht im Repository).
+   **Letzte Import-Datei** je Projekt: nach erfolgreichem Einlesen (Drop/Dateidialog) Kopie
+   nach `Import/<id>/<Original-Dateiname>` neben der Exe (Dateiname + Änderungsdatum bleiben →
+   „Stand“ des Exports), dazu `import.json` (Originalpfad, Zeitpunkt); ältere Kopie wird
+   ersetzt. Beim Start/Projektwechsel wird die Kopie automatisch ausgewertet; Projekt ohne
+   gemerkte Datei → leere Drop-Zone. Projekt löschen entfernt auch `Import/<id>/`.
 8. **Drag & Drop**: HTML5-Drop liefert in Tauri keine Pfade → `getCurrentWebview().onDragDropEvent()` verwenden
 9. **IPC-Argumente**: Tauri mappt camelCase (JS) auf snake_case (Rust): `invoke("parse_export", { filePath, projectId })`
 

@@ -17,6 +17,7 @@ konfigurierbaren Projekt-Regeln. Details zu Regeln und Datenmodell: [CLAUDE.md](
 - [x] Abrechnungsregeln (billable, Mult, Satz-Anteil, USt.), Arbeitszeit-Ausnahmen je Person
 - [x] Einsatzzeitraum je Person; Projektbuchungen außerhalb des Teams deutlich markiert
 - [x] Rolle „darf buchen“ (ohne Zeiterfassung, abgerechnet nach Kost2Art)
+- [x] Letzte Export-Datei je Projekt gemerkt (Kopie im Ordner `Import`), beim Öffnen automatisch ausgewertet
 - [x] Projekt-Editor mit Formularen für Team, Arbeitszeiten, Regeln, Feiertage
 - [x] Tests: Rust-Unit-Tests, Vitest (Unit/Komponenten/Integration), E2E, Vertragstest, CI
 - [ ] Spalten-Mapping per Drag & Drop auf eine Beispielzeile
@@ -76,4 +77,8 @@ Frühere Versionen speicherten unter `<App-Datenverzeichnis>/projects/` (Windows
 `%APPDATA%\de.judgeman.billingtracker\projects\`). Ist der Projektordner einer Instanz
 leer, bietet die App an, diese Projekte zu übernehmen (sie werden kopiert).
 
-Im Dev-Modus (`npm run tauri dev`) liegt der Ordner unter `src-tauri/target/debug/projects/`.
+Die zuletzt eingelesene Export-Datei jedes Projekts legt die App als Kopie unter
+`Import/<Projekt-ID>/` neben der Programmdatei ab (nur die neueste) und wertet sie beim
+nächsten Öffnen des Projekts automatisch aus.
+
+Im Dev-Modus (`npm run tauri dev`) liegen die Ordner unter `src-tauri/target/debug/`.

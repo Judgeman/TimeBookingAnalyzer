@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import sample from "../sample-data/beispiel-projekt.json";
 import { sampleResult } from "./test/fixture";
 import type { ProjectConfig } from "./types/config";
+import type { LastImport } from "./types/results";
 
 // --- Nachgebildete Tauri-Schnittstelle ------------------------------------
 type DragHandler = (event: { payload: { type: string; paths?: string[] } }) => void;
@@ -13,6 +14,8 @@ let projects: ProjectConfig[] = [];
 /** Projekte am früheren Ablageort (App-Datenverzeichnis). */
 let legacy: ProjectConfig[] = [];
 const missingLegacy = () => legacy.filter((l) => !projects.some((p) => p.id === l.id));
+/** Gemerkte letzte Import-Dateien je Projekt (Ordner „Import“). */
+let imports: Record<string, LastImport> = {};
 const invoke = vi.fn();
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -58,6 +61,19 @@ function backend(command: string, args: Record<string, unknown> = {}) {
       projects = [...projects, ...structuredClone(imported)];
       return imported.length;
     }
+    case "last_import":
+      return imports[args.projectId as string] ?? null;
+    case "remember_import": {
+      const projectId = args.projectId as string;
+      const fileName = String(args.filePath).split(/[\\/]/).pop()!;
+      imports[projectId] = {
+        path: `C:\\Tools\\Kunde-A\\Import\\${projectId}\\${fileName}`,
+        file_name: fileName,
+        original_path: args.filePath as string,
+        imported_at: "2026-11-01T09:00:00",
+      };
+      return imports[projectId];
+    }
     case "get_project":
       return structuredClone(projects.find((p) => p.id === args.id)!);
     case "save_project": {
@@ -92,6 +108,7 @@ describe("App (Integration mit nachgebildetem Backend)", () => {
     dragHandler = null;
     projects = [sampleConfig()];
     legacy = [];
+    imports = {};
     localStorage.clear();
     invoke.mockReset().mockImplementation(async (command: string, args?: Record<string, unknown>) =>
       backend(command, args),
@@ -196,6 +213,72 @@ describe("App (Integration mit nachgebildetem Backend)", () => {
     });
     await user.click(await screen.findByRole("button", { name: /aus früherer Version übernehmen/ }));
     expect(await screen.findByText(/Zugriff verweigert/)).toBeInTheDocument();
+  });
+
+  it("merkt sich die eingelesene Datei je Projekt und lädt sie beim nächsten Start", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<App />);
+    await screen.findByRole("heading", { name: "Musterkunde GmbH / Lager-App" });
+    expect(calls("parse_export")).toHaveLength(0); // noch nichts gemerkt
+
+    await drop("/daten/Beispiel-Export_2026-10-31.xlsx");
+    expect(await screen.findByText(/Als letzter Import gemerkt \(01\.11\.2026, 09:00\)/)).toBeInTheDocument();
+    expect(calls("remember_import")[0][1]).toEqual({
+      projectId: "beispiel-lager-app",
+      filePath: "/daten/Beispiel-Export_2026-10-31.xlsx",
+    });
+    // neuer Stichtag: erneut auswerten, aber nicht erneut kopieren
+    await user.click(screen.getByRole("button", { name: "Stand des Exports" }));
+    await screen.findByText("Auswertung 01.01.2026 – 31.10.2026");
+    expect(calls("remember_import")).toHaveLength(1);
+    unmount();
+
+    // Neustart: die Kopie wird ohne Drop ausgewertet
+    invoke.mockClear();
+    render(<App />);
+    expect(await screen.findByText("Auswertung 01.01.2026 – 01.11.2026")).toBeInTheDocument();
+    expect(calls("parse_export")[0][1]).toMatchObject({
+      filePath: "C:\\Tools\\Kunde-A\\Import\\beispiel-lager-app\\Beispiel-Export_2026-10-31.xlsx",
+      projectId: "beispiel-lager-app",
+    });
+    expect(calls("remember_import")).toHaveLength(0);
+  });
+
+  it("Projektwechsel zeigt die Datei des jeweiligen Projekts", async () => {
+    const user = userEvent.setup();
+    projects = [sampleConfig(), { ...sampleConfig(), id: "zweites", name: "Zweites Projekt" }];
+    imports = {
+      "beispiel-lager-app": {
+        path: "C:\\Import\\beispiel-lager-app\\export.xlsx",
+        file_name: "export.xlsx",
+        original_path: null,
+        imported_at: null,
+      },
+    };
+    render(<App />);
+    expect(await screen.findByText(/Auswertung 01\.01\.2026/)).toBeInTheDocument();
+    expect(screen.getByText(/Letzter Import: export\.xlsx/)).toBeInTheDocument();
+
+    await user.click(screen.getByText("Zweites Projekt"));
+    expect(await screen.findByRole("heading", { name: "Zweites Projekt" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText(/Auswertung 01\.01\.2026/)).not.toBeInTheDocument());
+    expect(screen.queryByText(/Letzter Import/)).not.toBeInTheDocument();
+    expect(calls("parse_export").every(([, a]) => a.projectId === "beispiel-lager-app")).toBe(true);
+
+    await user.click(screen.getByText("Musterkunde GmbH / Lager-App"));
+    expect(await screen.findByText(/Auswertung 01\.01\.2026/)).toBeInTheDocument();
+  });
+
+  it("meldet, wenn die Datei nicht gemerkt werden konnte – die Auswertung bleibt", async () => {
+    invoke.mockImplementation(async (command: string, args?: Record<string, unknown>) => {
+      if (command === "remember_import") throw "Kopie im Ordner „Import“ fehlgeschlagen: Zugriff verweigert";
+      return backend(command, args);
+    });
+    render(<App />);
+    await screen.findByRole("heading", { name: "Musterkunde GmbH / Lager-App" });
+    await drop("/daten/export.xlsx");
+    expect(await screen.findByText(/nicht als letzter Import gemerkt: Kopie im Ordner/)).toBeInTheDocument();
+    expect(screen.getByText(/Auswertung 01\.01\.2026/)).toBeInTheDocument();
   });
 
   it("im Browser (ohne Tauri) erscheint ein Hinweis", () => {
