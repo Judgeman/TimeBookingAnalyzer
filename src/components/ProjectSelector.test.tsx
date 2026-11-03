@@ -33,6 +33,22 @@ describe("ProjectSelector", () => {
     expect(onCreate).toHaveBeenCalled();
   });
 
+  it("zeigt den Projektordner der Instanz und bietet frühere Projekte an", async () => {
+    const user = userEvent.setup();
+    const onImportLegacy = vi.fn();
+    const folder = { dir: "C:\\Tools\\Kunde-A\\projects", legacy_count: 2 };
+    const props = { activeId: null, loading: false, onSelect: () => {}, onCreate: () => {}, onImportLegacy };
+    const { rerender } = render(<ProjectSelector projects={[]} folder={folder} {...props} />);
+    expect(screen.getByText("Projektordner: …\\Kunde-A\\projects")).toHaveAttribute("title", folder.dir);
+    await user.click(screen.getByRole("button", { name: /2 Projekte aus früherer Version übernehmen/ }));
+    expect(onImportLegacy).toHaveBeenCalled();
+
+    rerender(<ProjectSelector projects={[]} folder={{ ...folder, legacy_count: 1 }} {...props} />);
+    expect(screen.getByText("1 Projekt aus früherer Version übernehmen")).toBeInTheDocument();
+    rerender(<ProjectSelector projects={[]} folder={{ ...folder, legacy_count: 0 }} {...props} />);
+    expect(screen.queryByText(/aus früherer Version/)).not.toBeInTheDocument();
+  });
+
   it("zeigt Lade- und Leerzustand", () => {
     const { rerender } = render(
       <ProjectSelector projects={[]} activeId={null} loading onSelect={() => {}} onCreate={() => {}} />,

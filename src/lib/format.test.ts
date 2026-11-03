@@ -17,6 +17,7 @@ import {
   isoWeekKey,
   isoWeekRange,
   monthRange,
+  shortPath,
   todayIso,
 } from "./format";
 
@@ -101,5 +102,11 @@ describe("Sonstiges", () => {
     expect(fileNameOf("C:\\Exporte\\export.xlsx")).toBe("export.xlsx");
     expect(fileNameOf("/home/u/export.xlsx")).toBe("export.xlsx");
     expect(fileNameOf("export.xlsx")).toBe("export.xlsx");
+  });
+
+  it("kürzt Ordnerpfade auf die letzten beiden Teile", () => {
+    expect(shortPath("C:\\Tools\\Kunde-A\\projects")).toBe("…\\Kunde-A\\projects");
+    expect(shortPath("/opt/billing/kunde-b/projects/")).toBe("…/kunde-b/projects");
+    expect(shortPath("./projects")).toBe("./projects");
   });
 });

@@ -2,7 +2,7 @@
 
 Alle Namen, Projekte, Stundensätze und Buchungen sind ausgedacht. Echte
 Projektkonfigurationen gehören **nicht** ins Repository – sie liegen nur lokal im
-App-Datenverzeichnis (siehe Haupt-README).
+Ordner `projects` neben der App (siehe Haupt-README).
 
 | Datei | Inhalt |
 | ----- | ------ |

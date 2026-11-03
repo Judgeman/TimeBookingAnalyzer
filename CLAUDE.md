@@ -15,7 +15,7 @@ Drag & Drop einer Export-Datei → sofortige Auswertung nach konfigurierbaren Pr
 - **Frontend**: React 18 + TypeScript + Vite
 - **UI**: Tailwind CSS 4 (`@tailwindcss/vite`)
 - **Backend**: Rust (calamine für Excel-Parsing, serde + serde_json für Config)
-- **Config**: JSON-Dateien pro Projekt (im App-Datenverzeichnis)
+- **Config**: JSON-Dateien pro Projekt (Ordner `projects` neben der Exe)
 
 ## App-Struktur
 
@@ -74,7 +74,7 @@ src-tauri/
       export.rs             # calamine: Tabellenblatt → Vec<TimeEntry>
       summary.rs            # Übersicht (Personen, Team-Abgleich, Vorschau)
     storage/
-      projects.rs           # ProjectStore: <app_data_dir>/projects/<id>.json
+      projects.rs           # ProjectStore: <Ordner der Exe>/projects/<id>.json, Übernahme alter Projekte
     calculation/
       mod.rs                # evaluate(): Tageswerte → Jahr/Monat/KW/Monat×KW, Hinweise
       gearb.rs              # Arbeitszeit-Berechnung, Urlaub/Krank-Erkennung
@@ -117,7 +117,8 @@ cd src-tauri && UPDATE_FIXTURES=1 cargo test frontend_fixture  # Vertrags-Fixtur
   die Berechnung → Fixture neu erzeugen (Befehl oben) und TS-Typen anpassen.
 - **Frontend**: Vitest + Testing Library (jsdom); `App.test.tsx` testet die ganze App mit
   nachgebildetem Tauri-Backend. Mindestabdeckung 90 % Zeilen/Anweisungen, 85 % Zweige/Funktionen.
-- **E2E**: `e2e/` – echte App über `tauri-driver` mit isoliertem Datenverzeichnis.
+- **E2E**: `e2e/` – echte App über `tauri-driver`, als Kopie in einem temporären Ordner
+  (Projekte daneben) mit isoliertem Datenverzeichnis.
 - Neue Funktionen immer mit Tests in allen betroffenen Ebenen ergänzen.
 
 ---
@@ -367,6 +368,13 @@ async fn save_project(config: ProjectConfig) -> Result<String, String>
 
 #[tauri::command]
 async fn delete_project(id: String) -> Result<(), String>
+
+// Projektordner der Instanz + Anzahl übernehmbarer Projekte vom früheren Ort
+#[tauri::command]
+async fn project_folder() -> Result<ProjectFolder, String>   // { dir, legacy_count }
+
+#[tauri::command]
+async fn import_legacy_projects() -> Result<usize, String>
 ```
 
 ---
@@ -466,7 +474,11 @@ interface PeriodData {
 4. **Fließkomma**: Interne Berechnung mit f64, Ausgabe auf 2 Dezimalstellen runden
 5. **Mult-Default**: Wenn Mult-Zelle leer → 1.0 annehmen
 6. **Kumulativer Export**: Der neueste Export enthält alle historischen Daten → kein Merging nötig
-7. **Config-Speicherort**: `app.path().app_data_dir()` + `/projects/` (Tauri 2; Dateiname = `<id>.json`)
+7. **Config-Speicherort**: `projects/` neben der Programmdatei (`projects_dir_beside(current_exe)`,
+   Dateiname = `<id>.json`) – jede Kopie der App ist eine eigene Instanz mit eigenen Projekten,
+   mehrere Instanzen laufen parallel. Früherer Ort `app_data_dir()/projects/`: fehlende Projekte
+   lassen sich in einer leeren Instanz per Button übernehmen (`import_legacy_projects`, kopiert).
+   Im Dev-Modus liegt der Ordner unter `src-tauri/target/debug/projects/` (nicht im Repository).
 8. **Drag & Drop**: HTML5-Drop liefert in Tauri keine Pfade → `getCurrentWebview().onDragDropEvent()` verwenden
 9. **IPC-Argumente**: Tauri mappt camelCase (JS) auf snake_case (Rust): `invoke("parse_export", { filePath, projectId })`
 

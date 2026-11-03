@@ -143,3 +143,10 @@ export function formatDateWithWeekday(iso: string): string {
 export function formatPercent(value: number): string {
   return `${new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 }).format(value)} %`;
 }
+
+/** Kurzform eines Ordnerpfads: die letzten beiden Teile, z. B. `…\Kunde-A\projects`. */
+export function shortPath(path: string): string {
+  const separator = path.includes("\\") ? "\\" : "/";
+  const parts = path.split(/[\\/]/).filter(Boolean);
+  return parts.length <= 2 ? path : `…${separator}${parts.slice(-2).join(separator)}`;
+}

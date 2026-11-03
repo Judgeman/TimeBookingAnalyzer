@@ -1,25 +1,87 @@
 //! Ablage der Projektkonfigurationen als `<id>.json` in einem Verzeichnis
-//! (in der App: `<app_data_dir>/projects/`).
+//! (in der App: `projects/` neben der Programmdatei – jede Kopie der App hat
+//! so ihre eigenen Projekte). Frühere Versionen speicherten unter
+//! `<app_data_dir>/projects/`; von dort lassen sich Projekte übernehmen.
 
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 use crate::models::config::ProjectConfig;
-use crate::models::results::ProjectSummary;
+use crate::models::results::{ProjectFolder, ProjectSummary};
+
+/// Projektordner neben der Programmdatei (`<Ordner der Exe>/projects`).
+pub fn projects_dir_beside(exe: &Path) -> PathBuf {
+    exe.parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join("projects")
+}
 
 pub struct ProjectStore {
     dir: PathBuf,
+    /// Früherer Ablageort, aus dem Projekte übernommen werden können.
+    legacy: Option<PathBuf>,
 }
 
 impl ProjectStore {
     pub fn new(dir: impl Into<PathBuf>) -> Self {
-        Self { dir: dir.into() }
+        Self {
+            dir: dir.into(),
+            legacy: None,
+        }
+    }
+
+    pub fn with_legacy(mut self, legacy: Option<PathBuf>) -> Self {
+        self.legacy = legacy;
+        self
     }
 
     #[cfg(test)]
     pub fn dir(&self) -> &Path {
         &self.dir
+    }
+
+    /// Projektordner und Anzahl der Projekte, die sich vom früheren
+    /// Ablageort übernehmen lassen.
+    pub fn folder(&self) -> ProjectFolder {
+        ProjectFolder {
+            dir: self.dir.display().to_string(),
+            legacy_count: self.legacy_candidates().len(),
+        }
+    }
+
+    /// Kopiert lesbare Projekte vom früheren Ablageort, die hier noch fehlen
+    /// (die Originale bleiben liegen). Gibt die Anzahl zurück.
+    pub fn import_legacy(&self) -> Result<usize, String> {
+        let candidates = self.legacy_candidates();
+        if candidates.is_empty() {
+            return Ok(0);
+        }
+        fs::create_dir_all(&self.dir)
+            .map_err(|e| format!("Projektverzeichnis konnte nicht angelegt werden: {e}"))?;
+        for (file_name, source) in &candidates {
+            fs::copy(source, self.dir.join(file_name))
+                .map_err(|e| format!("Projekt konnte nicht übernommen werden: {e}"))?;
+        }
+        Ok(candidates.len())
+    }
+
+    /// (Dateiname, Quelle) der übernehmbaren Projekte.
+    fn legacy_candidates(&self) -> Vec<(String, PathBuf)> {
+        let Some(legacy) = self.legacy.as_ref().filter(|l| *l != &self.dir) else {
+            return Vec::new();
+        };
+        ProjectStore::new(legacy)
+            .list()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|p| format!("{}.json", p.id))
+            .filter(|file_name| !self.dir.join(file_name).exists())
+            .map(|file_name| {
+                let source = legacy.join(&file_name);
+                (file_name, source)
+            })
+            .collect()
     }
 
     /// Alle Projekte, alphabetisch nach Name. Unlesbare Dateien werden
@@ -177,6 +239,52 @@ mod tests {
             billing_rules: default_billing_rules(),
             missing_threshold_percent: 50.0,
         }
+    }
+
+    #[test]
+    fn projects_live_beside_the_executable() {
+        let exe = Path::new("tools")
+            .join("BillingTracker")
+            .join("billing-tracker.exe");
+        assert_eq!(
+            projects_dir_beside(&exe),
+            Path::new("tools").join("BillingTracker").join("projects")
+        );
+        assert_eq!(
+            projects_dir_beside(Path::new("")),
+            Path::new(".").join("projects")
+        );
+    }
+
+    #[test]
+    fn imports_missing_projects_from_the_legacy_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        let legacy = ProjectStore::new(dir.path().join("appdata"));
+        let id_a = legacy.save(config("Alt A")).unwrap();
+        let id_b = legacy.save(config("Alt B")).unwrap();
+        fs::write(legacy.dir().join("kaputt.json"), "{").unwrap();
+
+        // Instanz hat B schon (z. B. von Hand kopiert)
+        let store = ProjectStore::new(dir.path().join("instanz").join("projects"))
+            .with_legacy(Some(legacy.dir().to_path_buf()));
+        let mut b = legacy.get(&id_b).unwrap();
+        b.name = "B (geändert)".into();
+        store.save(b).unwrap();
+
+        let folder = store.folder();
+        assert!(folder.dir.ends_with("projects"), "{}", folder.dir);
+        assert_eq!(folder.legacy_count, 1);
+        assert_eq!(store.import_legacy().unwrap(), 1);
+        let names: Vec<String> = store.list().unwrap().into_iter().map(|p| p.name).collect();
+        assert_eq!(names, vec!["Alt A", "B (geändert)"]); // B nicht überschrieben
+        assert!(legacy.dir().join(format!("{id_a}.json")).exists()); // Original bleibt
+        assert_eq!(store.folder().legacy_count, 0);
+        assert_eq!(store.import_legacy().unwrap(), 0);
+
+        // ohne bzw. mit identischem früheren Ablageort: nichts zu übernehmen
+        assert_eq!(ProjectStore::new(dir.path()).folder().legacy_count, 0);
+        let same = ProjectStore::new(legacy.dir()).with_legacy(Some(legacy.dir().to_path_buf()));
+        assert_eq!(same.import_legacy().unwrap(), 0);
     }
 
     #[test]

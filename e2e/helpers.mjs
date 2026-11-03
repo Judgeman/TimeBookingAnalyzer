@@ -1,5 +1,5 @@
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { AppSession, isConnectionError } from "./webdriver.mjs";
 
 export const env = {
@@ -10,14 +10,23 @@ export const env = {
   artifacts: process.env.E2E_ARTIFACTS,
 };
 
-/** Projektordner der App im Test-Datenverzeichnis (Linux: XDG_DATA_HOME, Windows: APPDATA). */
-const projectsDir = () => join(env.dataDir, "de.judgeman.billingtracker", "projects");
+/** Projektordner der App: `projects` neben der Programmdatei. */
+export const projectsDir = () => join(dirname(env.app), "projects");
 
-/** Setzt die Projekte zurück: ohne Projekt oder mit dem fiktiven Beispielprojekt. */
-export function resetProjects({ withSample }) {
-  rmSync(projectsDir(), { recursive: true, force: true });
-  mkdirSync(projectsDir(), { recursive: true });
+/** Früherer Ablageort im App-Datenverzeichnis (Linux: XDG_DATA_HOME, Windows: APPDATA). */
+export const legacyDir = () => join(env.dataDir, "de.judgeman.billingtracker", "projects");
+
+/**
+ * Setzt die Projekte zurück: ohne Projekt oder mit dem fiktiven Beispielprojekt
+ * (`withSample` im Projektordner, `legacySample` am früheren Ablageort).
+ */
+export function resetProjects({ withSample, legacySample = false }) {
+  for (const dir of [projectsDir(), legacyDir()]) {
+    rmSync(dir, { recursive: true, force: true });
+    mkdirSync(dir, { recursive: true });
+  }
   if (withSample) copyFileSync(env.sampleProject, join(projectsDir(), "beispiel-lager-app.json"));
+  if (legacySample) copyFileSync(env.sampleProject, join(legacyDir(), "beispiel-lager-app.json"));
 }
 
 /**
@@ -25,9 +34,9 @@ export function resetProjects({ withSample }) {
  * Verbindungsabbruch des Treibers wird der Test einmal wiederholt; bei einem
  * Fehlschlag landet ein Screenshot in e2e/artifacts.
  */
-export async function withApp(name, { withSample = true } = {}, body) {
+export async function withApp(name, { withSample = true, legacySample = false } = {}, body) {
   for (let attempt = 1; ; attempt++) {
-    resetProjects({ withSample });
+    resetProjects({ withSample, legacySample });
     let session;
     try {
       session = await AppSession.start(env.app);

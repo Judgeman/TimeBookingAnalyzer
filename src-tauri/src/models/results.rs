@@ -20,6 +20,15 @@ pub struct ProjectSummary {
     pub guest_count: usize,
 }
 
+/// Wo die Projekte dieser Instanz liegen (Sidebar).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ProjectFolder {
+    /// Ordner mit den Projektdateien (neben der Programmdatei).
+    pub dir: String,
+    /// Projekte am früheren Ablageort (App-Datenverzeichnis), die hier fehlen.
+    pub legacy_count: usize,
+}
+
 /// Übersicht über die eingelesenen Rohdaten (Teil von `AuswertungResult`).
 #[derive(Debug, Clone, Serialize)]
 pub struct ParsedExport {

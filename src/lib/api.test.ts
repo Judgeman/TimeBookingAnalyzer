@@ -15,6 +15,8 @@ describe("api – Tauri-Commands und Argumentnamen", () => {
     const config = newProject();
     await api.saveProject(config);
     await api.deleteProject("p1");
+    await api.projectFolder();
+    await api.importLegacyProjects();
     await api.parseExport("/x/export.xlsx", "p1", "2026-10-31");
     await api.parseExport("/x/export.xlsx", "p1", null);
 
@@ -23,6 +25,8 @@ describe("api – Tauri-Commands und Argumentnamen", () => {
       ["get_project", { id: "p1" }],
       ["save_project", { config }],
       ["delete_project", { id: "p1" }],
+      ["project_folder"],
+      ["import_legacy_projects"],
       ["parse_export", { filePath: "/x/export.xlsx", projectId: "p1", cutoffDate: "2026-10-31" }],
       ["parse_export", { filePath: "/x/export.xlsx", projectId: "p1", cutoffDate: null }],
     ]);

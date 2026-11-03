@@ -21,6 +21,13 @@ export interface TimeEntry {
   location: string;
 }
 
+/** Wo die Projekte dieser Instanz liegen (neben der Programmdatei). */
+export interface ProjectFolder {
+  dir: string;
+  /** Projekte am früheren Ablageort (App-Datenverzeichnis), die hier fehlen. */
+  legacy_count: number;
+}
+
 /** Übersicht über die eingelesenen Rohdaten (Teil der Auswertung). */
 export interface ParsedExport {
   project_id: string;

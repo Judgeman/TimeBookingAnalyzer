@@ -1,8 +1,10 @@
 // E2E-Tests der Desktop-App mit den fiktiven Beispieldaten (sample-data/).
 // Start: npm run build:e2e && npm run test:e2e   (Details: e2e/README.md)
 import assert from "node:assert/strict";
+import { existsSync, readdirSync } from "node:fs";
+import { join, sep } from "node:path";
 import { test } from "node:test";
-import { env, withApp } from "../helpers.mjs";
+import { env, legacyDir, projectsDir, withApp } from "../helpers.mjs";
 
 async function loadSample(app) {
   await app.waitForText("Musterkunde GmbH / Lager-App");
@@ -24,6 +26,22 @@ test("Projekt über die Oberfläche anlegen", () =>
     await app.click("button", "Speichern");
     await app.waitForText("Element-Filter: P100 Lager-App");
     assert.match(await app.text(), /Testprojekt[\s\S]*1 Person/);
+    // gespeichert im Ordner „projects“ neben der Programmdatei
+    assert.equal(readdirSync(projectsDir()).filter((f) => f.endsWith(".json")).length, 1);
+    assert.deepEqual(readdirSync(legacyDir()), []);
+  }));
+
+test("Projektordner neben der Exe; Projekte der Vorversion übernehmen", () =>
+  withApp("vorversion", { withSample: false, legacySample: true }, async (app) => {
+    await app.waitForText("1 Projekt aus früherer Version übernehmen");
+    assert.ok((await app.text()).includes(`Projektordner: …${sep}app${sep}projects`));
+    await app.execute(
+      "[...document.querySelectorAll('button')].find((b) => b.textContent.startsWith('1 Projekt aus früherer Version')).click()",
+    );
+    await app.waitForText("Element-Filter: P100 Lager-App");
+    assert.ok(existsSync(join(projectsDir(), "beispiel-lager-app.json")));
+    assert.ok(existsSync(join(legacyDir(), "beispiel-lager-app.json"))); // Original bleibt
+    assert.ok(!(await app.text()).includes("aus früherer Version"));
   }));
 
 test("Beispielexport: Jahr, fehlende und hervorgehobene Buchungen", () =>

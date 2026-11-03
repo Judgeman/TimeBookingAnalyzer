@@ -26,3 +26,6 @@ dist-ssr
 # Testberichte
 coverage
 e2e/artifacts
+
+# Projektordner der App (echte Konfigurationen – nie committen)
+projects/

@@ -7,7 +7,7 @@ import { ResultsView } from "./components/results/ResultsView";
 import { api, errorMessage } from "./lib/api";
 import { todayIso } from "./lib/format";
 import { newProject, type ProjectConfig } from "./types/config";
-import type { AuswertungResult, ProjectSummary } from "./types/results";
+import type { AuswertungResult, ProjectFolder, ProjectSummary } from "./types/results";
 
 const ACTIVE_PROJECT_KEY = "billing-tracker.active-project";
 
@@ -19,6 +19,7 @@ interface FileRequest {
 
 export default function App() {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const [folder, setFolder] = useState<ProjectFolder | null>(null);
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeProject, setActiveProject] = useState<ProjectConfig | null>(null);
@@ -31,8 +32,9 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
 
   const refreshProjects = useCallback(async () => {
-    const list = await api.listProjects();
+    const [list, location] = await Promise.all([api.listProjects(), api.projectFolder()]);
     setProjects(list);
+    setFolder(location);
     return list;
   }, []);
 
@@ -113,6 +115,17 @@ export default function App() {
     }
   }
 
+  /** Projekte aus dem früheren Ablageort (App-Datenverzeichnis) übernehmen. */
+  async function importLegacy() {
+    try {
+      await api.importLegacyProjects();
+      const list = await refreshProjects();
+      setActiveId(list[0]?.id ?? null);
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  }
+
   async function deleteProject(id: string) {
     await api.deleteProject(id);
     const list = await refreshProjects();
@@ -127,8 +140,10 @@ export default function App() {
           projects={projects}
           activeId={activeId}
           loading={projectsLoading}
+          folder={folder}
           onSelect={selectProject}
           onCreate={() => setEditing(newProject())}
+          onImportLegacy={importLegacy}
         />
       </aside>
 

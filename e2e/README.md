@@ -4,8 +4,9 @@ Klicktests der echten App über [`tauri-driver`](https://v2.tauri.app/develop/te
 (WebDriver) mit den fiktiven Beispieldaten aus `sample-data/`. Ohne zusätzliche
 npm-Pakete: Node ≥ 20 mit eingebautem `fetch` und `node:test`.
 
-Die Tests laufen mit einem eigenen, temporären App-Datenverzeichnis – echte
-Projekte auf dem Rechner werden nicht angefasst.
+Die App wird für die Tests in einen temporären Ordner kopiert (bzw. per Hardlink
+abgelegt) – ihre Projekte liegen daneben in `projects/`. Das App-Datenverzeichnis
+(früherer Ablageort) ist ebenfalls temporär; echte Projekte werden nicht angefasst.
 
 ## Voraussetzungen
 
@@ -42,7 +43,7 @@ wird der betroffene Test einmal wiederholt.
 
 | Datei | Inhalt |
 | --- | --- |
-| `run.mjs` | startet `tauri-driver` mit isoliertem Datenverzeichnis und `node --test` |
+| `run.mjs` | legt die App in einen temporären Ordner, startet `tauri-driver` (isoliertes Datenverzeichnis) und `node --test` |
 | `webdriver.mjs` | minimaler WebDriver-Client (Session, Script, Klick, Eingabe, Drop) |
 | `helpers.mjs` | `withApp()`: App starten, Projekte zurücksetzen, Screenshot, Wiederholung |
 | `tests/*.test.mjs` | die Tests |

@@ -10,6 +10,9 @@ type DragHandler = (event: { payload: { type: string; paths?: string[] } }) => v
 let tauri = true;
 let dragHandler: DragHandler | null = null;
 let projects: ProjectConfig[] = [];
+/** Projekte am früheren Ablageort (App-Datenverzeichnis). */
+let legacy: ProjectConfig[] = [];
+const missingLegacy = () => legacy.filter((l) => !projects.some((p) => p.id === l.id));
 const invoke = vi.fn();
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -48,6 +51,13 @@ function backend(command: string, args: Record<string, unknown> = {}) {
         team_size: p.team.length,
         guest_count: p.guests.length,
       }));
+    case "project_folder":
+      return { dir: "C:\\Tools\\Kunde-A\\projects", legacy_count: missingLegacy().length };
+    case "import_legacy_projects": {
+      const imported = missingLegacy();
+      projects = [...projects, ...structuredClone(imported)];
+      return imported.length;
+    }
     case "get_project":
       return structuredClone(projects.find((p) => p.id === args.id)!);
     case "save_project": {
@@ -81,6 +91,7 @@ describe("App (Integration mit nachgebildetem Backend)", () => {
     tauri = true;
     dragHandler = null;
     projects = [sampleConfig()];
+    legacy = [];
     localStorage.clear();
     invoke.mockReset().mockImplementation(async (command: string, args?: Record<string, unknown>) =>
       backend(command, args),
@@ -160,6 +171,31 @@ describe("App (Integration mit nachgebildetem Backend)", () => {
     expect(await screen.findByText("Noch keine Projekte angelegt.")).toBeInTheDocument();
     expect(screen.getByText("Kein Projekt ausgewählt")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Projekt bearbeiten" })).toBeDisabled();
+  });
+
+  it("übernimmt Projekte aus der früheren Version in den Projektordner", async () => {
+    const user = userEvent.setup();
+    projects = [];
+    legacy = [sampleConfig()];
+    render(<App />);
+    expect(await screen.findByText("Projektordner: …\\Kunde-A\\projects")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /1 Projekt aus früherer Version übernehmen/ }));
+    expect(await screen.findByRole("heading", { name: "Musterkunde GmbH / Lager-App" })).toBeInTheDocument();
+    expect(screen.queryByText(/aus früherer Version/)).not.toBeInTheDocument();
+    expect(calls("import_legacy_projects")).toHaveLength(1);
+  });
+
+  it("meldet Fehler beim Übernehmen früherer Projekte", async () => {
+    const user = userEvent.setup();
+    projects = [];
+    legacy = [sampleConfig()];
+    render(<App />);
+    invoke.mockImplementation(async (command: string, args?: Record<string, unknown>) => {
+      if (command === "import_legacy_projects") throw "Projekt konnte nicht übernommen werden: Zugriff verweigert";
+      return backend(command, args);
+    });
+    await user.click(await screen.findByRole("button", { name: /aus früherer Version übernehmen/ }));
+    expect(await screen.findByText(/Zugriff verweigert/)).toBeInTheDocument();
   });
 
   it("im Browser (ohne Tauri) erscheint ein Hinweis", () => {

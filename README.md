@@ -7,7 +7,7 @@ konfigurierbaren Projekt-Regeln. Details zu Regeln und Datenmodell: [CLAUDE.md](
 ## Stand
 
 - [x] `parse_export`: Excel-Export mit calamine einlesen (Spalten-Mapping pro Projekt)
-- [x] Projektkonfiguration laden/speichern/löschen (JSON pro Projekt im App-Datenverzeichnis)
+- [x] Projektkonfiguration laden/speichern/löschen (JSON pro Projekt, Ordner neben der Exe)
 - [x] Berechnung: gearb, billable, Soll/Ist inkl. Feiertage (alle Bundesländer)
 - [x] Auswertung pro Person: Jahr, Monate (aufklappbar auf KW), Kalenderwochen, Stichtag wählbar
 - [x] Stundenkonto: Vertragsabgleich (Urlaub/Krank angerechnet bzw. Krankheit als Fehlzeit)
@@ -66,11 +66,14 @@ npm run tauri build
 
 ## Projektdateien
 
-Projekte liegen als `<id>.json` unter `<App-Datenverzeichnis>/projects/` – also nur
-lokal auf dem Rechner, nicht im Repository:
+Projekte liegen als `<id>.json` im Ordner `projects` **neben der Programmdatei** – also
+nur lokal auf dem Rechner, nicht im Repository. Jede Kopie der App (eigener Ordner) ist
+eine eigene Instanz mit eigenen Projekten; mehrere Instanzen können gleichzeitig laufen.
+Der Ordner muss beschreibbar sein (z. B. nicht unter `C:\Program Files`). Die Projektliste
+zeigt unten, welchen Ordner die Instanz benutzt.
 
-| System  | Pfad                                                                 |
-| ------- | -------------------------------------------------------------------- |
-| macOS   | `~/Library/Application Support/de.judgeman.billingtracker/projects/` |
-| Windows | `%APPDATA%\de.judgeman.billingtracker\projects\`                     |
-| Linux   | `~/.local/share/de.judgeman.billingtracker/projects/`                |
+Frühere Versionen speicherten unter `<App-Datenverzeichnis>/projects/` (Windows:
+`%APPDATA%\de.judgeman.billingtracker\projects\`). Ist der Projektordner einer Instanz
+leer, bietet die App an, diese Projekte zu übernehmen (sie werden kopiert).
+
+Im Dev-Modus (`npm run tauri dev`) liegt der Ordner unter `src-tauri/target/debug/projects/`.

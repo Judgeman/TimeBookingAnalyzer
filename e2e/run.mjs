@@ -1,25 +1,38 @@
 // Startet tauri-driver mit isoliertem Datenverzeichnis und führt die E2E-Tests aus.
 // Voraussetzung: npm run build:e2e (Debug-App mit eingebettetem Frontend).
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, linkSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { waitForDriver } from "./webdriver.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const exe = process.platform === "win32" ? "billing-tracker.exe" : "billing-tracker";
-const app = process.env.E2E_APP ?? join(root, "src-tauri", "target", "debug", exe);
+const builtApp = process.env.E2E_APP ?? join(root, "src-tauri", "target", "debug", exe);
 
-if (!existsSync(app)) {
-  console.error(`App nicht gefunden: ${app}\nZuerst bauen: npm run build:e2e`);
+if (!existsSync(builtApp)) {
+  console.error(`App nicht gefunden: ${builtApp}\nZuerst bauen: npm run build:e2e`);
   process.exit(1);
 }
 
 const dataDir = mkdtempSync(join(tmpdir(), "billing-tracker-e2e-"));
+
+// Die App legt ihre Projekte neben der Programmdatei ab – daher eine eigene
+// Kopie (bzw. einen Hardlink) in einem temporären Ordner starten.
+const appDir = join(dataDir, "app");
+mkdirSync(appDir);
+const app = join(appDir, basename(builtApp));
+try {
+  linkSync(builtApp, app);
+} catch {
+  copyFileSync(builtApp, app);
+}
+const loader = join(dirname(builtApp), "WebView2Loader.dll");
+if (existsSync(loader)) copyFileSync(loader, join(appDir, "WebView2Loader.dll"));
 const env = {
   ...process.env,
-  // App-Datenverzeichnis umleiten, damit echte Projekte unberührt bleiben.
+  // App-Datenverzeichnis umleiten (früherer Ablageort der Projekte, WebView-Daten).
   XDG_DATA_HOME: dataDir,
   APPDATA: dataDir,
   // GTK: Barrierefreiheits-Bus nicht suchen – ohne laufenden AT-SPI-Dienst
