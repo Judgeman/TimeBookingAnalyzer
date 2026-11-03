@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { InvoiceMonth, InvoiceSummary, VatGroup } from "../../types/results";
+import type { InvoiceMonth, InvoiceSummary, OutsideBooking, VatGroup } from "../../types/results";
 import { formatDate, formatEuro, formatHours, formatMonth, formatNumber } from "../../lib/format";
 import { styles } from "./styles";
 
@@ -8,6 +8,8 @@ interface Props {
   /** Teammitglieder in Konfigurations-Reihenfolge (Spalten der Übersicht). */
   persons: string[];
   cutoffDate: string;
+  /** Buchungen aufs Projekt außerhalb des Teams (für die Hinweise). */
+  outside?: OutsideBooking[];
 }
 
 const vatText = (percent: number) => `USt. ${formatNumber(percent)} %`;
@@ -22,7 +24,7 @@ function vatLabelOf(groups: VatGroup[], fallback: number): string {
  * Rechnungsübersicht: pro Monat eine Rechnung. Netto je Position = Stunden ×
  * Satz, USt. je Steuersatz auf die Monats-Nettosumme, Brutto = Netto + USt.
  */
-export function InvoiceView({ invoice, persons, cutoffDate }: Props) {
+export function InvoiceView({ invoice, persons, cutoffDate, outside = [] }: Props) {
   const vatLabel = vatLabelOf(invoice.total.vat_groups, invoice.vat_percent);
 
   if (invoice.months.length === 0) {
@@ -35,11 +37,42 @@ export function InvoiceView({ invoice, persons, cutoffDate }: Props) {
 
   const netOf = (month: InvoiceMonth, person: string) =>
     month.lines.filter((l) => l.person === person).reduce((sum, l) => sum + l.net, 0);
+  const outsideOf = (month: InvoiceMonth, person: string) =>
+    month.lines.filter((l) => l.person === person).reduce((sum, l) => sum + l.outside_hours, 0);
+  const invoicedOutside = outside.filter((o) => o.invoiced);
+  const notInvoiced = outside.filter((o) => !o.invoiced);
+  const total = (items: OutsideBooking[], key: "hours" | "net") =>
+    items.reduce((sum, o) => sum + o[key], 0);
   const personTotal = (person: string) =>
     invoice.months.reduce((sum, m) => sum + netOf(m, person), 0);
 
   return (
     <div className="space-y-6">
+      {outside.length > 0 && (
+        <div
+          role="alert"
+          className="rounded-xl border-2 border-red-500 bg-red-50 px-4 py-3 text-sm text-red-950"
+        >
+          <p className="font-semibold text-red-800">⚠ Buchungen außerhalb des Teams</p>
+          <ul className="mt-1 list-disc pl-5">
+            {invoicedOutside.length > 0 && (
+              <li>
+                Diese Rechnung enthält <strong>{formatHours(total(invoicedOutside, "hours"))} h</strong>{" "}
+                (<strong>{formatEuro(total(invoicedOutside, "net"))} netto</strong>) aus Buchungen
+                außerhalb des Einsatzzeitraums – siehe markierte Positionen.
+              </li>
+            )}
+            {notInvoiced.length > 0 && (
+              <li>
+                <strong>{formatHours(total(notInvoiced, "hours"))} h</strong> von Personen, die nicht
+                im Team sind, sind <strong>nicht abgerechnet</strong> (
+                {[...new Set(notInvoiced.map((o) => o.person))].join(", ")}).
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
+
       <dl className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Card label={`Netto gesamt bis ${formatDate(cutoffDate)}`} strong>
           {formatEuro(invoice.total.net)}
@@ -84,7 +117,19 @@ export function InvoiceView({ invoice, persons, cutoffDate }: Props) {
                   </td>
                   {persons.map((p) => (
                     <td key={p} className={styles.tdNum}>
-                      {formatEuro(netOf(month, p))}
+                      {outsideOf(month, p) > 0 && (
+                        <span
+                          className="mr-1.5 cursor-help rounded bg-red-600 px-1 text-xs font-semibold text-white"
+                          title={`davon ${formatHours(outsideOf(month, p))} h außerhalb des Einsatzzeitraums`}
+                        >
+                          ⚠
+                        </span>
+                      )}
+                      {month.lines.some((l) => l.person === p) ? (
+                        formatEuro(netOf(month, p))
+                      ) : (
+                        <span className="text-slate-300">–</span>
+                      )}
                     </td>
                   ))}
                   <td className={`${styles.tdNum} bg-slate-50 font-semibold text-slate-900`}>
@@ -129,6 +174,11 @@ export function InvoiceView({ invoice, persons, cutoffDate }: Props) {
                 <span className="mr-2 inline-block text-slate-400 group-open:rotate-90">▸</span>
                 {formatMonth(month.month)}
                 {month.partial && <PartialBadge cutoffDate={cutoffDate} />}
+                {month.lines.some((l) => l.outside_hours > 0) && (
+                  <span className="ml-2 rounded bg-red-600 px-1.5 py-0.5 text-xs font-semibold text-white">
+                    ⚠ enthält Buchungen außerhalb des Einsatzzeitraums
+                  </span>
+                )}
               </span>
               <span className="tabular-nums text-slate-600">
                 {formatHours(month.hours)} h · netto{" "}
@@ -161,9 +211,17 @@ function MonthLines({ month }: { month: InvoiceMonth }) {
         </thead>
         <tbody className="divide-y divide-slate-100">
           {month.lines.map((line, i) => (
-            <tr key={i}>
+            <tr key={i} className={line.outside_hours > 0 ? "bg-red-50" : ""}>
               <td className={styles.td}>{line.person}</td>
-              <td className={styles.td}>{line.service}</td>
+              <td className={styles.td}>
+                {line.service}
+                {line.outside_hours > 0 && (
+                  <span className="ml-2 rounded bg-red-600 px-1.5 py-0.5 text-xs font-semibold text-white">
+                    ⚠ {line.outside_hours === line.hours ? "" : `davon ${formatHours(line.outside_hours)} h `}
+                    außerhalb Einsatzzeitraum
+                  </span>
+                )}
+              </td>
               <td className={styles.tdNum}>{formatHours(line.hours)}</td>
               <td className={styles.tdNum}>
                 {line.rate === null ? (

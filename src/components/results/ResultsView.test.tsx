@@ -63,7 +63,7 @@ describe("ResultsView", () => {
     await user.click(screen.getByRole("button", { name: "Team gesamt" }));
     expect(text()).toContain("Personentage");
 
-    await user.click(within(tabs).getByRole("tab", { name: "Rechnung" }));
+    await user.click(within(tabs).getByRole("tab", { name: /^Rechnung/ }));
     expect(screen.getByText("Netto pro Person und Monat")).toBeInTheDocument();
 
     await user.click(within(tabs).getByRole("tab", { name: "Import" }));
@@ -76,5 +76,47 @@ describe("ResultsView", () => {
     r.persons = [];
     render(<ResultsView result={r} elementFilter="" busy onCutoffChange={() => {}} />);
     expect(screen.getByText(/kein Team hinterlegt/)).toBeInTheDocument();
+  });
+});
+
+describe("ResultsView – Einsatzzeitraum und Buchungen außerhalb des Teams", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 10, 1, 9, 0, 0));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("zeigt den Warnkasten ganz oben und ein Warnzeichen am Rechnungs-Tab", () => {
+    render(<ResultsView result={sampleResult()} elementFilter="P100 Lager-App" busy={false} onCutoffChange={() => {}} />);
+    const box = screen.getByRole("alert", { name: "Buchungen außerhalb des Teams" });
+    // vor allen anderen Hinweisen und vor den Tabs
+    expect(box.compareDocumentPosition(screen.getByRole("tablist")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(screen.getByRole("tab", { name: /^Rechnung/ })).getByText("⚠ 2")).toHaveClass("bg-red-600");
+  });
+
+  it("graut Monate außerhalb des Einsatzzeitraums aus und markiert die Übergabe", async () => {
+    const user = userEvent.setup();
+    render(<ResultsView result={sampleResult()} elementFilter="P100 Lager-App" busy={false} onCutoffChange={() => {}} />);
+    await user.click(screen.getByRole("tab", { name: "Monate" }));
+    await user.click(screen.getByRole("button", { name: "Lena Beispiel" }));
+
+    const row = (month: string) => screen.getByText(month).closest("tr")!;
+    expect(within(row("Februar 2026")).queryByText("nicht im Projekt")).toBeNull();
+    expect(within(row("April 2026")).getByText("nicht im Projekt")).toBeInTheDocument();
+    expect(row("April 2026")).toHaveClass("text-slate-400");
+    expect(within(row("März 2026")).getByText("⚠ 1 außerhalb des Teams")).toHaveAttribute(
+      "title",
+      expect.stringContaining("Lena Beispiel: 2,00 h auf P100 Lager-App (außerhalb Einsatzzeitraum, abgerechnet)"),
+    );
+
+    // Team: auch Jonas (nicht im Team) im Oktober
+    await user.click(screen.getByRole("button", { name: "Team gesamt" }));
+    expect(within(row("Oktober 2026")).getByText("⚠ 1 außerhalb des Teams")).toBeInTheDocument();
+  });
+
+  it("nennt den Einsatzzeitraum in der Jahresübersicht", () => {
+    render(<ResultsView result={sampleResult()} elementFilter="P100 Lager-App" busy={false} onCutoffChange={() => {}} />);
+    const table = screen.getByText("Kennzahl").closest("table")!;
+    expect(within(table).getByText("im Projekt: 01.01.2026–28.02.2026")).toBeInTheDocument();
   });
 });

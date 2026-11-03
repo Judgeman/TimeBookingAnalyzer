@@ -30,6 +30,7 @@ const HOLIDAYS: [(u32, u32); 8] = [
 const ERIKA: &str = "Erika Mustermann";
 const MAX: &str = "Max Mustermann";
 const JONAS: &str = "Jonas Beispiel"; // nicht im Projektteam
+const LENA: &str = "Lena Beispiel"; // nur Januar/Februar im Projektteam
 
 /// Eine Zeile im Export-Layout (Spalten wie `ColumnMapping::default`).
 struct Row {
@@ -277,10 +278,73 @@ fn rows_for_day(date: NaiveDate, rows: &mut Vec<Row>) {
         ));
     }
 
-    // Jonas: anderes Projekt, Mo–Do.
-    if weekday != Weekday::Fri {
+    // Jonas: anderes Projekt, Mo–Do; am 01.10. ein Code-Review auf unser Projekt,
+    // obwohl er nicht im Team ist (→ „außerhalb des Teams“, nicht abgerechnet).
+    if date == d(10, 1) {
         rows.push(work(
             JONAS,
+            date,
+            5.0,
+            INTRANET,
+            "Delivery (billable)",
+            "Entwicklung",
+            "Büro",
+        ));
+        rows.push(work(
+            JONAS,
+            date,
+            3.0,
+            PROJECT,
+            "Delivery (billable)",
+            "Code-Review",
+            "Büro",
+        ));
+    } else if weekday != Weekday::Fri {
+        rows.push(work(
+            JONAS,
+            date,
+            8.0,
+            INTRANET,
+            "Delivery (billable)",
+            "Entwicklung",
+            "Büro",
+        ));
+    }
+
+    // Lena: Januar/Februar im Projekt, danach auf P200 abgezogen; am 02.03. noch
+    // 2 h Übergabe aufs Projekt (→ außerhalb des Einsatzzeitraums, wird abgerechnet).
+    if date.month() <= 2 {
+        rows.push(work(
+            LENA,
+            date,
+            8.0,
+            PROJECT,
+            "Delivery (billable)",
+            "Entwicklung",
+            "Home Office",
+        ));
+    } else if date == d(3, 2) {
+        rows.push(work(
+            LENA,
+            date,
+            2.0,
+            PROJECT,
+            "Delivery (billable)",
+            "Übergabe",
+            "Home Office",
+        ));
+        rows.push(work(
+            LENA,
+            date,
+            6.0,
+            INTRANET,
+            "Delivery (billable)",
+            "Entwicklung",
+            "Büro",
+        ));
+    } else {
+        rows.push(work(
+            LENA,
             date,
             8.0,
             INTRANET,

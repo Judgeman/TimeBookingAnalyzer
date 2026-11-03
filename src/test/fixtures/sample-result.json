@@ -10,6 +10,7 @@
   "persons": [
     {
       "name": "Erika Mustermann",
+      "assignments": [],
       "ytd": {
         "soll_b": 1636.0,
         "soll_n": 1501.0,
@@ -1826,6 +1827,7 @@
     },
     {
       "name": "Max Mustermann",
+      "assignments": [],
       "ytd": {
         "soll_b": 1570.0,
         "soll_n": 1469.5,
@@ -3675,19 +3677,1695 @@
           ]
         }
       }
+    },
+    {
+      "name": "Lena Beispiel",
+      "assignments": [
+        {
+          "from": "2026-01-01",
+          "to": "2026-02-28"
+        }
+      ],
+      "ytd": {
+        "soll_b": 328.0,
+        "soll_n": 328.0,
+        "vac_days": 0.0,
+        "vac_h": 0.0,
+        "sick_days": 0.0,
+        "sick_h": 0.0,
+        "gearb": 328.0,
+        "bill_h": 330.0,
+        "bill_eur": 26400.0,
+        "nonbill_h": 0.0,
+        "plus": 0.0,
+        "plus_krank": 0.0,
+        "missing_days": 0.0
+      },
+      "by_month": {
+        "2026-01": {
+          "soll_b": 168.0,
+          "soll_n": 168.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 168.0,
+          "bill_h": 168.0,
+          "bill_eur": 13440.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-02": {
+          "soll_b": 160.0,
+          "soll_n": 160.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 160.0,
+          "bill_h": 160.0,
+          "bill_eur": 12800.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-03": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 2.0,
+          "bill_eur": 160.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-04": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-05": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-06": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-07": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-08": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-09": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-10": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        }
+      },
+      "by_week": {
+        "2026-W01": {
+          "soll_b": 8.0,
+          "soll_n": 8.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 8.0,
+          "bill_h": 8.0,
+          "bill_eur": 640.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W02": {
+          "soll_b": 40.0,
+          "soll_n": 40.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 40.0,
+          "bill_h": 40.0,
+          "bill_eur": 3200.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W03": {
+          "soll_b": 40.0,
+          "soll_n": 40.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 40.0,
+          "bill_h": 40.0,
+          "bill_eur": 3200.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W04": {
+          "soll_b": 40.0,
+          "soll_n": 40.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 40.0,
+          "bill_h": 40.0,
+          "bill_eur": 3200.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W05": {
+          "soll_b": 40.0,
+          "soll_n": 40.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 40.0,
+          "bill_h": 40.0,
+          "bill_eur": 3200.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W06": {
+          "soll_b": 40.0,
+          "soll_n": 40.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 40.0,
+          "bill_h": 40.0,
+          "bill_eur": 3200.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W07": {
+          "soll_b": 40.0,
+          "soll_n": 40.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 40.0,
+          "bill_h": 40.0,
+          "bill_eur": 3200.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W08": {
+          "soll_b": 40.0,
+          "soll_n": 40.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 40.0,
+          "bill_h": 40.0,
+          "bill_eur": 3200.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W09": {
+          "soll_b": 40.0,
+          "soll_n": 40.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 40.0,
+          "bill_h": 40.0,
+          "bill_eur": 3200.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W10": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 2.0,
+          "bill_eur": 160.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W11": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W12": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W13": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W14": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W15": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W16": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W17": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W18": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W19": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W20": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W21": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W22": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W23": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W24": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W25": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W26": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W27": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W28": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W29": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W30": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W31": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W32": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W33": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W34": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W35": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W36": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W37": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W38": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W39": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W40": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W41": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W42": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W43": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        },
+        "2026-W44": {
+          "soll_b": 0.0,
+          "soll_n": 0.0,
+          "vac_days": 0.0,
+          "vac_h": 0.0,
+          "sick_days": 0.0,
+          "sick_h": 0.0,
+          "gearb": 0.0,
+          "bill_h": 0.0,
+          "bill_eur": 0.0,
+          "nonbill_h": 0.0,
+          "plus": 0.0,
+          "plus_krank": 0.0,
+          "missing_days": 0.0
+        }
+      },
+      "month_weeks": {
+        "2026-01": {
+          "2026-W01": {
+            "soll_b": 8.0,
+            "soll_n": 8.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 8.0,
+            "bill_h": 8.0,
+            "bill_eur": 640.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W02": {
+            "soll_b": 40.0,
+            "soll_n": 40.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 40.0,
+            "bill_h": 40.0,
+            "bill_eur": 3200.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W03": {
+            "soll_b": 40.0,
+            "soll_n": 40.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 40.0,
+            "bill_h": 40.0,
+            "bill_eur": 3200.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W04": {
+            "soll_b": 40.0,
+            "soll_n": 40.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 40.0,
+            "bill_h": 40.0,
+            "bill_eur": 3200.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W05": {
+            "soll_b": 40.0,
+            "soll_n": 40.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 40.0,
+            "bill_h": 40.0,
+            "bill_eur": 3200.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          }
+        },
+        "2026-02": {
+          "2026-W05": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W06": {
+            "soll_b": 40.0,
+            "soll_n": 40.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 40.0,
+            "bill_h": 40.0,
+            "bill_eur": 3200.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W07": {
+            "soll_b": 40.0,
+            "soll_n": 40.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 40.0,
+            "bill_h": 40.0,
+            "bill_eur": 3200.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W08": {
+            "soll_b": 40.0,
+            "soll_n": 40.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 40.0,
+            "bill_h": 40.0,
+            "bill_eur": 3200.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W09": {
+            "soll_b": 40.0,
+            "soll_n": 40.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 40.0,
+            "bill_h": 40.0,
+            "bill_eur": 3200.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          }
+        },
+        "2026-03": {
+          "2026-W09": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W10": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 2.0,
+            "bill_eur": 160.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W11": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W12": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W13": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W14": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          }
+        },
+        "2026-04": {
+          "2026-W14": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W15": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W16": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W17": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W18": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          }
+        },
+        "2026-05": {
+          "2026-W18": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W19": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W20": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W21": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W22": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          }
+        },
+        "2026-06": {
+          "2026-W23": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W24": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W25": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W26": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W27": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          }
+        },
+        "2026-07": {
+          "2026-W27": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W28": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W29": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W30": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W31": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          }
+        },
+        "2026-08": {
+          "2026-W31": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W32": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W33": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W34": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W35": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W36": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          }
+        },
+        "2026-09": {
+          "2026-W36": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W37": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W38": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W39": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W40": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          }
+        },
+        "2026-10": {
+          "2026-W40": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W41": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W42": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W43": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          },
+          "2026-W44": {
+            "soll_b": 0.0,
+            "soll_n": 0.0,
+            "vac_days": 0.0,
+            "vac_h": 0.0,
+            "sick_days": 0.0,
+            "sick_h": 0.0,
+            "gearb": 0.0,
+            "bill_h": 0.0,
+            "bill_eur": 0.0,
+            "nonbill_h": 0.0,
+            "plus": 0.0,
+            "plus_krank": 0.0,
+            "missing_days": 0.0
+          }
+        }
+      },
+      "locations": {
+        "ytd": [
+          {
+            "location": "Home Office",
+            "hours": 328.0,
+            "share": 100.0,
+            "days": 41
+          }
+        ],
+        "by_month": {
+          "2026-01": [
+            {
+              "location": "Home Office",
+              "hours": 168.0,
+              "share": 100.0,
+              "days": 21
+            }
+          ],
+          "2026-02": [
+            {
+              "location": "Home Office",
+              "hours": 160.0,
+              "share": 100.0,
+              "days": 20
+            }
+          ],
+          "2026-03": [],
+          "2026-04": [],
+          "2026-05": [],
+          "2026-06": [],
+          "2026-07": [],
+          "2026-08": [],
+          "2026-09": [],
+          "2026-10": []
+        }
+      }
     }
   ],
   "team": {
     "ytd": {
-      "soll_b": 3206.0,
-      "soll_n": 2970.5,
+      "soll_b": 3534.0,
+      "soll_n": 3298.5,
       "vac_days": 26.0,
       "vac_h": 197.5,
       "sick_days": 5.5,
       "sick_h": 38.0,
-      "gearb": 3103.0,
-      "bill_h": 3002.0,
-      "bill_eur": 292985.0,
+      "gearb": 3431.0,
+      "bill_h": 3332.0,
+      "bill_eur": 319385.0,
       "nonbill_h": 113.0,
       "plus": 132.5,
       "plus_krank": 94.5,
@@ -3695,30 +5373,30 @@
     },
     "by_month": {
       "2026-01": {
-        "soll_b": 336.0,
-        "soll_n": 336.0,
+        "soll_b": 504.0,
+        "soll_n": 504.0,
         "vac_days": 0.0,
         "vac_h": 0.0,
         "sick_days": 0.0,
         "sick_h": 0.0,
-        "gearb": 336.0,
-        "bill_h": 323.5,
-        "bill_eur": 30910.0,
+        "gearb": 504.0,
+        "bill_h": 491.5,
+        "bill_eur": 44350.0,
         "nonbill_h": 13.5,
         "plus": 0.0,
         "plus_krank": 0.0,
         "missing_days": 0.0
       },
       "2026-02": {
-        "soll_b": 320.0,
-        "soll_n": 304.0,
+        "soll_b": 480.0,
+        "soll_n": 464.0,
         "vac_days": 0.0,
         "vac_h": 0.0,
         "sick_days": 2.0,
         "sick_h": 16.0,
-        "gearb": 304.5,
-        "bill_h": 293.5,
-        "bill_eur": 27990.0,
+        "gearb": 464.5,
+        "bill_h": 453.5,
+        "bill_eur": 40790.0,
         "nonbill_h": 12.0,
         "plus": 0.5,
         "plus_krank": -15.5,
@@ -3732,8 +5410,8 @@
         "sick_days": 0.0,
         "sick_h": 0.0,
         "gearb": 311.25,
-        "bill_h": 301.75,
-        "bill_eur": 28805.0,
+        "bill_h": 303.75,
+        "bill_eur": 28965.0,
         "nonbill_h": 10.5,
         "plus": -0.75,
         "plus_krank": -0.75,
@@ -3847,135 +5525,135 @@
     },
     "by_week": {
       "2026-W01": {
-        "soll_b": 16.0,
-        "soll_n": 16.0,
+        "soll_b": 24.0,
+        "soll_n": 24.0,
         "vac_days": 0.0,
         "vac_h": 0.0,
         "sick_days": 0.0,
         "sick_h": 0.0,
-        "gearb": 16.0,
-        "bill_h": 14.5,
-        "bill_eur": 1370.0,
+        "gearb": 24.0,
+        "bill_h": 22.5,
+        "bill_eur": 2010.0,
         "nonbill_h": 1.5,
         "plus": 0.0,
         "plus_krank": 0.0,
         "missing_days": 0.0
       },
       "2026-W02": {
-        "soll_b": 80.0,
-        "soll_n": 80.0,
+        "soll_b": 120.0,
+        "soll_n": 120.0,
         "vac_days": 0.0,
         "vac_h": 0.0,
         "sick_days": 0.0,
         "sick_h": 0.0,
-        "gearb": 79.25,
-        "bill_h": 75.75,
-        "bill_eur": 7385.0,
+        "gearb": 119.25,
+        "bill_h": 115.75,
+        "bill_eur": 10585.0,
         "nonbill_h": 4.5,
         "plus": -0.75,
         "plus_krank": -0.75,
         "missing_days": 0.0
       },
       "2026-W03": {
-        "soll_b": 80.0,
-        "soll_n": 80.0,
+        "soll_b": 120.0,
+        "soll_n": 120.0,
         "vac_days": 0.0,
         "vac_h": 0.0,
         "sick_days": 0.0,
         "sick_h": 0.0,
-        "gearb": 80.25,
-        "bill_h": 77.75,
-        "bill_eur": 7385.0,
+        "gearb": 120.25,
+        "bill_h": 117.75,
+        "bill_eur": 10585.0,
         "nonbill_h": 2.5,
         "plus": 0.25,
         "plus_krank": 0.25,
         "missing_days": 0.0
       },
       "2026-W04": {
-        "soll_b": 80.0,
-        "soll_n": 80.0,
+        "soll_b": 120.0,
+        "soll_n": 120.0,
         "vac_days": 0.0,
         "vac_h": 0.0,
         "sick_days": 0.0,
         "sick_h": 0.0,
-        "gearb": 80.25,
-        "bill_h": 77.75,
-        "bill_eur": 7385.0,
+        "gearb": 120.25,
+        "bill_h": 117.75,
+        "bill_eur": 10585.0,
         "nonbill_h": 2.5,
         "plus": 0.25,
         "plus_krank": 0.25,
         "missing_days": 0.0
       },
       "2026-W05": {
-        "soll_b": 80.0,
-        "soll_n": 80.0,
+        "soll_b": 120.0,
+        "soll_n": 120.0,
         "vac_days": 0.0,
         "vac_h": 0.0,
         "sick_days": 0.0,
         "sick_h": 0.0,
-        "gearb": 80.25,
-        "bill_h": 77.75,
-        "bill_eur": 7385.0,
+        "gearb": 120.25,
+        "bill_h": 117.75,
+        "bill_eur": 10585.0,
         "nonbill_h": 2.5,
         "plus": 0.25,
         "plus_krank": 0.25,
         "missing_days": 0.0
       },
       "2026-W06": {
-        "soll_b": 80.0,
-        "soll_n": 80.0,
+        "soll_b": 120.0,
+        "soll_n": 120.0,
         "vac_days": 0.0,
         "vac_h": 0.0,
         "sick_days": 0.0,
         "sick_h": 0.0,
-        "gearb": 79.25,
-        "bill_h": 75.75,
-        "bill_eur": 7385.0,
+        "gearb": 119.25,
+        "bill_h": 115.75,
+        "bill_eur": 10585.0,
         "nonbill_h": 4.5,
         "plus": -0.75,
         "plus_krank": -0.75,
         "missing_days": 0.0
       },
       "2026-W07": {
-        "soll_b": 80.0,
-        "soll_n": 80.0,
+        "soll_b": 120.0,
+        "soll_n": 120.0,
         "vac_days": 0.0,
         "vac_h": 0.0,
         "sick_days": 0.0,
         "sick_h": 0.0,
-        "gearb": 80.25,
-        "bill_h": 77.75,
-        "bill_eur": 7385.0,
+        "gearb": 120.25,
+        "bill_h": 117.75,
+        "bill_eur": 10585.0,
         "nonbill_h": 2.5,
         "plus": 0.25,
         "plus_krank": 0.25,
         "missing_days": 0.0
       },
       "2026-W08": {
-        "soll_b": 80.0,
-        "soll_n": 64.0,
+        "soll_b": 120.0,
+        "soll_n": 104.0,
         "vac_days": 0.0,
         "vac_h": 0.0,
         "sick_days": 2.0,
         "sick_h": 16.0,
-        "gearb": 64.75,
-        "bill_h": 62.25,
-        "bill_eur": 5835.0,
+        "gearb": 104.75,
+        "bill_h": 102.25,
+        "bill_eur": 9035.0,
         "nonbill_h": 2.5,
         "plus": 0.75,
         "plus_krank": -15.25,
         "missing_days": 0.0
       },
       "2026-W09": {
-        "soll_b": 80.0,
-        "soll_n": 80.0,
+        "soll_b": 120.0,
+        "soll_n": 120.0,
         "vac_days": 0.0,
         "vac_h": 0.0,
         "sick_days": 0.0,
         "sick_h": 0.0,
-        "gearb": 80.25,
-        "bill_h": 77.75,
-        "bill_eur": 7385.0,
+        "gearb": 120.25,
+        "bill_h": 117.75,
+        "bill_eur": 10585.0,
         "nonbill_h": 2.5,
         "plus": 0.25,
         "plus_krank": 0.25,
@@ -3989,8 +5667,8 @@
         "sick_days": 0.0,
         "sick_h": 0.0,
         "gearb": 79.25,
-        "bill_h": 75.75,
-        "bill_eur": 7385.0,
+        "bill_h": 77.75,
+        "bill_eur": 7545.0,
         "nonbill_h": 4.5,
         "plus": -0.75,
         "plus_krank": -0.75,
@@ -4510,75 +6188,75 @@
     "month_weeks": {
       "2026-01": {
         "2026-W01": {
-          "soll_b": 16.0,
-          "soll_n": 16.0,
+          "soll_b": 24.0,
+          "soll_n": 24.0,
           "vac_days": 0.0,
           "vac_h": 0.0,
           "sick_days": 0.0,
           "sick_h": 0.0,
-          "gearb": 16.0,
-          "bill_h": 14.5,
-          "bill_eur": 1370.0,
+          "gearb": 24.0,
+          "bill_h": 22.5,
+          "bill_eur": 2010.0,
           "nonbill_h": 1.5,
           "plus": 0.0,
           "plus_krank": 0.0,
           "missing_days": 0.0
         },
         "2026-W02": {
-          "soll_b": 80.0,
-          "soll_n": 80.0,
+          "soll_b": 120.0,
+          "soll_n": 120.0,
           "vac_days": 0.0,
           "vac_h": 0.0,
           "sick_days": 0.0,
           "sick_h": 0.0,
-          "gearb": 79.25,
-          "bill_h": 75.75,
-          "bill_eur": 7385.0,
+          "gearb": 119.25,
+          "bill_h": 115.75,
+          "bill_eur": 10585.0,
           "nonbill_h": 4.5,
           "plus": -0.75,
           "plus_krank": -0.75,
           "missing_days": 0.0
         },
         "2026-W03": {
-          "soll_b": 80.0,
-          "soll_n": 80.0,
+          "soll_b": 120.0,
+          "soll_n": 120.0,
           "vac_days": 0.0,
           "vac_h": 0.0,
           "sick_days": 0.0,
           "sick_h": 0.0,
-          "gearb": 80.25,
-          "bill_h": 77.75,
-          "bill_eur": 7385.0,
+          "gearb": 120.25,
+          "bill_h": 117.75,
+          "bill_eur": 10585.0,
           "nonbill_h": 2.5,
           "plus": 0.25,
           "plus_krank": 0.25,
           "missing_days": 0.0
         },
         "2026-W04": {
-          "soll_b": 80.0,
-          "soll_n": 80.0,
+          "soll_b": 120.0,
+          "soll_n": 120.0,
           "vac_days": 0.0,
           "vac_h": 0.0,
           "sick_days": 0.0,
           "sick_h": 0.0,
-          "gearb": 80.25,
-          "bill_h": 77.75,
-          "bill_eur": 7385.0,
+          "gearb": 120.25,
+          "bill_h": 117.75,
+          "bill_eur": 10585.0,
           "nonbill_h": 2.5,
           "plus": 0.25,
           "plus_krank": 0.25,
           "missing_days": 0.0
         },
         "2026-W05": {
-          "soll_b": 80.0,
-          "soll_n": 80.0,
+          "soll_b": 120.0,
+          "soll_n": 120.0,
           "vac_days": 0.0,
           "vac_h": 0.0,
           "sick_days": 0.0,
           "sick_h": 0.0,
-          "gearb": 80.25,
-          "bill_h": 77.75,
-          "bill_eur": 7385.0,
+          "gearb": 120.25,
+          "bill_h": 117.75,
+          "bill_eur": 10585.0,
           "nonbill_h": 2.5,
           "plus": 0.25,
           "plus_krank": 0.25,
@@ -4602,60 +6280,60 @@
           "missing_days": 0.0
         },
         "2026-W06": {
-          "soll_b": 80.0,
-          "soll_n": 80.0,
+          "soll_b": 120.0,
+          "soll_n": 120.0,
           "vac_days": 0.0,
           "vac_h": 0.0,
           "sick_days": 0.0,
           "sick_h": 0.0,
-          "gearb": 79.25,
-          "bill_h": 75.75,
-          "bill_eur": 7385.0,
+          "gearb": 119.25,
+          "bill_h": 115.75,
+          "bill_eur": 10585.0,
           "nonbill_h": 4.5,
           "plus": -0.75,
           "plus_krank": -0.75,
           "missing_days": 0.0
         },
         "2026-W07": {
-          "soll_b": 80.0,
-          "soll_n": 80.0,
+          "soll_b": 120.0,
+          "soll_n": 120.0,
           "vac_days": 0.0,
           "vac_h": 0.0,
           "sick_days": 0.0,
           "sick_h": 0.0,
-          "gearb": 80.25,
-          "bill_h": 77.75,
-          "bill_eur": 7385.0,
+          "gearb": 120.25,
+          "bill_h": 117.75,
+          "bill_eur": 10585.0,
           "nonbill_h": 2.5,
           "plus": 0.25,
           "plus_krank": 0.25,
           "missing_days": 0.0
         },
         "2026-W08": {
-          "soll_b": 80.0,
-          "soll_n": 64.0,
+          "soll_b": 120.0,
+          "soll_n": 104.0,
           "vac_days": 0.0,
           "vac_h": 0.0,
           "sick_days": 2.0,
           "sick_h": 16.0,
-          "gearb": 64.75,
-          "bill_h": 62.25,
-          "bill_eur": 5835.0,
+          "gearb": 104.75,
+          "bill_h": 102.25,
+          "bill_eur": 9035.0,
           "nonbill_h": 2.5,
           "plus": 0.75,
           "plus_krank": -15.25,
           "missing_days": 0.0
         },
         "2026-W09": {
-          "soll_b": 80.0,
-          "soll_n": 80.0,
+          "soll_b": 120.0,
+          "soll_n": 120.0,
           "vac_days": 0.0,
           "vac_h": 0.0,
           "sick_days": 0.0,
           "sick_h": 0.0,
-          "gearb": 80.25,
-          "bill_h": 77.75,
-          "bill_eur": 7385.0,
+          "gearb": 120.25,
+          "bill_h": 117.75,
+          "bill_eur": 10585.0,
           "nonbill_h": 2.5,
           "plus": 0.25,
           "plus_krank": 0.25,
@@ -4686,8 +6364,8 @@
           "sick_days": 0.0,
           "sick_h": 0.0,
           "gearb": 79.25,
-          "bill_h": 75.75,
-          "bill_eur": 7385.0,
+          "bill_h": 77.75,
+          "bill_eur": 7545.0,
           "nonbill_h": 4.5,
           "plus": -0.75,
           "plus_krank": -0.75,
@@ -5313,20 +6991,20 @@
       "ytd": [
         {
           "location": "Home Office",
-          "hours": 1771.5,
-          "share": 57.09,
-          "days": 229
+          "hours": 2099.5,
+          "share": 61.19,
+          "days": 270
         },
         {
           "location": "Büro",
           "hours": 1264.0,
-          "share": 40.73,
+          "share": 36.84,
           "days": 190
         },
         {
           "location": "Kunde vor Ort",
           "hours": 67.5,
-          "share": 2.18,
+          "share": 1.97,
           "days": 12
         }
       ],
@@ -5334,40 +7012,40 @@
         "2026-01": [
           {
             "location": "Home Office",
-            "hours": 196.0,
-            "share": 58.33,
-            "days": 25
+            "hours": 364.0,
+            "share": 72.22,
+            "days": 46
           },
           {
             "location": "Büro",
             "hours": 133.0,
-            "share": 39.58,
+            "share": 26.39,
             "days": 20
           },
           {
             "location": "Kunde vor Ort",
             "hours": 7.0,
-            "share": 2.08,
+            "share": 1.39,
             "days": 1
           }
         ],
         "2026-02": [
           {
             "location": "Home Office",
-            "hours": 180.0,
-            "share": 59.11,
-            "days": 23
+            "hours": 340.0,
+            "share": 73.2,
+            "days": 43
           },
           {
             "location": "Büro",
             "hours": 117.5,
-            "share": 38.59,
+            "share": 25.3,
             "days": 18
           },
           {
             "location": "Kunde vor Ort",
             "hours": 7.0,
-            "share": 2.3,
+            "share": 1.51,
             "days": 1
           }
         ],
@@ -5543,7 +7221,8 @@
             "rate": 100.0,
             "hours": 161.5,
             "net": 16150.0,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           },
           {
             "person": "Max Mustermann",
@@ -5553,7 +7232,8 @@
             "rate": 90.0,
             "hours": 162.0,
             "net": 14580.0,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           },
           {
             "person": "Max Mustermann",
@@ -5563,20 +7243,32 @@
             "rate": 90.0,
             "hours": 2.0,
             "net": 180.0,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
+          },
+          {
+            "person": "Lena Beispiel",
+            "service": "Delivery",
+            "base_rate": 80.0,
+            "rate_percent": 100.0,
+            "rate": 80.0,
+            "hours": 168.0,
+            "net": 13440.0,
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           }
         ],
-        "hours": 325.5,
-        "net": 30910.0,
+        "hours": 493.5,
+        "net": 44350.0,
         "vat_groups": [
           {
             "vat_percent": 19.0,
-            "net": 30910.0,
-            "vat": 5872.9
+            "net": 44350.0,
+            "vat": 8426.5
           }
         ],
-        "vat": 5872.9,
-        "gross": 36782.9
+        "vat": 8426.5,
+        "gross": 52776.5
       },
       {
         "month": "2026-02",
@@ -5590,7 +7282,8 @@
             "rate": 100.0,
             "hours": 139.5,
             "net": 13950.0,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           },
           {
             "person": "Max Mustermann",
@@ -5600,7 +7293,8 @@
             "rate": 90.0,
             "hours": 154.0,
             "net": 13860.0,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           },
           {
             "person": "Max Mustermann",
@@ -5610,20 +7304,32 @@
             "rate": 90.0,
             "hours": 2.0,
             "net": 180.0,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
+          },
+          {
+            "person": "Lena Beispiel",
+            "service": "Delivery",
+            "base_rate": 80.0,
+            "rate_percent": 100.0,
+            "rate": 80.0,
+            "hours": 160.0,
+            "net": 12800.0,
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           }
         ],
-        "hours": 295.5,
-        "net": 27990.0,
+        "hours": 455.5,
+        "net": 40790.0,
         "vat_groups": [
           {
             "vat_percent": 19.0,
-            "net": 27990.0,
-            "vat": 5318.1
+            "net": 40790.0,
+            "vat": 7750.1
           }
         ],
-        "vat": 5318.1,
-        "gross": 33308.1
+        "vat": 7750.1,
+        "gross": 48540.1
       },
       {
         "month": "2026-03",
@@ -5637,7 +7343,8 @@
             "rate": 100.0,
             "hours": 131.75,
             "net": 13175.0,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           },
           {
             "person": "Erika Mustermann",
@@ -5647,7 +7354,8 @@
             "rate": 100.0,
             "hours": 1.5,
             "net": 150.0,
-            "vat_percent": 7.0
+            "vat_percent": 7.0,
+            "outside_hours": 0.0
           },
           {
             "person": "Max Mustermann",
@@ -5657,7 +7365,8 @@
             "rate": 90.0,
             "hours": 170.0,
             "net": 15300.0,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           },
           {
             "person": "Max Mustermann",
@@ -5667,11 +7376,23 @@
             "rate": 90.0,
             "hours": 2.0,
             "net": 180.0,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
+          },
+          {
+            "person": "Lena Beispiel",
+            "service": "Delivery",
+            "base_rate": 80.0,
+            "rate_percent": 100.0,
+            "rate": 80.0,
+            "hours": 2.0,
+            "net": 160.0,
+            "vat_percent": 19.0,
+            "outside_hours": 2.0
           }
         ],
-        "hours": 305.25,
-        "net": 28805.0,
+        "hours": 307.25,
+        "net": 28965.0,
         "vat_groups": [
           {
             "vat_percent": 7.0,
@@ -5680,12 +7401,12 @@
           },
           {
             "vat_percent": 19.0,
-            "net": 28655.0,
-            "vat": 5444.45
+            "net": 28815.0,
+            "vat": 5474.85
           }
         ],
-        "vat": 5454.95,
-        "gross": 34259.95
+        "vat": 5485.35,
+        "gross": 34450.35
       },
       {
         "month": "2026-04",
@@ -5699,7 +7420,8 @@
             "rate": 100.0,
             "hours": 157.25,
             "net": 15725.0,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           },
           {
             "person": "Max Mustermann",
@@ -5709,7 +7431,8 @@
             "rate": 90.0,
             "hours": 155.0,
             "net": 13950.0,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           }
         ],
         "hours": 312.25,
@@ -5736,7 +7459,8 @@
             "rate": 100.0,
             "hours": 136.25,
             "net": 13625.0,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           },
           {
             "person": "Max Mustermann",
@@ -5746,7 +7470,8 @@
             "rate": 90.0,
             "hours": 139.0,
             "net": 12510.0,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           },
           {
             "person": "Max Mustermann",
@@ -5756,7 +7481,8 @@
             "rate": 90.0,
             "hours": 2.0,
             "net": 180.0,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           }
         ],
         "hours": 277.25,
@@ -5783,7 +7509,8 @@
             "rate": 100.0,
             "hours": 162.25,
             "net": 16225.0,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           },
           {
             "person": "Erika Mustermann",
@@ -5793,7 +7520,8 @@
             "rate": 100.0,
             "hours": 1.5,
             "net": 150.0,
-            "vat_percent": 7.0
+            "vat_percent": 7.0,
+            "outside_hours": 0.0
           },
           {
             "person": "Max Mustermann",
@@ -5803,7 +7531,8 @@
             "rate": 90.0,
             "hours": 166.0,
             "net": 14940.0,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           },
           {
             "person": "Max Mustermann",
@@ -5813,7 +7542,8 @@
             "rate": 90.0,
             "hours": 2.0,
             "net": 180.0,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           }
         ],
         "hours": 331.75,
@@ -5845,7 +7575,8 @@
             "rate": 105.0,
             "hours": 178.25,
             "net": 18716.25,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           },
           {
             "person": "Max Mustermann",
@@ -5855,7 +7586,8 @@
             "rate": 95.0,
             "hours": 99.0,
             "net": 9405.0,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           },
           {
             "person": "Max Mustermann",
@@ -5865,7 +7597,8 @@
             "rate": 95.0,
             "hours": 2.0,
             "net": 190.0,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           }
         ],
         "hours": 279.25,
@@ -5892,7 +7625,8 @@
             "rate": 105.0,
             "hours": 85.5,
             "net": 8977.5,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           },
           {
             "person": "Max Mustermann",
@@ -5902,7 +7636,8 @@
             "rate": 95.0,
             "hours": 162.0,
             "net": 15390.0,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           },
           {
             "person": "Max Mustermann",
@@ -5912,7 +7647,8 @@
             "rate": 95.0,
             "hours": 2.0,
             "net": 190.0,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           }
         ],
         "hours": 249.5,
@@ -5939,7 +7675,8 @@
             "rate": 105.0,
             "hours": 170.5,
             "net": 17902.5,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           },
           {
             "person": "Erika Mustermann",
@@ -5949,7 +7686,8 @@
             "rate": 105.0,
             "hours": 1.5,
             "net": 157.5,
-            "vat_percent": 7.0
+            "vat_percent": 7.0,
+            "outside_hours": 0.0
           },
           {
             "person": "Max Mustermann",
@@ -5959,7 +7697,8 @@
             "rate": 95.0,
             "hours": 170.0,
             "net": 16150.0,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           },
           {
             "person": "Max Mustermann",
@@ -5969,7 +7708,8 @@
             "rate": 95.0,
             "hours": 2.0,
             "net": 190.0,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           }
         ],
         "hours": 344.0,
@@ -6001,7 +7741,8 @@
             "rate": 105.0,
             "hours": 162.25,
             "net": 17036.25,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           },
           {
             "person": "Max Mustermann",
@@ -6011,7 +7752,8 @@
             "rate": 95.0,
             "hours": 140.0,
             "net": 13300.0,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           },
           {
             "person": "Max Mustermann",
@@ -6021,7 +7763,8 @@
             "rate": 95.0,
             "hours": 2.0,
             "net": 190.0,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "outside_hours": 0.0
           }
         ],
         "hours": 304.25,
@@ -6038,8 +7781,8 @@
       }
     ],
     "total": {
-      "hours": 3024.5,
-      "net": 292985.0,
+      "hours": 3354.5,
+      "net": 319385.0,
       "vat_groups": [
         {
           "vat_percent": 7.0,
@@ -6048,12 +7791,12 @@
         },
         {
           "vat_percent": 19.0,
-          "net": 292527.5,
-          "vat": 55580.24
+          "net": 318927.5,
+          "vat": 60596.24
         }
       ],
-      "vat": 55612.27,
-      "gross": 348597.27
+      "vat": 60628.27,
+      "gross": 380013.27
     }
   },
   "holiday_region": "HE",
@@ -6131,6 +7874,30 @@
   ],
   "missing_checked_until": "2026-10-31",
   "missing_threshold_percent": 50.0,
+  "outside": [
+    {
+      "person": "Lena Beispiel",
+      "date": "2026-03-02",
+      "element": "P100 Lager-App",
+      "kost2art": "Delivery (billable)",
+      "hours": 2.0,
+      "reason": "outside_assignment",
+      "invoiced": true,
+      "billed_hours": 2.0,
+      "net": 160.0
+    },
+    {
+      "person": "Jonas Beispiel",
+      "date": "2026-10-01",
+      "element": "P100 Lager-App",
+      "kost2art": "Delivery (billable)",
+      "hours": 3.0,
+      "reason": "not_in_team",
+      "invoiced": false,
+      "billed_hours": 0.0,
+      "net": 0.0
+    }
+  ],
   "overview": {
     "project_id": "beispiel-lager-app",
     "project_name": "Musterkunde GmbH / Lager-App",
@@ -6139,9 +7906,9 @@
     "export_date": "2026-10-31",
     "first_entry_date": "2026-01-02",
     "last_entry_date": "2026-10-30",
-    "entry_count": 676,
-    "total_hours": 4711.0,
-    "element_match_count": 438,
+    "entry_count": 888,
+    "total_hours": 6391.0,
+    "element_match_count": 481,
     "persons": [
       {
         "name": "Erika Mustermann",
@@ -6149,6 +7916,13 @@
         "entry_count": 249,
         "hours": 1682.0,
         "project_hours": 1542.0
+      },
+      {
+        "name": "Lena Beispiel",
+        "in_team": true,
+        "entry_count": 211,
+        "hours": 1680.0,
+        "project_hours": 330.0
       },
       {
         "name": "Max Mustermann",
@@ -6160,9 +7934,9 @@
       {
         "name": "Jonas Beispiel",
         "in_team": false,
-        "entry_count": 168,
+        "entry_count": 169,
         "hours": 1344.0,
-        "project_hours": 0.0
+        "project_hours": 3.0
       }
     ],
     "missing_team_members": [],
@@ -6188,6 +7962,15 @@
       },
       {
         "name": "Max Mustermann",
+        "date": "2026-01-02",
+        "hours": 8.0,
+        "mult": 1.0,
+        "element": "P100 Lager-App",
+        "kost2art": "Delivery (billable)",
+        "location": "Home Office"
+      },
+      {
+        "name": "Lena Beispiel",
         "date": "2026-01-02",
         "hours": 8.0,
         "mult": 1.0,
@@ -6232,6 +8015,15 @@
         "location": "Büro"
       },
       {
+        "name": "Lena Beispiel",
+        "date": "2026-01-05",
+        "hours": 8.0,
+        "mult": 1.0,
+        "element": "P100 Lager-App",
+        "kost2art": "Delivery (billable)",
+        "location": "Home Office"
+      },
+      {
         "name": "Erika Mustermann",
         "date": "2026-01-06",
         "hours": 7.5,
@@ -6259,6 +8051,15 @@
         "location": "Büro"
       },
       {
+        "name": "Lena Beispiel",
+        "date": "2026-01-06",
+        "hours": 8.0,
+        "mult": 1.0,
+        "element": "P100 Lager-App",
+        "kost2art": "Delivery (billable)",
+        "location": "Home Office"
+      },
+      {
         "name": "Erika Mustermann",
         "date": "2026-01-07",
         "hours": 8.5,
@@ -6284,6 +8085,15 @@
         "element": "P200 Intranet",
         "kost2art": "Delivery (billable)",
         "location": "Büro"
+      },
+      {
+        "name": "Lena Beispiel",
+        "date": "2026-01-07",
+        "hours": 8.0,
+        "mult": 1.0,
+        "element": "P100 Lager-App",
+        "kost2art": "Delivery (billable)",
+        "location": "Home Office"
       },
       {
         "name": "Erika Mustermann",
@@ -6322,6 +8132,15 @@
         "location": "Büro"
       },
       {
+        "name": "Lena Beispiel",
+        "date": "2026-01-08",
+        "hours": 8.0,
+        "mult": 1.0,
+        "element": "P100 Lager-App",
+        "kost2art": "Delivery (billable)",
+        "location": "Home Office"
+      },
+      {
         "name": "Erika Mustermann",
         "date": "2026-01-09",
         "hours": 6.5,
@@ -6342,51 +8161,6 @@
       {
         "name": "Max Mustermann",
         "date": "2026-01-09",
-        "hours": 8.0,
-        "mult": 1.0,
-        "element": "P100 Lager-App",
-        "kost2art": "Delivery (billable)",
-        "location": "Home Office"
-      },
-      {
-        "name": "Erika Mustermann",
-        "date": "2026-01-12",
-        "hours": 8.0,
-        "mult": 1.0,
-        "element": "P100 Lager-App",
-        "kost2art": "Delivery (billable)",
-        "location": "Büro"
-      },
-      {
-        "name": "Max Mustermann",
-        "date": "2026-01-12",
-        "hours": 8.0,
-        "mult": 1.0,
-        "element": "P100 Lager-App",
-        "kost2art": "Delivery (billable)",
-        "location": "Home Office"
-      },
-      {
-        "name": "Jonas Beispiel",
-        "date": "2026-01-12",
-        "hours": 8.0,
-        "mult": 1.0,
-        "element": "P200 Intranet",
-        "kost2art": "Delivery (billable)",
-        "location": "Büro"
-      },
-      {
-        "name": "Erika Mustermann",
-        "date": "2026-01-13",
-        "hours": 7.5,
-        "mult": 1.0,
-        "element": "P100 Lager-App",
-        "kost2art": "Delivery (billable)",
-        "location": "Büro"
-      },
-      {
-        "name": "Max Mustermann",
-        "date": "2026-01-13",
         "hours": 8.0,
         "mult": 1.0,
         "element": "P100 Lager-App",

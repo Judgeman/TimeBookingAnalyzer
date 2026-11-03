@@ -30,7 +30,8 @@ describe("Vertrag Rust ↔ Frontend (Beispieldaten)", () => {
     expect(contract.project_name).toBe("Musterkunde GmbH / Lager-App");
     expect(r.cutoff_date).toBe("2026-10-31");
     expect(r.export_date_source).toMatch(/^(file_name|modified)$/);
-    expect(r.persons.map((p) => p.name)).toEqual(["Erika Mustermann", "Max Mustermann"]);
+    expect(r.persons.map((p) => p.name)).toEqual(["Erika Mustermann", "Max Mustermann", "Lena Beispiel"]);
+    expect(r.persons[2].assignments).toEqual([{ from: "2026-01-01", to: "2026-02-28" }]);
   });
 
   it("Team-Werte sind die Summe der Personen", () => {
@@ -79,5 +80,15 @@ describe("Vertrag Rust ↔ Frontend (Beispieldaten)", () => {
     expect(r.flagged.map((f) => [f.person, f.date, f.kind])).toEqual([
       ["Max Mustermann", "2026-07-25", "vacation"],
     ]);
+  });
+
+  it("listet Buchungen außerhalb des Teams; abgerechnete stecken in der Rechnung", () => {
+    const r = sampleResult();
+    expect(r.outside.map((o) => [o.person, o.date, o.reason, o.invoiced, o.net])).toEqual([
+      ["Lena Beispiel", "2026-03-02", "outside_assignment", true, 160],
+      ["Jonas Beispiel", "2026-10-01", "not_in_team", false, 0],
+    ]);
+    const march = r.invoice.months.find((m) => m.month === "2026-03")!;
+    expect(march.lines.find((l) => l.person === "Lena Beispiel")).toMatchObject({ outside_hours: 2, net: 160 });
   });
 });

@@ -17,7 +17,7 @@ describe("YearView", () => {
     const row = (label: string) => screen.getByText(label).closest("tr")!.textContent;
     expect(row("Soll brutto")).toContain("1.636,00");
     expect(row("Plus/Minus")).toContain("+41,00");
-    expect(row("Fehlende Buchungen (Tage)")).toMatch(/112$/);
+    expect(row("Fehlende Buchungen (Tage)")).toMatch(/1102$/); // Erika 1, Max 1, Lena 0, Team 2
     expect(screen.getByText("Gearbeitet").closest("td")).toHaveAttribute("title");
   });
 });

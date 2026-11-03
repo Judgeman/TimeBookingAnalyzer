@@ -51,7 +51,7 @@ test("Tabs: Monate, Stundenkonto, Arbeitsort, Rechnung", () =>
   withApp("tabs", {}, async (app) => {
     await loadSample(app);
 
-    await app.click("button", "Monate");
+    await app.tab("Monate");
     await app.waitForText("Jahr bis Stichtag");
     await app.execute(
       "[...document.querySelectorAll('tbody tr')].find((r) => r.textContent.includes('Oktober 2026')).click()",
@@ -59,11 +59,11 @@ test("Tabs: Monate, Stundenkonto, Arbeitsort, Rechnung", () =>
     await app.waitForText("KW 43");
     assert.ok((await app.text()).includes("! 1 fehlende Buchung"));
 
-    await app.click("button", "Stundenkonto");
+    await app.tab("Stundenkonto");
     await app.waitForText("Krankheit als Fehlzeit");
     assert.ok((await app.text()).includes("Erika Mustermann hat Überstunden"));
 
-    await app.click("button", "Arbeitsort");
+    await app.tab("Arbeitsort");
     await app.waitForText("Home-Office-Anteil");
     assert.ok((await app.text()).includes("20,2 %"));
     const slices = await app.execute(
@@ -71,10 +71,10 @@ test("Tabs: Monate, Stundenkonto, Arbeitsort, Rechnung", () =>
     );
     assert.equal(slices, 3);
 
-    await app.click("button", "Rechnung");
+    await app.tab("Rechnung");
     await app.waitForText("Netto pro Person und Monat");
     const text = await app.text();
-    for (const expected of ["292.985,00 €", "55.612,27 €", "348.597,27 €", "USt. 7 % / 19 %"]) {
+    for (const expected of ["319.385,00 €", "60.628,27 €", "380.013,27 €", "USt. 7 % / 19 %"]) {
       assert.ok(text.includes(expected), `fehlt: ${expected}`);
     }
   }));
@@ -100,9 +100,44 @@ test("Editor: Überschneidung wird abgelehnt, Regeländerung wirkt auf die Rechn
     await app.execute("document.querySelector(\"tbody tr:nth-child(3) input[aria-label='× Mult']\").click()");
     await app.click("button", "Speichern");
     await app.waitForText("Auswertung 01.01.2026");
-    await app.click("button", "Rechnung");
+    await app.tab("Rechnung");
     // 9 Reise-Montage à 2 h: 1.660 € → 2 h × Mult 0,5 × 50 % = 415 € ⇒ netto −1.245 €
-    await app.waitForText("291.740,00 €");
+    await app.waitForText("318.140,00 €");
+  }));
+
+test("Einsatzzeitraum: Buchungen außerhalb des Teams fallen sofort auf", () =>
+  withApp("einsatzzeitraum", {}, async (app) => {
+    await loadSample(app);
+    // Banner über der Auswertung (vor allen Tabs)
+    let text = await app.text();
+    for (const expected of [
+      "2 Buchungen auf das Projekt außerhalb des Teams",
+      "2,00 h außerhalb des Einsatzzeitraums – abgerechnet (160,00 € netto)",
+      "3,00 h von Personen, die nicht im Team sind – nicht abgerechnet",
+      "im Projekt: 01.01.2026–28.02.2026",
+    ]) {
+      assert.ok(text.includes(expected), `fehlt: ${expected}`);
+    }
+    const badge = await app.execute(
+      "return [...document.querySelectorAll('[role=tab]')].find((t) => t.textContent.startsWith('Rechnung')).textContent",
+    );
+    assert.equal(badge, "Rechnung⚠ 2");
+
+    // Lena ist nur Januar/Februar im Projekt
+    await app.tab("Monate");
+    await app.click("button", "Lena Beispiel");
+    await app.waitForText("nicht im Projekt");
+    assert.ok((await app.text()).includes("⚠ 1 außerhalb des Teams"));
+
+    await app.tab("Rechnung");
+    await app.waitForText("⚠ enthält Buchungen außerhalb des Einsatzzeitraums");
+    text = await app.text();
+    for (const expected of [
+      "Diese Rechnung enthält 2,00 h (160,00 € netto)",
+      "3,00 h von Personen, die nicht im Team sind, sind nicht abgerechnet (Jonas Beispiel)",
+    ]) {
+      assert.ok(text.includes(expected), `fehlt: ${expected}`);
+    }
   }));
 
 test("Fehlende Buchungen: Schwelle im Projekt einstellbar", () =>

@@ -25,6 +25,14 @@ export interface TeamMember {
   rates: RatePeriod[];
   /** Abweichende Arbeitszeit; leer = Arbeitszeit des Projekts. */
   working_hours: WorkingHoursPeriod[];
+  /** Einsatzzeiträume im Projekt; leer = immer im Projekt. */
+  assignments: AssignmentPeriod[];
+}
+
+export interface AssignmentPeriod {
+  from: IsoDate;
+  /** `null` = unbefristet. */
+  to: IsoDate | null;
 }
 
 export type MatchMode = "exact" | "contains";

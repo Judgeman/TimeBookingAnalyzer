@@ -9,8 +9,8 @@ use chrono::NaiveDate;
 
 use super::*;
 use crate::models::config::{
-    BillingRule, ExportFormat, HolidayConfig, MatchMode, ProjectConfig, RatePeriod, TeamMember,
-    WorkingHoursPeriod, default_billing_rules,
+    AssignmentPeriod, BillingRule, ExportFormat, HolidayConfig, MatchMode, ProjectConfig,
+    RatePeriod, TeamMember, WorkingHoursPeriod, default_billing_rules,
 };
 
 fn d(y: i32, m: u32, day: u32) -> NaiveDate {
@@ -34,11 +34,13 @@ fn config() -> ProjectConfig {
                     rate(d(2026, 1, 10), None, 110.0),
                 ],
                 working_hours: vec![],
+                assignments: vec![],
             },
             TeamMember {
                 name: "Max Mustermann".into(),
                 rates: vec![rate(d(2026, 1, 5), None, 90.0)],
                 working_hours: vec![],
+                assignments: vec![],
             },
         ],
         working_hours: vec![
@@ -543,4 +545,105 @@ fn missing_bookings_respect_partial_bookings_threshold_and_export_date() {
         .map(|m| m.date)
         .collect();
     assert_eq!(dates, vec![d(2026, 1, 8), d(2026, 1, 9)]);
+}
+
+#[test]
+fn assignment_period_limits_person_but_project_bookings_are_still_billed() {
+    // Max ist nur am 01./02.01. im Projekt; am 05.01. bucht er trotzdem aufs Projekt.
+    let mut config = config();
+    config.team[1].assignments = vec![AssignmentPeriod {
+        from: d(2026, 1, 1),
+        to: Some(d(2026, 1, 2)),
+    }];
+    let mut entries = entries();
+    entries.push(e(
+        "Max Mustermann",
+        d(2026, 1, 6),
+        3.0,
+        1.0,
+        "P200 Intranet",
+        DELIVERY,
+    )); // anderes Projekt
+    entries.push(e(
+        "Max Mustermann",
+        d(2026, 1, 12),
+        8.0,
+        1.0,
+        "(Vacation)",
+        "",
+    )); // außerhalb → ignoriert
+    entries.push(e("Lena Fremd", d(2026, 1, 7), 2.0, 1.0, P100, DELIVERY)); // nicht im Team
+    let result = evaluate(&config, &entries, d(2026, 1, 16), Some(d(2026, 1, 16)));
+
+    let max = &result.persons[1];
+    assert_eq!(max.assignments.len(), 1);
+    let ytd = &max.periods.ytd;
+    assert_eq!(ytd.soll_b, 8.0); // nur 02.01. (01.01. Feiertag)
+    assert_eq!(ytd.gearb, 8.0); // nur 02.01.
+    assert_eq!(ytd.vac_h, 0.0);
+    assert_eq!(ytd.missing_days, 0.0); // vorher 9 Tage
+    assert_eq!(ytd.nonbill_h, 0.0); // P200 am 06.01. zählt nicht
+    assert_eq!(ytd.bill_h, 16.0); // 02.01. + 05.01. (außerhalb, aber aufs Projekt)
+    assert_eq!(ytd.bill_eur, 720.0); // 05.01.: 8 h × 90 €
+    assert_eq!(
+        max.periods
+            .locations
+            .ytd
+            .iter()
+            .map(|l| l.hours)
+            .sum::<f64>(),
+        8.0
+    );
+    assert!(!result.flagged.iter().any(|f| f.person == "Max Mustermann"));
+
+    // Rechnung: Position mit Hinweis auf Stunden außerhalb des Einsatzzeitraums
+    let jan = &result.invoice.months[0];
+    let line = jan
+        .lines
+        .iter()
+        .find(|l| l.person == "Max Mustermann" && l.rate == Some(90.0))
+        .unwrap();
+    assert_eq!(
+        (line.hours, line.outside_hours, line.net),
+        (8.0, 8.0, 720.0)
+    );
+    assert_eq!(jan.net, 3790.0); // unverändert: abgerechnet wird trotzdem
+
+    let outside: Vec<(&str, NaiveDate, OutsideReason, bool, f64, f64)> = result
+        .outside
+        .iter()
+        .map(|o| {
+            (
+                o.person.as_str(),
+                o.date,
+                o.reason,
+                o.invoiced,
+                o.billed_hours,
+                o.net,
+            )
+        })
+        .collect();
+    assert_eq!(
+        outside,
+        vec![
+            (
+                "Max Mustermann",
+                d(2026, 1, 5),
+                OutsideReason::OutsideAssignment,
+                true,
+                8.0,
+                720.0
+            ),
+            (
+                "Lena Fremd",
+                d(2026, 1, 7),
+                OutsideReason::NotInTeam,
+                false,
+                0.0,
+                0.0
+            ),
+        ]
+    );
+    // Team-Summen ohne Max' Zeit außerhalb
+    assert_eq!(result.team.ytd.soll_b, 78.0 + 8.0);
 }

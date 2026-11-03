@@ -1,5 +1,5 @@
 import type { RatePeriod, TeamMember, WorkingHoursPeriod } from "../../types/config";
-import { PeriodListEditor } from "./PeriodListEditor";
+import { PeriodListEditor, RangeListEditor } from "./PeriodListEditor";
 import { ui } from "./ui";
 
 interface Props {
@@ -65,12 +65,29 @@ export function TeamEditor({ team, onChange, defaultFrom }: Props) {
                 addLabel="Ausnahme"
               />
             </section>
+            <section className="lg:col-span-2">
+              <h4 className="mb-1 text-sm font-medium text-slate-700">Einsatzzeitraum im Projekt</h4>
+              <p className={`mb-2 ${ui.hint}`}>
+                Außerhalb zählt die Person nicht mit (kein Soll, keine Arbeitszeit, keine Prüfung
+                auf fehlende Buchungen). Buchungen aufs Projekt außerhalb werden trotzdem
+                abgerechnet und deutlich markiert.
+              </p>
+              <RangeListEditor
+                items={member.assignments}
+                onChange={(assignments) => update(index, { assignments })}
+                create={() => ({ from: defaultFrom, to: null })}
+                emptyText="Kein Zeitraum – die Person ist durchgehend im Projekt."
+                addLabel="Einsatzzeitraum"
+              />
+            </section>
           </div>
         </div>
       ))}
       <button
         type="button"
-        onClick={() => onChange([...team, { name: "", rates: [], working_hours: [] }])}
+        onClick={() =>
+          onChange([...team, { name: "", rates: [], working_hours: [], assignments: [] }])
+        }
         className={ui.secondaryButton}
       >
         + Person

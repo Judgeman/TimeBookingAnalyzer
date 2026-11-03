@@ -25,6 +25,8 @@ pub struct InvoiceItem<'a> {
     pub rate_percent: f64,
     pub vat_percent: f64,
     pub hours: f64,
+    /// Buchung liegt außerhalb des Einsatzzeitraums der Person.
+    pub outside: bool,
 }
 
 struct LineAcc {
@@ -34,6 +36,7 @@ struct LineAcc {
     rate_percent: f64,
     vat_percent: f64,
     hours: f64,
+    outside_hours: f64,
 }
 
 type LineKey = (String, usize, usize, Option<i64>, i64, i64);
@@ -62,17 +65,19 @@ impl InvoiceBuilder {
             fixed(item.rate_percent),
             fixed(item.vat_percent),
         );
-        self.lines
-            .entry(key)
-            .or_insert_with(|| LineAcc {
-                person: item.person.to_string(),
-                service: item.service.to_string(),
-                base_rate: item.base_rate,
-                rate_percent: item.rate_percent,
-                vat_percent: item.vat_percent,
-                hours: 0.0,
-            })
-            .hours += item.hours;
+        let line = self.lines.entry(key).or_insert_with(|| LineAcc {
+            person: item.person.to_string(),
+            service: item.service.to_string(),
+            base_rate: item.base_rate,
+            rate_percent: item.rate_percent,
+            vat_percent: item.vat_percent,
+            hours: 0.0,
+            outside_hours: 0.0,
+        });
+        line.hours += item.hours;
+        if item.outside {
+            line.outside_hours += item.hours;
+        }
     }
 
     pub fn finish(self) -> InvoiceSummary {
@@ -91,6 +96,7 @@ impl InvoiceBuilder {
                 hours,
                 net: from_cents(net_cents),
                 vat_percent: acc.vat_percent,
+                outside_hours: round2(acc.outside_hours),
             };
 
             if months.last().is_none_or(|m| m.month != month) {
@@ -224,6 +230,7 @@ mod tests {
             rate_percent,
             vat_percent,
             hours,
+            outside: false,
         }
     }
 

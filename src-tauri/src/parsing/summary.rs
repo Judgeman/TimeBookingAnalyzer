@@ -106,6 +106,7 @@ mod tests {
             name: name.into(),
             rates: vec![],
             working_hours: vec![],
+            assignments: vec![],
         }
     }
 

@@ -166,6 +166,7 @@ mod tests {
                 name: "Erika Mustermann".into(),
                 rates: vec![],
                 working_hours: vec![],
+                assignments: vec![],
             }],
             working_hours: vec![],
             holidays: HolidayConfig::default(),

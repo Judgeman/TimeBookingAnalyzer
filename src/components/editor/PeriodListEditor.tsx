@@ -111,3 +111,79 @@ function PeriodRow({
     </>
   );
 }
+
+interface RangeProps {
+  items: Period[];
+  onChange: (items: Period[]) => void;
+  create: () => Period;
+  emptyText: string;
+  addLabel: string;
+}
+
+/** Liste von Zeiträumen ohne Wert (nur Von/Bis), z. B. Einsatzzeiträume. */
+export function RangeListEditor({ items, onChange, create, emptyText, addLabel }: RangeProps) {
+  const update = (index: number, patch: Partial<Period>) =>
+    onChange(items.map((item, i) => (i === index ? { ...item, ...patch } : item)));
+
+  return (
+    <div className="space-y-2">
+      {items.length === 0 ? (
+        <p className={ui.hint}>{emptyText}</p>
+      ) : (
+        <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-2 text-xs text-slate-500">
+          <span>Von</span>
+          <span>Bis (leer = offen)</span>
+          <span />
+          {items.map((item, index) => (
+            <RangeRow
+              key={index}
+              item={item}
+              onFrom={(from) => update(index, { from })}
+              onTo={(to) => update(index, { to })}
+              onRemove={() => onChange(items.filter((_, i) => i !== index))}
+            />
+          ))}
+        </div>
+      )}
+      <button type="button" onClick={() => onChange([...items, create()])} className={ui.addButton}>
+        + {addLabel}
+      </button>
+    </div>
+  );
+}
+
+function RangeRow({
+  item,
+  onFrom,
+  onTo,
+  onRemove,
+}: {
+  item: Period;
+  onFrom: (v: string) => void;
+  onTo: (v: string | null) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <>
+      <input
+        type="date"
+        required
+        value={item.from}
+        onChange={(e) => onFrom(e.target.value)}
+        className={ui.inputSm}
+        aria-label="Einsatz von"
+      />
+      <input
+        type="date"
+        value={item.to ?? ""}
+        min={item.from || undefined}
+        onChange={(e) => onTo(e.target.value || null)}
+        className={ui.inputSm}
+        aria-label="Einsatz bis"
+      />
+      <button type="button" onClick={onRemove} className={ui.removeButton} title="Einsatzzeitraum entfernen">
+        ✕
+      </button>
+    </>
+  );
+}

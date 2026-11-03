@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -87,6 +87,7 @@ describe("TeamEditor", () => {
         name: "Erika Mustermann",
         rates: [{ from: "2026-01-01", to: null, rate: 0 }],
         working_hours: [{ from: "2026-01-01", to: null, hours_per_day: 8 }],
+        assignments: [],
       },
     ]);
     await user.click(screen.getByRole("button", { name: "Person entfernen" }));
@@ -149,5 +150,27 @@ describe("RulesEditor", () => {
 
     await user.click(screen.getByRole("button", { name: "Standardregeln wiederherstellen" }));
     expect(last()).toEqual(defaultBillingRules());
+  });
+});
+
+describe("TeamEditor – Einsatzzeitraum", () => {
+  it("legt Einsatzzeiträume an, ändert und entfernt sie", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <Stateful<TeamMember[]>
+        initial={[{ name: "Lena Beispiel", rates: [], working_hours: [], assignments: [] }]}
+        onChange={onChange}
+        render={(team, set) => <TeamEditor team={team} onChange={set} defaultFrom="2026-01-01" />}
+      />,
+    );
+    expect(screen.getByText("Kein Zeitraum – die Person ist durchgehend im Projekt.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "+ Einsatzzeitraum" }));
+    fireEvent.change(screen.getByLabelText("Einsatz bis"), { target: { value: "2026-02-28" } });
+    expect(onChange.mock.calls.at(-1)![0][0].assignments).toEqual([{ from: "2026-01-01", to: "2026-02-28" }]);
+    fireEvent.change(screen.getByLabelText("Einsatz von"), { target: { value: "2026-01-15" } });
+    expect(onChange.mock.calls.at(-1)![0][0].assignments).toEqual([{ from: "2026-01-15", to: "2026-02-28" }]);
+    await user.click(screen.getByTitle("Einsatzzeitraum entfernen"));
+    expect(onChange.mock.calls.at(-1)![0][0].assignments).toEqual([]);
   });
 });

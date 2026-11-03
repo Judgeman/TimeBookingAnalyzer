@@ -20,8 +20,8 @@ use chrono::{Datelike, NaiveDate, Weekday};
 use crate::models::config::{ProjectConfig, TeamMember};
 use crate::models::entry::TimeEntry;
 use crate::models::results::{
-    AbsenceKind, FlaggedBooking, InvoiceSummary, MissingBooking, PeriodBreakdown, PeriodData,
-    PersonResult,
+    AbsenceKind, FlaggedBooking, InvoiceSummary, MissingBooking, OutsideBooking, OutsideReason,
+    PeriodBreakdown, PeriodData, PersonResult,
 };
 use gearb::Absence;
 use holidays::Holiday;
@@ -38,6 +38,7 @@ pub struct Evaluation {
     pub flagged: Vec<FlaggedBooking>,
     pub missing: Vec<MissingBooking>,
     pub missing_checked_until: NaiveDate,
+    pub outside: Vec<OutsideBooking>,
 }
 
 /// Wertet alle Teammitglieder vom 1. Januar des Stichtag-Jahres bis zum
@@ -86,8 +87,17 @@ pub fn evaluate(
     let mut by_person: Vec<BTreeMap<NaiveDate, Vec<&TimeEntry>>> =
         vec![BTreeMap::new(); config.team.len()];
     let mut after_cutoff = 0usize;
+    let mut outside = Vec::new();
     for entry in entries {
         let Some(index) = config.team_index(&entry.name) else {
+            // Buchung aufs Projekt von jemandem, der nicht im Team ist: nicht
+            // abrechenbar (kein Stundensatz), aber deutlich markieren.
+            if (period_start..=cutoff).contains(&entry.date)
+                && gearb::absence(entry, special).is_none()
+                && is_project_booking(config, entry)
+            {
+                outside.push(outside_booking(entry, OutsideReason::NotInTeam));
+            }
             continue;
         };
         if entry.date > cutoff {
@@ -137,9 +147,14 @@ pub fn evaluate(
 
         for &date in &days {
             let workday = is_workday(date);
+            let assigned = member.is_assigned(date);
             let hpd = soll::hours_per_day_for(member, &config.working_hours, date);
             let mut day = Acc {
-                soll_b: if workday { hpd.unwrap_or(0.0) } else { 0.0 },
+                soll_b: if workday && assigned {
+                    hpd.unwrap_or(0.0)
+                } else {
+                    0.0
+                },
                 ..Acc::default()
             };
             let (mut raw_vacation, mut raw_sick) = (0.0, 0.0);
@@ -148,6 +163,35 @@ pub fn evaluate(
             let mut day_locations: BTreeMap<String, f64> = BTreeMap::new();
 
             for entry in by_person[index].get(&date).into_iter().flatten() {
+                if !assigned {
+                    // Außerhalb des Einsatzzeitraums zählt die Person nicht mit –
+                    // nur Buchungen aufs Projekt werden abgerechnet und markiert.
+                    if gearb::absence(entry, special).is_some()
+                        || !is_project_booking(config, entry)
+                    {
+                        continue;
+                    }
+                    let mut item = outside_booking(entry, OutsideReason::OutsideAssignment);
+                    if let Some((rule_index, rule)) =
+                        billing::matching_rule(&config.billing_rules, entry, filter)
+                    {
+                        let mut ctx = BillingContext {
+                            config,
+                            member,
+                            index,
+                            day: &mut day,
+                            invoice: &mut invoice,
+                            missing_rate: &mut missing_rate,
+                        };
+                        if let Some((billed, net)) = ctx.bill(entry, rule_index, rule, true) {
+                            item.invoiced = true;
+                            item.billed_hours = round2(billed);
+                            item.net = round2(net);
+                        }
+                    }
+                    outside.push(item);
+                    continue;
+                }
                 match gearb::absence(entry, special) {
                     Some(Absence::Vacation) => raw_vacation += entry.hours,
                     Some(Absence::Sick) => raw_sick += entry.hours,
@@ -168,30 +212,15 @@ pub fn evaluate(
                         let Some((rule_index, rule)) = rule else {
                             continue;
                         };
-                        let billed = billing::billed_hours(entry, rule);
-                        if rule.billable_hours {
-                            day.bill_h += billed;
+                        BillingContext {
+                            config,
+                            member,
+                            index,
+                            day: &mut day,
+                            invoice: &mut invoice,
+                            missing_rate: &mut missing_rate,
                         }
-                        if rule.invoice {
-                            let base_rate = billing::rate_for(member, date);
-                            match base_rate {
-                                Some(rate) => {
-                                    day.bill_eur += billed * rate * rule.rate_percent / 100.0
-                                }
-                                None => missing_rate.add(date, billed),
-                            }
-                            invoice.add(InvoiceItem {
-                                month: month_key(date),
-                                person_index: index,
-                                person: &member.name,
-                                rule_index,
-                                service: &rule.name,
-                                base_rate,
-                                rate_percent: rule.rate_percent,
-                                vat_percent: rule.vat_percent.unwrap_or(config.vat_percent),
-                                hours: billed,
-                            });
-                        }
+                        .bill(entry, rule_index, rule, false);
                     }
                 }
             }
@@ -233,6 +262,7 @@ pub fn evaluate(
 
             if let Some(expected) = hpd.filter(|h| *h > 0.0)
                 && workday
+                && assigned
                 && date <= missing_checked_until
             {
                 let booked = booked_work + day.vac_h + day.sick_h;
@@ -265,6 +295,7 @@ pub fn evaluate(
         team.add_all(&breakdown);
         persons.push(PersonResult {
             name: member.name.clone(),
+            assignments: member.assignments.clone(),
             periods: breakdown.finish(&location_names),
         });
     }
@@ -279,6 +310,86 @@ pub fn evaluate(
         flagged,
         missing,
         missing_checked_until,
+        outside: {
+            outside.sort_by(|a, b| a.date.cmp(&b.date).then_with(|| a.person.cmp(&b.person)));
+            outside
+        },
+    }
+}
+
+/// Bündelt, was die Abrechnung einer Buchung verändert.
+struct BillingContext<'a, 'b> {
+    config: &'a ProjectConfig,
+    member: &'a TeamMember,
+    index: usize,
+    day: &'b mut Acc,
+    invoice: &'b mut InvoiceBuilder,
+    missing_rate: &'b mut Missing,
+}
+
+impl BillingContext<'_, '_> {
+    /// Rechnet eine Buchung nach ihrer Regel ab. Liefert (abgerechnete
+    /// Stunden, Netto), wenn die Regel abgerechnet wird.
+    fn bill(
+        &mut self,
+        entry: &TimeEntry,
+        rule_index: usize,
+        rule: &crate::models::config::BillingRule,
+        outside: bool,
+    ) -> Option<(f64, f64)> {
+        let billed = billing::billed_hours(entry, rule);
+        if rule.billable_hours {
+            self.day.bill_h += billed;
+        }
+        if !rule.invoice {
+            return None;
+        }
+        let base_rate = billing::rate_for(self.member, entry.date);
+        let net = match base_rate {
+            Some(rate) => billed * rate * rule.rate_percent / 100.0,
+            None => {
+                self.missing_rate.add(entry.date, billed);
+                0.0
+            }
+        };
+        self.day.bill_eur += net;
+        self.invoice.add(InvoiceItem {
+            month: month_key(entry.date),
+            person_index: self.index,
+            person: &self.member.name,
+            rule_index,
+            service: &rule.name,
+            base_rate,
+            rate_percent: rule.rate_percent,
+            vat_percent: rule.vat_percent.unwrap_or(self.config.vat_percent),
+            hours: billed,
+            outside,
+        });
+        Some((billed, net))
+    }
+}
+
+/// Buchung auf das Projekt: passende Abrechnungsregel oder Projekt-Element.
+fn is_project_booking(config: &ProjectConfig, entry: &TimeEntry) -> bool {
+    let element = entry.element.trim();
+    let is =
+        |wanted: &str| !wanted.trim().is_empty() && element.eq_ignore_ascii_case(wanted.trim());
+    billing::matching_rule(&config.billing_rules, entry, &config.element_filter).is_some()
+        || is(&config.element_filter)
+        || config.billing_rules.iter().any(|r| is(&r.element))
+}
+
+fn outside_booking(entry: &TimeEntry, reason: OutsideReason) -> OutsideBooking {
+    OutsideBooking {
+        person: entry.name.trim().to_string(),
+        date: entry.date,
+        element: entry.element.clone(),
+        kost2art: entry.kost2art.clone(),
+        hours: round2(entry.hours),
+        reason,
+        invoiced: false,
+        billed_hours: 0.0,
+        net: 0.0,
     }
 }
 
@@ -325,7 +436,7 @@ fn missing_working_hours(
     let missing_for = |member: &TeamMember| -> Vec<NaiveDate> {
         days.iter()
             .copied()
-            .filter(|d| is_workday(*d))
+            .filter(|d| is_workday(*d) && member.is_assigned(*d))
             .filter(|d| soll::hours_per_day_for(member, &config.working_hours, *d).is_none())
             .collect()
     };

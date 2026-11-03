@@ -1,6 +1,6 @@
 // Spiegel von src-tauri/src/models/{entry,results}.rs.
 
-import type { IsoDate } from "./config";
+import type { AssignmentPeriod, IsoDate } from "./config";
 
 export interface ProjectSummary {
   id: string;
@@ -80,6 +80,8 @@ export interface AuswertungResult {
   /** Geprüft bis (Stichtag, höchstens Stand des Exports). */
   missing_checked_until: IsoDate;
   missing_threshold_percent: number;
+  /** Buchungen aufs Projekt außerhalb des Einsatzzeitraums oder von Nicht-Teammitgliedern. */
+  outside: OutsideBooking[];
   overview: ParsedExport;
 }
 
@@ -134,6 +136,24 @@ export interface LocationShare {
 
 export interface PersonResult extends PeriodBreakdown {
   name: string;
+  /** Einsatzzeiträume (leer = immer im Projekt). */
+  assignments: AssignmentPeriod[];
+}
+
+export type OutsideReason = "outside_assignment" | "not_in_team";
+
+/** Buchung aufs Projekt „außerhalb des Teams“. */
+export interface OutsideBooking {
+  person: string;
+  date: IsoDate;
+  element: string;
+  kost2art: string;
+  hours: number;
+  reason: OutsideReason;
+  /** In der Rechnung enthalten (nur außerhalb des Einsatzzeitraums mit Regel). */
+  invoiced: boolean;
+  billed_hours: number;
+  net: number;
 }
 
 export interface PeriodData {
@@ -187,6 +207,8 @@ export interface InvoiceLine {
   hours: number;
   net: number;
   vat_percent: number;
+  /** Davon Stunden aus Buchungen außerhalb des Einsatzzeitraums. */
+  outside_hours: number;
 }
 
 export interface VatGroup {

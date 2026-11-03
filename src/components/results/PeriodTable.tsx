@@ -13,6 +13,10 @@ export interface PeriodRow {
   flags?: string[];
   /** Fehlende Buchungen in diesem Zeitraum (Tooltip-Zeilen). */
   missing?: string[];
+  /** Buchungen aufs Projekt außerhalb des Teams (Tooltip-Zeilen). */
+  outside?: string[];
+  /** Person in diesem Zeitraum nicht im Projekt (Einsatzzeitraum). */
+  inactive?: boolean;
   /** Aufklappbare Unterzeilen (z. B. Kalenderwochen eines Monats). */
   children?: PeriodRow[];
 }
@@ -72,7 +76,9 @@ export function PeriodTable({ rows, total, totalLabel, periodLabel }: Props) {
             return (
               <Fragment key={row.key}>
                 <tr
-                  className={hasChildren ? "cursor-pointer hover:bg-slate-50" : ""}
+                  className={`${hasChildren ? "cursor-pointer hover:bg-slate-50" : ""} ${
+                    row.inactive ? "bg-slate-50 text-slate-400" : ""
+                  }`}
                   onClick={hasChildren ? () => toggle(row.key) : undefined}
                 >
                   <td className={styles.td}>
@@ -83,8 +89,14 @@ export function PeriodTable({ rows, total, totalLabel, periodLabel }: Props) {
                     )}
                     <span className="font-medium">{row.label}</span>
                     {row.detail && <span className="ml-2 text-xs text-slate-500">{row.detail}</span>}
+                    {row.inactive && (
+                      <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600">
+                        nicht im Projekt
+                      </span>
+                    )}
                     <FlagMarker flags={row.flags} />
                     <MissingMarker missing={row.missing} />
+                    <OutsideMarker outside={row.outside} />
                   </td>
                   <MetricCells data={row.data} />
                 </tr>
@@ -98,6 +110,7 @@ export function PeriodTable({ rows, total, totalLabel, periodLabel }: Props) {
                         )}
                         <FlagMarker flags={child.flags} />
                         <MissingMarker missing={child.missing} />
+                        <OutsideMarker outside={child.outside} />
                       </td>
                       <MetricCells data={child.data} />
                     </tr>
@@ -137,6 +150,18 @@ function MissingMarker({ missing }: { missing?: string[] }) {
       title={missing.join("\n")}
     >
       ! {missing.length} fehlende Buchung{missing.length === 1 ? "" : "en"}
+    </span>
+  );
+}
+
+function OutsideMarker({ outside }: { outside?: string[] }) {
+  if (!outside?.length) return null;
+  return (
+    <span
+      className="ml-2 cursor-help rounded bg-red-600 px-1.5 py-0.5 text-xs font-semibold text-white"
+      title={outside.join("\n")}
+    >
+      ⚠ {outside.length} außerhalb des Teams
     </span>
   );
 }

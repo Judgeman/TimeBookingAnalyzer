@@ -14,9 +14,9 @@ describe("InvoiceView", () => {
     render(
       <InvoiceView invoice={r.invoice} persons={r.persons.map((p) => p.name)} cutoffDate={r.cutoff_date} />,
     );
-    expect(text()).toContain("292.985,00 €");
-    expect(text()).toContain("55.612,27 €");
-    expect(text()).toContain("348.597,27 €");
+    expect(text()).toContain("319.385,00 €");
+    expect(text()).toContain("60.628,27 €");
+    expect(text()).toContain("380.013,27 €");
     expect(text()).toContain("USt. 7 % / 19 %");
     expect(text()).toContain("7 %: 32,03 €");
 
@@ -31,8 +31,8 @@ describe("InvoiceView", () => {
     // Eine Position mit halbem Satz, eine ohne Satz
     const sep = r.invoice.months.find((m) => m.month === "2026-09")!;
     sep.lines.push(
-      { person: "Max Mustermann", service: "Reisezeit", base_rate: 95, rate_percent: 50, rate: 47.5, hours: 2, net: 95, vat_percent: 19 },
-      { person: "Max Mustermann", service: "Delivery", base_rate: null, rate_percent: 100, rate: null, hours: 1, net: 0, vat_percent: 19 },
+      { person: "Max Mustermann", service: "Reisezeit", base_rate: 95, rate_percent: 50, rate: 47.5, hours: 2, net: 95, vat_percent: 19, outside_hours: 0 },
+      { person: "Max Mustermann", service: "Delivery", base_rate: null, rate_percent: 100, rate: null, hours: 1, net: 0, vat_percent: 19, outside_hours: 0 },
     );
     render(<InvoiceView invoice={r.invoice} persons={["Erika Mustermann", "Max Mustermann"]} cutoffDate="2026-10-31" />);
 
@@ -91,5 +91,37 @@ describe("InvoiceView – Netto ist die führende Größe", () => {
     const details = summary.parentElement!;
     expect(within(details).getByText("Netto", { selector: "td" }).closest("tr")).toHaveClass("font-semibold");
     expect(within(details).getByText("Brutto", { selector: "td" }).closest("tr")).not.toHaveClass("font-semibold");
+  });
+});
+
+describe("InvoiceView – Buchungen außerhalb des Teams", () => {
+  it("weist auf abgerechnete und nicht abgerechnete Buchungen hin und markiert die Position", async () => {
+    const user = userEvent.setup();
+    const r = sampleResult();
+    render(
+      <InvoiceView
+        invoice={r.invoice}
+        persons={r.persons.map((p) => p.name)}
+        cutoffDate={r.cutoff_date}
+        outside={r.outside}
+      />,
+    );
+    const alert = screen.getByRole("alert");
+    expect(text()).toContain("Diese Rechnung enthält 2,00 h (160,00 € netto) aus Buchungen außerhalb des Einsatzzeitraums");
+    expect(alert.textContent).toContain("nicht abgerechnet (Jonas Beispiel)");
+
+    // Übersicht: ⚠ bei Lena im März, „–“ ab April
+    const table = screen.getByText("Netto pro Person und Monat").nextElementSibling as HTMLElement;
+    const march = within(table).getByText("März 2026").closest("tr")!;
+    expect(within(march).getByTitle("davon 2,00 h außerhalb des Einsatzzeitraums")).toBeInTheDocument();
+    const april = within(table).getByText("April 2026").closest("tr")!;
+    expect(april.cells[3]).toHaveTextContent("–");
+
+    // Monatsdetails: Kopf und Position markiert
+    await user.click(screen.getByText("März 2026", { selector: "summary span" }));
+    expect(screen.getByText("⚠ enthält Buchungen außerhalb des Einsatzzeitraums")).toBeInTheDocument();
+    const line = screen.getByText("⚠ außerhalb Einsatzzeitraum").closest("tr")!;
+    expect(line).toHaveClass("bg-red-50");
+    expect(line.textContent).toContain("Lena Beispiel");
   });
 });

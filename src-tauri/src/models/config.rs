@@ -57,6 +57,30 @@ pub struct TeamMember {
     /// passenden Zeitraum gilt die Arbeitszeit des Projekts.
     #[serde(default)]
     pub working_hours: Vec<WorkingHoursPeriod>,
+    /// Einsatzzeiträume im Projekt; leer = immer im Projekt. Außerhalb zählt
+    /// die Person nicht mit (Buchungen aufs Projekt werden trotzdem
+    /// abgerechnet und als „außerhalb des Teams“ markiert).
+    #[serde(default)]
+    pub assignments: Vec<AssignmentPeriod>,
+}
+
+impl TeamMember {
+    /// Ist die Person an diesem Tag im Projekt eingesetzt?
+    pub fn is_assigned(&self, date: NaiveDate) -> bool {
+        self.assignments.is_empty()
+            || self
+                .assignments
+                .iter()
+                .any(|a| a.from <= date && a.to.is_none_or(|to| date <= to))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AssignmentPeriod {
+    pub from: NaiveDate,
+    /// `None` = unbefristet.
+    #[serde(default)]
+    pub to: Option<NaiveDate>,
 }
 
 /// Abrechnungsregel: ordnet Buchungen anhand von Kost2Art (und Element) ein.
@@ -299,6 +323,11 @@ impl ProjectConfig {
             }
             let label = format!("{}: Arbeitszeit", member.name);
             check_working_hours(&mut errors, &label, &member.working_hours);
+            check_periods(
+                &mut errors,
+                &format!("{}: Einsatzzeitraum", member.name),
+                member.assignments.iter().map(|a| (a.from, a.to)),
+            );
         }
 
         check_working_hours(&mut errors, "Arbeitszeit (Projekt)", &self.working_hours);
@@ -429,6 +458,37 @@ mod tests {
         assert_eq!(rule.vat_percent, None);
         let json = serde_json::to_string(&default_billing_rules()[1]).unwrap();
         assert!(json.contains(r#""match_mode":"contains""#), "{json}");
+    }
+
+    #[test]
+    fn assignment_periods_limit_team_membership() {
+        let d = |m, day| NaiveDate::from_ymd_opt(2026, m, day).unwrap();
+        let mut member: TeamMember =
+            serde_json::from_str(r#"{ "name": "Lena Beispiel" }"#).unwrap();
+        assert!(member.assignments.is_empty());
+        assert!(member.is_assigned(d(12, 31))); // leer = immer
+        member.assignments = vec![
+            AssignmentPeriod {
+                from: d(1, 1),
+                to: Some(d(2, 28)),
+            },
+            AssignmentPeriod {
+                from: d(10, 1),
+                to: None,
+            },
+        ];
+        assert!(member.is_assigned(d(2, 28)));
+        assert!(!member.is_assigned(d(3, 1)));
+        assert!(member.is_assigned(d(10, 1)));
+
+        let mut config: ProjectConfig = serde_json::from_str(EXAMPLE).unwrap();
+        member.assignments.push(AssignmentPeriod {
+            from: d(2, 1),
+            to: Some(d(3, 31)),
+        });
+        config.team.push(member);
+        let err = config.validate().unwrap_err();
+        assert!(err.contains("Lena Beispiel: Einsatzzeitraum: Zeiträume ab 2026-01-01 und ab 2026-02-01 überschneiden sich"), "{err}");
     }
 
     #[test]

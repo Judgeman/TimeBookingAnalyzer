@@ -3,8 +3,10 @@ import type {
   AuswertungResult,
   FlaggedBooking,
   MissingBooking,
+  OutsideBooking,
   PeriodBreakdown,
 } from "../../types/results";
+import { describeAssignments, overlapsAssignments } from "../../lib/assignments";
 import {
   clampRange,
   endOfPreviousMonth,
@@ -25,6 +27,7 @@ import { AccountView } from "./AccountView";
 import { colorMapFor } from "./chartColors";
 import { InvoiceView } from "./InvoiceView";
 import { LocationView } from "./LocationView";
+import { OutsideBookings } from "./OutsideBookings";
 import { PeriodTable, type PeriodRow } from "./PeriodTable";
 import { YearView } from "./YearView";
 
@@ -73,6 +76,13 @@ export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Pro
   );
   const missingWhere = (match: (m: MissingBooking) => boolean) =>
     missing.filter(match).map(describeMissing);
+  // Buchungen außerhalb des Teams (Team: alle, auch Nicht-Teammitglieder).
+  const outside = result.outside.filter(
+    (o) => selectedIndex === TEAM || o.person === result.persons[selectedIndex]?.name,
+  );
+  const outsideWhere = (match: (o: OutsideBooking) => boolean) =>
+    outside.filter(match).map(describeOutside);
+  const assignments = selectedIndex === TEAM ? [] : result.persons[selectedIndex].assignments;
 
   const monthRows: PeriodRow[] = Object.entries(selected.by_month).map(([month, data]) => {
     const range = clampRange(monthRange(month), period);
@@ -84,6 +94,8 @@ export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Pro
       data,
       flags: flagsWhere((f) => f.date.startsWith(month)),
       missing: missingWhere((m) => m.date.startsWith(month)),
+      outside: outsideWhere((o) => o.date.startsWith(month)),
+      inactive: !overlapsAssignments(assignments, range),
       children: Object.entries(weeks).map(([week, weekData]) => ({
         key: week,
         label: formatWeek(week),
@@ -91,6 +103,7 @@ export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Pro
         data: weekData,
         flags: flagsWhere((f) => f.date.startsWith(month) && isoWeekKey(f.date) === week),
         missing: missingWhere((m) => m.date.startsWith(month) && isoWeekKey(m.date) === week),
+        outside: outsideWhere((o) => o.date.startsWith(month) && isoWeekKey(o.date) === week),
       })),
     };
   });
@@ -102,6 +115,8 @@ export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Pro
     data,
     flags: flagsWhere((f) => isoWeekKey(f.date) === week),
     missing: missingWhere((m) => isoWeekKey(m.date) === week),
+    outside: outsideWhere((o) => isoWeekKey(o.date) === week),
+    inactive: !overlapsAssignments(assignments, clampRange(isoWeekRange(week), period)),
   }));
 
   const sourceLabel =
@@ -160,6 +175,10 @@ export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Pro
         </div>
       </div>
 
+      {result.outside.length > 0 && (
+        <OutsideBookings outside={result.outside} persons={result.persons} />
+      )}
+
       {result.warnings.length > 0 && (
         <ul className="space-y-1 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-900">
           {result.warnings.map((w) => (
@@ -194,6 +213,14 @@ export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Pro
               }`}
             >
               {label}
+              {key === "invoice" && result.outside.length > 0 && (
+                <span
+                  className="ml-1.5 rounded-full bg-red-600 px-1.5 py-0.5 text-xs font-semibold text-white"
+                  title="Buchungen außerhalb des Teams"
+                >
+                  ⚠ {result.outside.length}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -227,7 +254,11 @@ export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Pro
           {tab === "year" && (
             <YearView
               columns={[
-                ...result.persons.map((p) => ({ name: p.name, data: p.ytd })),
+                ...result.persons.map((p) => ({
+                  name: p.name,
+                  data: p.ytd,
+                  note: describeAssignments(p.assignments) ?? undefined,
+                })),
                 { name: "Team gesamt", data: result.team.ytd },
               ]}
             />
@@ -260,6 +291,7 @@ export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Pro
           {tab === "invoice" && (
             <InvoiceView
               invoice={result.invoice}
+              outside={result.outside}
               persons={result.persons.map((p) => p.name)}
               cutoffDate={result.cutoff_date}
             />
@@ -280,6 +312,12 @@ function describeFlag(f: FlaggedBooking): string {
   return `${formatDateWithWeekday(f.date)} · ${f.person}: ${KIND_LABEL[f.kind]} ${formatHours(
     f.hours,
   )} h → ${formatNumber(f.credited_days)} Tag(e) (${f.reasons.join(", ")})`;
+}
+
+function describeOutside(o: OutsideBooking): string {
+  const reason =
+    o.reason === "outside_assignment" ? "außerhalb Einsatzzeitraum, abgerechnet" : "nicht im Team, nicht abgerechnet";
+  return `${formatDateWithWeekday(o.date)} · ${o.person}: ${formatHours(o.hours)} h auf ${o.element} (${reason})`;
 }
 
 function missingReason(m: MissingBooking): string {

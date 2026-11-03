@@ -6,24 +6,68 @@
     {
       "name": "Erika Mustermann",
       "rates": [
-        { "from": "2026-01-01", "to": "2026-06-30", "rate": 100 },
-        { "from": "2026-07-01", "to": null, "rate": 105 }
+        {
+          "from": "2026-01-01",
+          "to": "2026-06-30",
+          "rate": 100
+        },
+        {
+          "from": "2026-07-01",
+          "to": null,
+          "rate": 105
+        }
       ]
     },
     {
       "name": "Max Mustermann",
       "rates": [
-        { "from": "2026-01-01", "to": "2026-06-30", "rate": 90 },
-        { "from": "2026-07-01", "to": null, "rate": 95 }
+        {
+          "from": "2026-01-01",
+          "to": "2026-06-30",
+          "rate": 90
+        },
+        {
+          "from": "2026-07-01",
+          "to": null,
+          "rate": 95
+        }
       ],
       "working_hours": [
-        { "from": "2026-09-01", "to": null, "hours_per_day": 6.0 }
+        {
+          "from": "2026-09-01",
+          "to": null,
+          "hours_per_day": 6.0
+        }
+      ]
+    },
+    {
+      "name": "Lena Beispiel",
+      "rates": [
+        {
+          "from": "2026-01-01",
+          "to": null,
+          "rate": 80
+        }
+      ],
+      "assignments": [
+        {
+          "from": "2026-01-01",
+          "to": "2026-02-28"
+        }
       ]
     }
   ],
   "working_hours": [
-    { "from": "2026-01-01", "to": "2026-06-30", "hours_per_day": 8.0 },
-    { "from": "2026-07-01", "to": null, "hours_per_day": 7.5 }
+    {
+      "from": "2026-01-01",
+      "to": "2026-06-30",
+      "hours_per_day": 8.0
+    },
+    {
+      "from": "2026-07-01",
+      "to": null,
+      "hours_per_day": 7.5
+    }
   ],
   "holidays": {
     "region": "HE",

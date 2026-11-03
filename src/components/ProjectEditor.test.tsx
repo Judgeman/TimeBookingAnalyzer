@@ -8,7 +8,11 @@ import { ProjectEditor } from "./ProjectEditor";
 /** Wie vom Backend geliefert: optionale Felder sind dort immer gesetzt. */
 function sampleConfig(): ProjectConfig {
   const config = structuredClone(sample) as unknown as ProjectConfig;
-  config.team = config.team.map((m) => ({ ...m, working_hours: m.working_hours ?? [] }));
+  config.team = config.team.map((m) => ({
+    ...m,
+    working_hours: m.working_hours ?? [],
+    assignments: m.assignments ?? [],
+  }));
   return config;
 }
 

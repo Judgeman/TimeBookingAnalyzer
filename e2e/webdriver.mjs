@@ -94,6 +94,17 @@ export class AppSession {
     if (!ok) throw new Error(`Element ${selector} „${text}“ nicht gefunden`);
   }
 
+  /** Wechselt den Tab der Auswertung (Beschriftung ohne Hinweis-Badge, z. B. „Rechnung“). */
+  async tab(label) {
+    const ok = await this.execute(
+      `const el = [...document.querySelectorAll('[role="tab"]')]
+         .find((e) => e.firstChild && e.firstChild.textContent.trim() === arguments[0]);
+       if (!el) return false; el.click(); return true;`,
+      label,
+    );
+    if (!ok) throw new Error(`Tab „${label}“ nicht gefunden`);
+  }
+
   /**
    * Setzt den Wert eines Eingabefelds React-kompatibel (nativer Setter + Event).
    * Tastatureingaben über WebDriver sind mit WebKitWebDriver unter Xvfb instabil.

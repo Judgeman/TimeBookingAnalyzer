@@ -141,6 +141,7 @@ mod tests {
                 },
             ],
             working_hours: vec![],
+            assignments: vec![],
         };
         assert_eq!(rate_for(&member, d(6, 30)), Some(100.0));
         assert_eq!(rate_for(&member, d(7, 1)), Some(105.0));

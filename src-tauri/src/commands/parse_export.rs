@@ -77,6 +77,7 @@ pub fn parse_export_file(
         missing: evaluation.missing,
         missing_checked_until: evaluation.missing_checked_until,
         missing_threshold_percent: config.missing_threshold_percent,
+        outside: evaluation.outside,
         overview,
     })
 }
@@ -148,7 +149,7 @@ mod tests {
             result.last_entry_date,
             NaiveDate::from_ymd_opt(2026, 10, 30)
         );
-        assert_eq!(result.entry_count, 676);
+        assert_eq!(result.entry_count, 888);
         assert!(result.skipped_rows.is_empty(), "{:?}", result.skipped_rows);
         assert!(result.missing_team_members.is_empty());
 
@@ -161,19 +162,49 @@ mod tests {
             persons,
             vec![
                 ("Erika Mustermann", true),
+                ("Lena Beispiel", true),
                 ("Max Mustermann", true),
                 ("Jonas Beispiel", false)
             ]
         );
-        let jonas = &result.persons[2];
-        assert_eq!(jonas.project_hours, 0.0);
+        let jonas = &result.persons[3];
+        assert_eq!(jonas.project_hours, 3.0); // Code-Review am 01.10.
         assert!(result.persons[0].project_hours > 0.0);
 
         // Werte unabhängig nachgerechnet (Python, direkt aus der xlsx nach den
         // Formeln in CLAUDE.md) – Jonas ist nicht im Team und fehlt hier.
         assert!(auswertung.warnings.is_empty(), "{:?}", auswertung.warnings);
         let names: Vec<&str> = auswertung.persons.iter().map(|p| p.name.as_str()).collect();
-        assert_eq!(names, vec!["Erika Mustermann", "Max Mustermann"]);
+        assert_eq!(
+            names,
+            vec!["Erika Mustermann", "Max Mustermann", "Lena Beispiel"]
+        );
+
+        // Lena: nur Januar/Februar im Team (Einsatzzeitraum)
+        let lena = &auswertung.persons[2];
+        assert_eq!(lena.assignments.len(), 1);
+        assert_eq!(
+            (lena.periods.ytd.soll_b, lena.periods.ytd.gearb),
+            (328.0, 328.0)
+        );
+        assert_eq!(lena.periods.ytd.plus, 0.0);
+        assert_eq!(lena.periods.ytd.missing_days, 0.0);
+        assert_eq!(lena.periods.by_month["2026-04"].soll_b, 0.0);
+        assert_eq!(lena.periods.ytd.bill_eur, 26_400.0); // 330 h × 80 € inkl. Übergabe
+
+        // Buchungen aufs Projekt „außerhalb des Teams“
+        let outside: Vec<(&str, String, bool, f64)> = auswertung
+            .outside
+            .iter()
+            .map(|o| (o.person.as_str(), o.date.to_string(), o.invoiced, o.net))
+            .collect();
+        assert_eq!(
+            outside,
+            vec![
+                ("Lena Beispiel", "2026-03-02".to_string(), true, 160.0),
+                ("Jonas Beispiel", "2026-10-01".to_string(), false, 0.0),
+            ]
+        );
 
         let erika = &auswertung.persons[0].periods.ytd;
         assert_eq!(erika.soll_b, 1636.0);
@@ -236,9 +267,15 @@ mod tests {
         let invoice = &auswertung.invoice;
         assert_eq!(invoice.months.len(), 10);
         assert!(!invoice.months[9].partial); // Stichtag 31.10. = Monatsende
-        assert_eq!(invoice.total.net, 292_985.0);
-        assert_eq!(invoice.total.vat, 55_612.27);
-        assert_eq!(invoice.total.gross, 348_597.27);
+        assert_eq!(invoice.total.net, 319_385.0);
+        assert_eq!(invoice.total.vat, 60_628.27);
+        assert_eq!(invoice.total.gross, 380_013.27);
+        let march_lena = invoice.months[2]
+            .lines
+            .iter()
+            .find(|l| l.person == "Lena Beispiel")
+            .unwrap();
+        assert_eq!((march_lena.hours, march_lena.outside_hours), (2.0, 2.0));
         // Schulung mit 7 % USt. (eigene Abrechnungsregel)
         let reduced = &invoice.total.vat_groups[0];
         assert_eq!(

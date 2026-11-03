@@ -39,11 +39,13 @@ src/                        # React Frontend
       PieChart.tsx          # SVG-Tortendiagramm (ohne Bibliothek), Hover-Tooltip
       chartColors.ts        # validierte kategorische Palette, Farbe folgt dem Ort
       InvoiceView.tsx       # Rechnung: Netto pro Person/Monat, USt., Brutto
+      OutsideBookings.tsx   # roter Hinweis: Projektbuchungen außerhalb des Teams
       metrics.ts            # Kennzahl-Labels, Tooltips (Rechenregeln), Formatierung
   lib/
     api.ts                  # Typisierte Wrapper um invoke()
     format.ts               # Zahl-/Datumsformatierung (de-DE)
     dates.ts                # Eingabe freier Tage (TT.MM.JJJJ / ISO) parsen
+    assignments.ts          # Einsatzzeiträume: Text, Überschneidung mit Monat/KW
   test/
     setup.ts                # Vitest: jest-dom, cleanup
     fixture.ts              # sampleResult(): echtes Rust-Ergebnis der Beispieldaten
@@ -144,6 +146,11 @@ Jedes Projekt wird als JSON-Datei gespeichert:
       "working_hours": [
         { "from": "2026-09-01", "to": null, "hours_per_day": 6.0 }
       ]
+    },
+    {
+      "name": "Lena Beispiel",
+      "rates": [{ "from": "2026-01-01", "to": null, "rate": 80 }],
+      "assignments": [{ "from": "2026-01-01", "to": "2026-02-28" }]
     }
   ],
   "working_hours": [
@@ -261,6 +268,17 @@ plus_krank = plus - sick_h_norm
   Buchungen nach dem Stichtag werden ignoriert (Hinweis), aus Vorjahren still ignoriert.
 - **Personen**: nur Teammitglieder aus der Konfiguration (Namensabgleich ohne
   Groß-/Kleinschreibung). `gearb` zählt alle Elemente, nicht nur das Projekt.
+- **Einsatzzeitraum** (`assignments` am Teammitglied, leer = durchgehend im Projekt;
+  Zeiträume dürfen sich nicht überschneiden): außerhalb zählt die Person an dem Tag
+  **nicht** mit – kein Soll, keine Arbeitszeit/Urlaub/Krank, kein Arbeitsort, keine
+  Prüfung auf fehlende Buchungen, nicht in den Team-Summen. Ausnahme (Variante 1):
+  Buchungen **aufs Projekt** (passende Abrechnungsregel oder Projekt-Element) werden
+  trotzdem nach den Regeln abgerechnet (`bill_h`/`bill_eur`, Rechnung mit
+  `outside_hours`) und in `outside` gelistet (`reason = outside_assignment`).
+  Projektbuchungen von Personen, die **nicht im Team** sind, stehen ebenfalls in
+  `outside` (`reason = not_in_team`), werden aber nicht abgerechnet (kein Satz).
+  UI: roter Hinweis über der Auswertung, ⚠-Zähler am Tab „Rechnung“, markierte
+  Rechnungspositionen/Monate, Monate/Wochen außerhalb des Einsatzes ausgegraut.
 - **Urlaub/Krank** zählt an **jedem** Tag (auch Wochenende/Feiertag) mit h/Tag der
   Person. Hervorgehoben (`flagged`) werden: arbeitsfreie Tage, Dauern ≠ ganzer/halber
   Tag, Tage ohne hinterlegte Arbeitszeit.
@@ -277,7 +295,7 @@ plus_krank = plus - sick_h_norm
   + angerechneter Urlaub/Krank < `missing_threshold_percent` (Standard 50 %) der
   Soll-Stunden. Geprüft bis min(Stichtag, Stand des Exports) → `missing_checked_until`.
   Zählt als `missing_days` je Zeitraum; Liste `missing` (Soll, gebucht, Anteil).
-  Personen, die erst später anfangen: Arbeitszeit davor auf 0 h/Tag setzen.
+  Personen, die später ins Projekt kommen oder es verlassen: Einsatzzeitraum setzen.
 - **Arbeitsort** (`location.rs`): Basis = gearbeitete Stunden (wie `gearb`: × Mult,
   Mult > 0, ohne Urlaub/Krank) → Summe aller Orte = `gearb`. Orte ohne Groß-/Klein-
   schreibung gruppiert, Anzeigename = erste Schreibweise, leer = „(ohne Angabe)“.
@@ -356,11 +374,19 @@ interface AuswertungResult {
   flagged: FlaggedBooking[];      // hervorgehobene Urlaubs-/Krank-Tage (zählen mit)
   missing: MissingBooking[];      // Werktage mit fehlender/zu geringer Buchung
   missing_checked_until: string;  // min(Stichtag, Stand des Exports)
+  outside: OutsideBooking[];      // Projektbuchungen außerhalb des Teams (s. Einsatzzeitraum)
   overview: ParsedExport;         // Rohdaten-Übersicht (Tab „Import“)
+}
+
+interface OutsideBooking {
+  person: string; date: string; element: string; kost2art: string; hours: number;
+  reason: "outside_assignment" | "not_in_team";
+  invoiced: boolean; billed_hours: number; net: number;
 }
 
 interface PersonResult {
   name: string;
+  assignments: { from: string; to: string | null }[];  // Einsatzzeiträume (Konfiguration)
   ytd: PeriodData;
   by_month: Record<string, PeriodData>;   // Key: "2026-10"
   by_week: Record<string, PeriodData>;    // Key: "2026-W43"

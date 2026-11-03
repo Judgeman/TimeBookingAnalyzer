@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use chrono::NaiveDate;
 use serde::Serialize;
 
+use super::config::AssignmentPeriod;
 use super::entry::TimeEntry;
 use crate::calculation::holidays::Holiday;
 
@@ -99,6 +100,9 @@ pub struct AuswertungResult {
     /// (Stichtag, höchstens Stand des Exports).
     pub missing_checked_until: NaiveDate,
     pub missing_threshold_percent: f64,
+    /// Buchungen aufs Projekt „außerhalb des Teams“: außerhalb des
+    /// Einsatzzeitraums (abgerechnet) oder von Nicht-Teammitgliedern (nicht abgerechnet).
+    pub outside: Vec<OutsideBooking>,
     pub overview: ParsedExport,
 }
 
@@ -107,6 +111,33 @@ pub struct AuswertungResult {
 pub enum AbsenceKind {
     Vacation,
     Sick,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OutsideReason {
+    /// Teammitglied, aber an diesem Tag nicht im Einsatzzeitraum.
+    OutsideAssignment,
+    /// Person ist nicht im Team.
+    NotInTeam,
+}
+
+/// Buchung auf das Projekt, die nicht zum Team (bzw. Einsatzzeitraum) passt.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct OutsideBooking {
+    pub person: String,
+    pub date: NaiveDate,
+    pub element: String,
+    pub kost2art: String,
+    /// Gebuchte Stunden.
+    pub hours: f64,
+    pub reason: OutsideReason,
+    /// In der Rechnung enthalten (nur bei `OutsideAssignment` mit Abrechnungsregel).
+    pub invoiced: bool,
+    /// Abgerechnete Stunden (nach Regel, z. B. × Mult).
+    pub billed_hours: f64,
+    /// Angesetzter Nettobetrag (0, wenn nicht abgerechnet oder ohne Stundensatz).
+    pub net: f64,
 }
 
 /// Werktag, an dem weniger als die Schwelle der Soll-Stunden gebucht ist.
@@ -140,6 +171,8 @@ pub struct FlaggedBooking {
 #[derive(Debug, Clone, Serialize)]
 pub struct PersonResult {
     pub name: String,
+    /// Einsatzzeiträume aus der Konfiguration (leer = immer im Projekt).
+    pub assignments: Vec<AssignmentPeriod>,
     #[serde(flatten)]
     pub periods: PeriodBreakdown,
 }
@@ -244,6 +277,8 @@ pub struct InvoiceLine {
     pub hours: f64,
     pub net: f64,
     pub vat_percent: f64,
+    /// Davon Stunden aus Buchungen außerhalb des Einsatzzeitraums.
+    pub outside_hours: f64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]

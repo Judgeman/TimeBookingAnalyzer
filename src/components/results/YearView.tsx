@@ -3,7 +3,8 @@ import { METRICS, formatMetric, metricTone } from "./metrics";
 import { styles } from "./styles";
 
 interface Props {
-  columns: { name: string; data: PeriodData }[];
+  /** `note`: z. B. Einsatzzeitraum der Person. */
+  columns: { name: string; data: PeriodData; note?: string }[];
 }
 
 /** Jahresübersicht bis Stichtag: Kennzahlen als Zeilen, Personen als Spalten. */
@@ -20,6 +21,11 @@ export function YearView({ columns }: Props) {
                 className={`${styles.thNum} ${i === columns.length - 1 ? "bg-slate-100" : ""}`}
               >
                 {c.name}
+                {c.note && (
+                  <span className="block text-[11px] font-normal text-orange-700">
+                    im Projekt: {c.note}
+                  </span>
+                )}
               </th>
             ))}
           </tr>
