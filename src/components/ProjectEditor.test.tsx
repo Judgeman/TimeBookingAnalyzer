@@ -65,7 +65,13 @@ describe("ProjectEditor", () => {
     const onCancel = vi.fn();
     render(<ProjectEditor initial={sampleConfig()} onSave={vi.fn()} onCancel={onCancel} onDelete={onDelete} />);
 
-    expect(screen.getByDisplayValue("Erika Mustermann")).toBeInTheDocument();
+    const team = screen.getByText("Team").closest("fieldset")!;
+    expect(within(team).getByDisplayValue("Erika Mustermann")).toBeInTheDocument();
+    // Planung: Budget 2026 und geplante Abwesenheiten
+    const planning = screen.getByText("Planung (Budget & Prognose)").closest("fieldset")!;
+    expect(within(planning).getByDisplayValue("360000")).toBeInTheDocument();
+    expect(within(planning).getByText("30.000,00 €")).toBeInTheDocument(); // Richtwert / Monat
+    expect(within(planning).getAllByLabelText("Abwesenheit Person")).toHaveLength(3);
     expect(screen.getByDisplayValue("Schulung")).toBeInTheDocument();
     expect(screen.getByDisplayValue("6")).toBeInTheDocument(); // Ausnahme Max: 6 h/Tag
     // Rolle „darf buchen“ in eigenem Abschnitt

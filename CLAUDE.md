@@ -28,6 +28,7 @@ src/                        # React Frontend
     editor/
       TeamEditor.tsx        # Personen, Stundensätze, abweichende Arbeitszeit, Einsatzzeitraum
       GuestEditor.tsx       # Rolle „darf buchen“: Name + Stundensätze
+      PlanningEditor.tsx    # Budget-Zeiträume (Monate + Betrag), geplante Abwesenheiten
       PeriodListEditor.tsx  # Zeiträume (Von/Bis/Wert)
       RulesEditor.tsx       # Abrechnungsregeln (Reihenfolge = Priorität)
     ExportSummary.tsx       # Übersicht über den eingelesenen Export (Tab „Import“)
@@ -42,6 +43,9 @@ src/                        # React Frontend
       InvoiceView.tsx       # Rechnung: Netto pro Person/Monat, USt., Brutto
       OutsideBookings.tsx   # roter Hinweis: Projektbuchungen außerhalb des Teams
       GuestBookings.tsx     # neutraler Hinweis: Buchungen der Rolle „darf buchen“
+      ForecastView.tsx      # Prognose: laufender Monat, Budget-Status, Monate, Faktoren je Person
+      BudgetChart.tsx       # SVG-Linien kumuliert: Ist, Prognose (gestrichelt), Richtwert, Budget
+      forecast.ts           # Hilfen: kumulierte Kurven, aktives Budget, Stand der Daten
       metrics.ts            # Kennzahl-Labels, Tooltips (Rechenregeln), Formatierung
   lib/
     api.ts                  # Typisierte Wrapper um invoke()
@@ -84,6 +88,7 @@ src-tauri/
       soll.rs               # Soll-Stunden, h/Tag je Person, ½-/ganze Tage
       holidays.rs           # Feiertage aller Bundesländer (Osterformel)
       invoice.rs            # Rechnung je Monat (Cent-genau), USt., Brutto
+      forecast.rs           # Prognose: Faktoren je Person, Tagesprognose, Budget-Status
       location.rs           # Stunden/Anteile/Tage je Arbeitsort (Spalte „Ort“)
       tests.rs              # Szenario-Test mit handgerechneten Werten
   examples/
@@ -161,6 +166,11 @@ Jedes Projekt wird als JSON-Datei gespeichert:
   "guests": [
     { "name": "Karl Beispiel", "rates": [{ "from": "2026-01-01", "to": null, "rate": 120 }] }
   ],
+  "planned_absences": [
+    { "person": "Erika Mustermann", "from": "2026-11-23", "to": "2026-11-27",
+      "kind": "vacation", "half_day": false }
+  ],
+  "budgets": [{ "from": "2026-01", "to": "2026-12", "amount": 360000 }],
   "working_hours": [
     { "from": "2026-01-01", "to": "2026-06-30", "hours_per_day": 8.0 },
     { "from": "2026-07-01", "to": null, "hours_per_day": 7.5 }
@@ -296,6 +306,20 @@ plus_krank = plus - sick_h_norm
   Name darf nicht zugleich im Team stehen (Validierung). Rechnung netto = Team
   `bill_eur` + `guest_bookings[].net`. UI: neutraler (blauer) Hinweis mit Liste,
   eigene Spalte „darf buchen“ in der Rechnung, Kennzeichnung im Tab „Import“.
+- **Prognose** (`forecast.rs`): ab dem Tag nach min(Stichtag, Stand des Exports) bis
+  Jahresende bzw. Ende des spätesten Budget-Zeitraums (max. 3 Jahre). Faktoren je
+  Person aus 1. Januar bis Ende des letzten abgeschlossenen Monats (sonst bis zum Stand):
+  Krankheitsfaktor = krank ÷ (Soll brutto − Urlaub); Ablenkungsfaktor = 1 − abgerechnet
+  zum vollen Satz (Σ abgerechnete Stunden × Satz-Anteil, ohne Buchungen außerhalb des
+  Einsatzes) ÷ gearbeitet; beide 0…1. Je Werktag (im Einsatz, h/Tag > 0):
+  Stunden = (h/Tag − geplante Abwesenheit [ganz/halb]) × (1 − Krankheit) × (1 − Ablenkung),
+  Netto = Stunden × Satz des Tages (ohne Satz → 0 € + Hinweis). Keine Überstunden-,
+  keine „darf buchen“-Prognose. Ist je Monat = Rechnung (für Budgets vor dem Jahr aus
+  zusätzlichen Auswertungen der Vorjahre). Budget (`budgets`, ganze Monate, keine
+  Überschneidung): Richtwert/Monat = Betrag ÷ Monate, Richtwert bis Stand anteilig nach
+  Tagen, erwartet = Ist + Prognose, Abweichung = erwartet − Budget, `exhausted_on` = erster
+  Prognosetag, an dem Ist + kumulierte Prognose das Budget erreicht. Geplante Abwesenheiten
+  (`planned_absences`) je Teammitglied, je Person ohne Überschneidung.
 - **Urlaub/Krank** zählt an **jedem** Tag (auch Wochenende/Feiertag) mit h/Tag der
   Person. Hervorgehoben (`flagged`) werden: arbeitsfreie Tage, Dauern ≠ ganzer/halber
   Tag, Tage ohne hinterlegte Arbeitszeit.
@@ -409,6 +433,8 @@ interface AuswertungResult {
   outside: OutsideBooking[];      // Projektbuchungen außerhalb des Teams (s. Einsatzzeitraum)
   guests: string[];               // Rolle „darf buchen“ (Konfiguration)
   guest_bookings: GuestBooking[]; // deren Projektbuchungen (rule: string | null, invoiced, net)
+  forecast: Forecast;             // { from, to, reference_*, persons (Faktoren, Prognose h/€),
+                                  //   months (Ist/Prognose je Monat), budgets (BudgetStatus), notes }
   overview: ParsedExport;         // Rohdaten-Übersicht (Tab „Import“)
 }
 
@@ -454,7 +480,7 @@ interface PeriodData {
 ### Hauptansicht
 1. **Sidebar links**: Projektliste + "Neues Projekt"-Button
 2. **Mitte oben**: Drag-and-Drop-Zone (oder Datei-Browser)
-3. **Mitte**: Auswertungsergebnis (Tabs: Jahr / Monate / Wochen / Stundenkonto / Arbeitsort / Rechnung / Import)
+3. **Mitte**: Auswertungsergebnis (Tabs: Jahr / Monate / Wochen / Stundenkonto / Arbeitsort / Rechnung / Prognose / Import)
 4. **Oben rechts**: Projekt-bearbeiten-Button
 
 ### Drag & Drop

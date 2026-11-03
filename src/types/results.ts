@@ -108,7 +108,73 @@ export interface AuswertungResult {
   guests: string[];
   /** Ihre Buchungen aufs Projekt im Auswertungszeitraum. */
   guest_bookings: GuestBooking[];
+  /** Prognose der Rechnung und Budget-Abgleich. */
+  forecast: Forecast;
   overview: ParsedExport;
+}
+
+/** Prognose ab dem Tag nach dem Stand der Daten (Spiegel von models/results.rs). */
+export interface Forecast {
+  /** Erster prognostizierter Tag. */
+  from: IsoDate;
+  /** Letzter prognostizierter Tag (Jahresende bzw. Ende des Budget-Zeitraums). */
+  to: IsoDate;
+  reference_from: IsoDate;
+  /** `null` = keine Daten → Faktoren 0. */
+  reference_to: IsoDate | null;
+  persons: ForecastPerson[];
+  /** Monate vom Jahresanfang (bzw. Budget-Beginn) bis `to`. */
+  months: ForecastMonth[];
+  budgets: BudgetStatus[];
+  notes: string[];
+}
+
+export interface ForecastPerson {
+  name: string;
+  /** Anteil krank an der verfügbaren Zeit (Soll − Urlaub), 0…1. */
+  sick_factor: number;
+  /** Anteil der gearbeiteten Zeit, der nicht abgerechnet wurde, 0…1. */
+  distraction_factor: number;
+  reference: {
+    available_hours: number;
+    sick_hours: number;
+    worked_hours: number;
+    invoiced_hours: number;
+  };
+  contract_hours: number;
+  planned_absence_hours: number;
+  planned_absence_days: number;
+  /** Erwartete abgerechnete Stunden (zum vollen Satz). */
+  hours: number;
+  net: number;
+}
+
+export interface ForecastMonth {
+  /** "2026-11" */
+  month: string;
+  actual_net: number;
+  actual_hours: number;
+  forecast_net: number;
+  forecast_hours: number;
+}
+
+export interface BudgetStatus {
+  from: string;
+  to: string;
+  amount: number;
+  monthly_target: number;
+  month_count: number;
+  /** Richtwert bis zum Stand der Daten (anteilig im laufenden Monat). */
+  target_to_date: number;
+  actual_net: number;
+  forecast_net: number;
+  expected_net: number;
+  /** Erwartet − Budget (positiv = Überziehung). */
+  deviation: number;
+  /** Tag, an dem das Budget laut Prognose aufgebraucht ist. */
+  exhausted_on: IsoDate | null;
+  /** Ist liegt bereits über dem Budget. */
+  exceeded: boolean;
 }
 
 export interface MissingBooking {

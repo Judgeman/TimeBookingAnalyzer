@@ -137,5 +137,35 @@
       "rate_percent": 100.0,
       "vat_percent": null
     }
+  ],
+  "planned_absences": [
+    {
+      "person": "Erika Mustermann",
+      "from": "2026-11-23",
+      "to": "2026-11-27",
+      "kind": "vacation",
+      "half_day": false
+    },
+    {
+      "person": "Max Mustermann",
+      "from": "2026-11-13",
+      "to": "2026-11-13",
+      "kind": "other",
+      "half_day": true
+    },
+    {
+      "person": "Max Mustermann",
+      "from": "2026-12-21",
+      "to": "2026-12-31",
+      "kind": "vacation",
+      "half_day": false
+    }
+  ],
+  "budgets": [
+    {
+      "from": "2026-01",
+      "to": "2026-12",
+      "amount": 360000
+    }
   ]
 }

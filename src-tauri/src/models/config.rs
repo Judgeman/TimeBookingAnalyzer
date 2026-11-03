@@ -41,6 +41,12 @@ pub struct ProjectConfig {
     /// (in Prozent) der Soll-Stunden gebucht ist.
     #[serde(default = "default_missing_threshold")]
     pub missing_threshold_percent: f64,
+    /// Geplante Abwesenheiten ohne Buchung (nur für die Prognose).
+    #[serde(default)]
+    pub planned_absences: Vec<PlannedAbsence>,
+    /// Budget-Zeiträume (ganze Monate) mit Betrag.
+    #[serde(default)]
+    pub budgets: Vec<BudgetPeriod>,
 }
 
 fn default_vat_percent() -> f64 {
@@ -88,6 +94,60 @@ pub struct Guest {
     pub name: String,
     #[serde(default)]
     pub rates: Vec<RatePeriod>,
+}
+
+/// Geplante Abwesenheit (z. B. Urlaub), für die es noch keine Buchung gibt –
+/// verringert die Arbeitszeit in der Prognose.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PlannedAbsence {
+    /// Teammitglied (Name wie im Team).
+    pub person: String,
+    pub from: NaiveDate,
+    pub to: NaiveDate,
+    #[serde(default)]
+    pub kind: PlannedAbsenceKind,
+    /// Jeweils nur halbe Tage.
+    #[serde(default)]
+    pub half_day: bool,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlannedAbsenceKind {
+    #[default]
+    Vacation,
+    /// Sonstige Abwesenheit (Schulung, Termin, …).
+    Other,
+}
+
+/// Budget für einen Zeitraum ganzer Monate; Richtwert = Betrag ÷ Anzahl Monate.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BudgetPeriod {
+    /// Erster Monat, z. B. "2026-01".
+    pub from: String,
+    /// Letzter Monat (einschließlich), z. B. "2026-12".
+    pub to: String,
+    /// Netto-Betrag in EUR.
+    pub amount: f64,
+}
+
+impl BudgetPeriod {
+    /// Erster und letzter Tag des Zeitraums; `None` bei ungültigen Monaten.
+    pub fn range(&self) -> Option<(NaiveDate, NaiveDate)> {
+        let from = month_start(&self.from)?;
+        let to = month_start(&self.to)?;
+        let last = to.checked_add_months(chrono::Months::new(1))?.pred_opt()?;
+        (from <= to).then_some((from, last))
+    }
+}
+
+/// "2026-03" → 01.03.2026 (genau vierstelliges Jahr und zweistelliger Monat).
+pub fn month_start(month: &str) -> Option<NaiveDate> {
+    let (year, month) = month.split_once('-')?;
+    if year.len() != 4 || month.len() != 2 {
+        return None;
+    }
+    NaiveDate::from_ymd_opt(year.parse().ok()?, month.parse().ok()?, 1)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -362,6 +422,47 @@ impl ProjectConfig {
 
         check_working_hours(&mut errors, "Arbeitszeit (Projekt)", &self.working_hours);
 
+        for absence in &self.planned_absences {
+            if self.team_index(&absence.person).is_none() {
+                errors.push(format!(
+                    "Geplante Abwesenheit: „{}“ ist nicht im Team.",
+                    absence.person
+                ));
+            }
+        }
+        for member in &self.team {
+            check_periods(
+                &mut errors,
+                &format!("{}: geplante Abwesenheit", member.name),
+                self.planned_absences
+                    .iter()
+                    .filter(|a| a.person.trim().eq_ignore_ascii_case(member.name.trim()))
+                    .map(|a| (a.from, Some(a.to))),
+            );
+        }
+
+        let mut budget_ranges = Vec::new();
+        for budget in &self.budgets {
+            match budget.range() {
+                Some(range) => budget_ranges.push(range),
+                None => errors.push(format!(
+                    "Budget {} – {}: Monate ungültig (Format JJJJ-MM, Ende nicht vor Beginn).",
+                    budget.from, budget.to
+                )),
+            }
+            if budget.amount < 0.0 {
+                errors.push(format!(
+                    "Budget {} – {}: Betrag darf nicht negativ sein.",
+                    budget.from, budget.to
+                ));
+            }
+        }
+        check_periods(
+            &mut errors,
+            "Budget",
+            budget_ranges.into_iter().map(|(from, to)| (from, Some(to))),
+        );
+
         for rule in &self.billing_rules {
             let label = format!("Abrechnungsregel „{}“", rule.name);
             if rule.name.trim().is_empty() {
@@ -568,6 +669,81 @@ mod tests {
         );
         assert!(err.contains("Person ohne Namen bei „darf buchen“"), "{err}");
         assert!(err.contains("Stundensatz darf nicht negativ sein"), "{err}");
+    }
+
+    #[test]
+    fn planned_absences_and_budgets_are_validated() {
+        let mut config: ProjectConfig = serde_json::from_str(EXAMPLE).unwrap();
+        assert!(config.planned_absences.is_empty() && config.budgets.is_empty());
+        let d = |m, day| NaiveDate::from_ymd_opt(2026, m, day).unwrap();
+        let absence: PlannedAbsence = serde_json::from_str(
+            r#"{ "person": "erika mustermann", "from": "2026-11-23", "to": "2026-11-27" }"#,
+        )
+        .unwrap();
+        assert_eq!(
+            (absence.kind, absence.half_day),
+            (PlannedAbsenceKind::Vacation, false)
+        );
+        config.planned_absences.push(absence);
+        config.budgets.push(BudgetPeriod {
+            from: "2026-01".into(),
+            to: "2026-12".into(),
+            amount: 360_000.0,
+        });
+        assert!(config.validate().is_ok());
+        assert_eq!(config.budgets[0].range(), Some((d(1, 1), d(12, 31))));
+
+        config.planned_absences.push(PlannedAbsence {
+            person: "Erika Mustermann".into(),
+            from: d(11, 27),
+            to: d(11, 26),
+            kind: PlannedAbsenceKind::Other,
+            half_day: true,
+        });
+        config.planned_absences.push(PlannedAbsence {
+            person: "Unbekannt".into(),
+            from: d(12, 1),
+            to: d(12, 1),
+            kind: PlannedAbsenceKind::Other,
+            half_day: false,
+        });
+        config.budgets.push(BudgetPeriod {
+            from: "2026-12".into(),
+            to: "2027-02".into(),
+            amount: -1.0,
+        });
+        config.budgets.push(BudgetPeriod {
+            from: "2026-13".into(),
+            to: "2026-1".into(),
+            amount: 0.0,
+        });
+        let err = config.validate().unwrap_err();
+        assert!(err.contains("„Unbekannt“ ist nicht im Team"), "{err}");
+        assert!(
+            err.contains("Erika Mustermann: geplante Abwesenheit: Zeitraum endet"),
+            "{err}"
+        );
+        assert!(err.contains("Erika Mustermann: geplante Abwesenheit: Zeiträume ab 2026-11-23 und ab 2026-11-27 überschneiden sich"), "{err}");
+        assert!(
+            err.contains("Budget 2026-12 – 2027-02: Betrag darf nicht negativ sein"),
+            "{err}"
+        );
+        assert!(
+            err.contains("Budget 2026-13 – 2026-1: Monate ungültig"),
+            "{err}"
+        );
+        assert!(
+            err.contains("Budget: Zeiträume ab 2026-01-01 und ab 2026-12-01 überschneiden sich"),
+            "{err}"
+        );
+        assert_eq!(month_start("2026-02"), Some(d(2, 1)));
+        assert_eq!(month_start("26-02"), None);
+        let backwards = BudgetPeriod {
+            from: "2026-05".into(),
+            to: "2026-04".into(),
+            amount: 1.0,
+        };
+        assert_eq!(backwards.range(), None);
     }
 
     #[test]

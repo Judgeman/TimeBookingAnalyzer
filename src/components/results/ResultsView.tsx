@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { PlannedAbsence } from "../../types/config";
 import type {
   AuswertungResult,
   FlaggedBooking,
@@ -25,6 +26,7 @@ import {
 import { ExportSummary } from "../ExportSummary";
 import { AccountView } from "./AccountView";
 import { colorMapFor } from "./chartColors";
+import { ForecastView } from "./ForecastView";
 import { GuestBookings } from "./GuestBookings";
 import { InvoiceView } from "./InvoiceView";
 import { LocationView } from "./LocationView";
@@ -32,7 +34,15 @@ import { OutsideBookings } from "./OutsideBookings";
 import { PeriodTable, type PeriodRow } from "./PeriodTable";
 import { YearView } from "./YearView";
 
-type Tab = "year" | "months" | "weeks" | "account" | "locations" | "invoice" | "import";
+type Tab =
+  | "year"
+  | "months"
+  | "weeks"
+  | "account"
+  | "locations"
+  | "invoice"
+  | "forecast"
+  | "import";
 
 const TABS: [Tab, string][] = [
   ["year", "Jahr"],
@@ -41,6 +51,7 @@ const TABS: [Tab, string][] = [
   ["account", "Stundenkonto"],
   ["locations", "Arbeitsort"],
   ["invoice", "Rechnung"],
+  ["forecast", "Prognose"],
   ["import", "Import"],
 ];
 
@@ -52,11 +63,19 @@ interface Props {
   elementFilter: string;
   busy: boolean;
   onCutoffChange: (cutoff: string) => void;
+  /** Geplante Abwesenheiten aus der Projektkonfiguration (Tab „Prognose“). */
+  plannedAbsences?: PlannedAbsence[];
 }
 
 const TEAM = -1;
 
-export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Props) {
+export function ResultsView({
+  result,
+  elementFilter,
+  busy,
+  onCutoffChange,
+  plannedAbsences = [],
+}: Props) {
   const [tab, setTab] = useState<Tab>("year");
   const [personIndex, setPersonIndex] = useState(0);
 
@@ -299,6 +318,9 @@ export function ResultsView({ result, elementFilter, busy, onCutoffChange }: Pro
               guests={result.guests}
               cutoffDate={result.cutoff_date}
             />
+          )}
+          {tab === "forecast" && (
+            <ForecastView forecast={result.forecast} plannedAbsences={plannedAbsences} />
           )}
         </>
       )}

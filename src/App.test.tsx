@@ -281,6 +281,17 @@ describe("App (Integration mit nachgebildetem Backend)", () => {
     expect(screen.getByText(/Auswertung 01\.01\.2026/)).toBeInTheDocument();
   });
 
+  it("Prognose zeigt die geplanten Abwesenheiten des Projekts", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByRole("heading", { name: "Musterkunde GmbH / Lager-App" });
+    await drop("/daten/Beispiel-Export_2026-10-31.xlsx");
+    await screen.findByText(/Auswertung 01\.01\.2026/);
+    await user.click(screen.getByRole("tab", { name: "Prognose" }));
+    expect(screen.getByText("Geplante Abwesenheiten")).toBeInTheDocument();
+    expect(document.body.textContent).toContain("Erika Mustermann: 23.11.2026 – 27.11.2026 · Urlaub");
+  });
+
   it("im Browser (ohne Tauri) erscheint ein Hinweis", () => {
     tauri = false;
     render(<App />);

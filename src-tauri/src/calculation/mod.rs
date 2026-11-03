@@ -6,6 +6,7 @@
 //! Größen (Soll netto, Plus) entstehen erst auf Periodenebene.
 
 pub mod billing;
+pub mod forecast;
 pub mod gearb;
 pub mod holidays;
 pub mod invoice;
@@ -40,6 +41,13 @@ pub struct Evaluation {
     pub missing_checked_until: NaiveDate,
     pub outside: Vec<OutsideBooking>,
     pub guest_bookings: Vec<GuestBooking>,
+    // Für die Prognose (`forecast::build`):
+    cutoff: NaiveDate,
+    export_date: Option<NaiveDate>,
+    /// Letzter Tag des Referenzzeitraums der Faktoren (ab 1. Januar); `None` = keiner.
+    reference_to: Option<NaiveDate>,
+    /// Summen je Teammitglied im Referenzzeitraum.
+    references: Vec<Acc>,
 }
 
 /// Wertet alle Teammitglieder vom 1. Januar des Stichtag-Jahres bis zum
@@ -131,6 +139,23 @@ pub fn evaluate(
     let export_until = export_date.or_else(|| entries.iter().map(|e| e.date).max());
     let missing_checked_until = export_until.map_or(cutoff, |d| d.min(cutoff));
     let threshold = config.missing_threshold_percent / 100.0;
+
+    // Referenzzeitraum der Prognose-Faktoren: 1. Januar bis Ende des letzten
+    // abgeschlossenen Monats vor dem ersten Prognosetag (ersatzweise bis zum
+    // Stand der Daten, wenn noch kein Monat abgeschlossen ist).
+    let reference_to = {
+        let first_forecast_day = missing_checked_until
+            .succ_opt()
+            .unwrap_or(missing_checked_until);
+        let month_before = first_forecast_day
+            .with_day(1)
+            .and_then(|d| d.pred_opt())
+            .unwrap_or(period_start);
+        [month_before, missing_checked_until]
+            .into_iter()
+            .find(|d| *d >= period_start)
+    };
+    let mut references = vec![Acc::default(); config.team.len()];
 
     // Anzeigenamen der Arbeitsorte: erste Schreibweise im Export.
     let mut location_names: HashMap<String, String> = HashMap::new();
@@ -277,6 +302,9 @@ pub fn evaluate(
 
             breakdown.add_day(date, &day);
             breakdown.locations.add_day(date, &day_locations);
+            if reference_to.is_some_and(|to| date <= to) {
+                references[index] += &day;
+            }
         }
 
         warnings.extend(missing_rate.warning(&member.name));
@@ -345,6 +373,10 @@ pub fn evaluate(
             outside
         },
         guest_bookings,
+        cutoff,
+        export_date,
+        reference_to,
+        references,
     }
 }
 
@@ -409,8 +441,11 @@ impl Biller<'_, '_> {
             day.bill_h += billing::billed_hours(entry, rule);
         }
         let result = self.invoice(entry, rule_index, rule, outside);
-        if let Some((_, net)) = result {
+        if let Some((billed, net)) = result {
             day.bill_eur += net;
+            if !outside {
+                day.inv_h += billed * rule.rate_percent / 100.0;
+            }
         }
         result
     }
@@ -531,6 +566,9 @@ struct Acc {
     bill_eur: f64,
     nonbill_h: f64,
     missing_days: f64,
+    /// Abgerechnete Stunden zum vollen Satz (Stunden × Satz-Anteil) – nur intern
+    /// für den Ablenkungsfaktor der Prognose.
+    inv_h: f64,
 }
 
 impl AddAssign<&Acc> for Acc {
@@ -545,6 +583,7 @@ impl AddAssign<&Acc> for Acc {
         self.bill_eur += o.bill_eur;
         self.nonbill_h += o.nonbill_h;
         self.missing_days += o.missing_days;
+        self.inv_h += o.inv_h;
     }
 }
 

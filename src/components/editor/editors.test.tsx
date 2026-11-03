@@ -5,11 +5,14 @@ import { describe, expect, it, vi } from "vitest";
 import {
   defaultBillingRules,
   type BillingRule,
+  type BudgetPeriod,
   type Guest,
+  type PlannedAbsence,
   type TeamMember,
   type WorkingHoursPeriod,
 } from "../../types/config";
 import { GuestEditor } from "./GuestEditor";
+import { monthCount, PlanningEditor } from "./PlanningEditor";
 import { PeriodListEditor } from "./PeriodListEditor";
 import { RulesEditor } from "./RulesEditor";
 import { TeamEditor } from "./TeamEditor";
@@ -201,5 +204,91 @@ describe("GuestEditor (darf buchen)", () => {
     expect(screen.queryByText("Einsatzzeitraum im Projekt")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Person entfernen" }));
     expect(onChange).toHaveBeenLastCalledWith([]);
+  });
+});
+
+describe("PlanningEditor (Budget & Abwesenheiten)", () => {
+  it("zählt Monate eines Budget-Zeitraums", () => {
+    expect(monthCount("2026-01", "2026-12")).toBe(12);
+    expect(monthCount("2025-11", "2026-02")).toBe(4);
+    expect(monthCount("2026-05", "2026-04")).toBe(0);
+    expect(monthCount("", "2026-04")).toBe(0);
+  });
+
+  it("legt Budget-Zeiträume an und zeigt den Richtwert je Monat", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 10, 3));
+    const user = userEvent.setup();
+    const onBudgets = vi.fn();
+    render(
+      <Stateful<BudgetPeriod[]>
+        initial={[]}
+        onChange={onBudgets}
+        render={(budgets, set) => (
+          <PlanningEditor budgets={budgets} absences={[]} team={[]} onBudgets={set} onAbsences={() => {}} />
+        )}
+      />,
+    );
+    expect(screen.getByText(/Kein Budget hinterlegt/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "+ Abwesenheit" })).toBeDisabled(); // ohne Team
+    await user.click(screen.getByRole("button", { name: "+ Budget-Zeitraum" }));
+    expect(onBudgets).toHaveBeenLastCalledWith([{ from: "2026-01", to: "2026-12", amount: 0 }]);
+    fireEvent.change(screen.getByLabelText("Budget netto"), { target: { value: "120000" } });
+    expect(screen.getByText("10.000,00 €")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Budget von"), { target: { value: "2026-07" } });
+    expect(screen.getByText("20.000,00 €")).toBeInTheDocument(); // 6 Monate
+    fireEvent.change(screen.getByLabelText("Budget bis"), { target: { value: "2026-06" } });
+    expect(screen.getByText("–")).toBeInTheDocument(); // Ende vor Beginn
+    await user.click(screen.getByTitle("Budget entfernen"));
+    expect(onBudgets).toHaveBeenLastCalledWith([]);
+    vi.useRealTimers();
+  });
+
+  it("erfasst geplante Abwesenheiten je Person", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 10, 3));
+    const user = userEvent.setup();
+    const onAbsences = vi.fn();
+    render(
+      <Stateful<PlannedAbsence[]>
+        initial={[{ person: "Ehemalige Person", from: "2026-12-01", to: "2026-12-02", kind: "other", half_day: false }]}
+        onChange={onAbsences}
+        render={(absences, set) => (
+          <PlanningEditor
+            budgets={[]}
+            absences={absences}
+            team={["Erika Mustermann", "Max Mustermann"]}
+            onBudgets={() => {}}
+            onAbsences={set}
+          />
+        )}
+      />,
+    );
+    // Person nicht mehr im Team bleibt sichtbar (Backend meldet es beim Speichern)
+    expect(screen.getByLabelText("Abwesenheit Person")).toHaveValue("Ehemalige Person");
+    await user.click(screen.getByRole("button", { name: "+ Abwesenheit" }));
+    expect(onAbsences.mock.calls.at(-1)![0][1]).toEqual({
+      person: "Erika Mustermann",
+      from: "2026-11-03",
+      to: "2026-11-03",
+      kind: "vacation",
+      half_day: false,
+    });
+    const second = (label: string) => screen.getAllByLabelText(label)[1];
+    fireEvent.change(second("Abwesenheit Person"), { target: { value: "Max Mustermann" } });
+    fireEvent.change(second("Abwesenheit von"), { target: { value: "2026-12-21" } });
+    fireEvent.change(second("Abwesenheit bis"), { target: { value: "2026-12-31" } });
+    fireEvent.change(second("Abwesenheit Art"), { target: { value: "other" } });
+    fireEvent.click(second("Halber Tag"));
+    expect(onAbsences.mock.calls.at(-1)![0][1]).toEqual({
+      person: "Max Mustermann",
+      from: "2026-12-21",
+      to: "2026-12-31",
+      kind: "other",
+      half_day: true,
+    });
+    await user.click(screen.getAllByTitle("Abwesenheit entfernen")[0]);
+    expect(onAbsences.mock.calls.at(-1)![0]).toHaveLength(1);
+    vi.useRealTimers();
   });
 });

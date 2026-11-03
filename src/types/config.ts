@@ -20,6 +20,33 @@ export interface ProjectConfig {
   billing_rules: BillingRule[];
   /** Werktag mit weniger als diesem Anteil (%) der Soll-Stunden = fehlende Buchung. */
   missing_threshold_percent: number;
+  /** Geplante Abwesenheiten ohne Buchung (nur für die Prognose). */
+  planned_absences: PlannedAbsence[];
+  /** Budget-Zeiträume (ganze Monate) mit Betrag. */
+  budgets: BudgetPeriod[];
+}
+
+export type PlannedAbsenceKind = "vacation" | "other";
+
+/** Geplante Abwesenheit, für die es noch keine Buchung gibt. */
+export interface PlannedAbsence {
+  /** Teammitglied */
+  person: string;
+  from: IsoDate;
+  to: IsoDate;
+  kind: PlannedAbsenceKind;
+  /** Jeweils nur halbe Tage. */
+  half_day: boolean;
+}
+
+/** Budget für ganze Monate; Richtwert = Betrag ÷ Anzahl Monate. */
+export interface BudgetPeriod {
+  /** "2026-01" */
+  from: string;
+  /** "2026-12" (einschließlich) */
+  to: string;
+  /** Netto in EUR */
+  amount: number;
 }
 
 export interface TeamMember {
@@ -187,5 +214,7 @@ export function newProject(): ProjectConfig {
     vat_percent: 19,
     billing_rules: defaultBillingRules(),
     missing_threshold_percent: 50,
+    planned_absences: [],
+    budgets: [],
   };
 }

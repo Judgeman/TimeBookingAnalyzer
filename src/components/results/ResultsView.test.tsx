@@ -143,3 +143,19 @@ describe("ResultsView – Rolle „darf buchen“", () => {
     expect(within(table).getByText("Karl Beispiel").closest("th")).toHaveTextContent("darf buchen");
   });
 });
+
+describe("ResultsView – Prognose", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 10, 1, 9, 0, 0));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("zeigt die Prognose im eigenen Tab", async () => {
+    const user = userEvent.setup();
+    render(<ResultsView result={sampleResult()} elementFilter="P100 Lager-App" busy={false} onCutoffChange={() => {}} />);
+    await user.click(screen.getByRole("tab", { name: "Prognose" }));
+    expect(screen.getByText("Prognose je Person")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Abgerechnet und Prognose kumuliert mit Richtwert und Budget/ })).toBeInTheDocument();
+  });
+});

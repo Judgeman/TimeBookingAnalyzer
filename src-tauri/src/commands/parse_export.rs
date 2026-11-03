@@ -56,6 +56,7 @@ pub fn parse_export_file(
         cutoff_date,
         export.map(|(d, _)| d),
     );
+    let forecast = calculation::forecast::build(config, &outcome.entries, &evaluation);
     let overview = summarize(config, file_name.clone(), export.map(|(d, _)| d), outcome);
 
     Ok(AuswertungResult {
@@ -80,6 +81,7 @@ pub fn parse_export_file(
         outside: evaluation.outside,
         guests: config.guests.iter().map(|g| g.name.clone()).collect(),
         guest_bookings: evaluation.guest_bookings,
+        forecast,
         overview,
     })
 }
@@ -243,6 +245,37 @@ mod tests {
                 ("2026-09-22".to_string(), 2.0, false, 0.0),
             ]
         );
+
+        // Prognose (unabhängig nachgerechnet): Faktoren aus Januar–Oktober,
+        // geplante Abwesenheiten, Budget 360.000 € für 2026
+        let forecast = &auswertung.forecast;
+        assert_eq!(
+            (forecast.from, forecast.to),
+            (
+                NaiveDate::from_ymd_opt(2026, 11, 1).unwrap(),
+                NaiveDate::from_ymd_opt(2026, 12, 31).unwrap()
+            )
+        );
+        let erika_forecast = &forecast.persons[0];
+        assert_eq!(
+            (
+                erika_forecast.sick_factor,
+                erika_forecast.distraction_factor
+            ),
+            (0.0131, 0.034)
+        );
+        assert_eq!(
+            (erika_forecast.planned_absence_days, erika_forecast.net),
+            (5.0, 28_526.06)
+        );
+        assert_eq!(forecast.persons[1].planned_absence_days, 8.5); // ½ Tag + 8 Tage
+        assert_eq!(forecast.persons[2].contract_hours, 0.0); // Lena nicht mehr im Projekt
+        let budget = &forecast.budgets[0];
+        assert_eq!(
+            (budget.actual_net, budget.forecast_net, budget.deviation),
+            (319_865.0, 47_629.52, 7_494.52)
+        );
+        assert_eq!(budget.exhausted_on, NaiveDate::from_ymd_opt(2026, 12, 17));
 
         let erika = &auswertung.persons[0].periods.ytd;
         assert_eq!(erika.soll_b, 1636.0);

@@ -23,6 +23,10 @@ Fehlende Buchungen: Erika am 20.10. ohne Buchung, Max am 22.10. nur 2 von 6 h; E
 (53 %) liegt knapp über der 50-%-Schwelle. Max Mustermann hat ab September eine abweichende
 Arbeitszeit von 6 h/Tag.
 
+Für die Prognose: Budget 360.000 € für Januar–Dezember 2026 (Richtwert 30.000 €/Monat;
+laut Prognose um 7.494,52 € überzogen, aufgebraucht am 17.12.) und geplante Abwesenheiten
+(Erika Urlaub 23.–27.11., Max ½ Tag am 13.11. und Urlaub 21.–31.12.).
+
 Zum Ausprobieren in der App: `beispiel-projekt.json` in den Projektordner kopieren
 und danach die `.xlsx` in das Fenster ziehen.
 

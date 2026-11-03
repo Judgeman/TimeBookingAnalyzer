@@ -132,7 +132,96 @@ pub struct AuswertungResult {
     pub guests: Vec<String>,
     /// Ihre Buchungen aufs Projekt im Auswertungszeitraum.
     pub guest_bookings: Vec<GuestBooking>,
+    /// Prognose der Rechnung und Budget-Abgleich.
+    pub forecast: Forecast,
     pub overview: ParsedExport,
+}
+
+/// Prognose der Rechnung ab dem Tag nach dem Stand der Daten.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Forecast {
+    /// Erster prognostizierter Tag (Tag nach min(Stichtag, Stand des Exports)).
+    pub from: NaiveDate,
+    /// Letzter prognostizierter Tag (Jahresende bzw. Ende des Budget-Zeitraums).
+    pub to: NaiveDate,
+    /// Referenzzeitraum der Faktoren (`None` = keine Daten → Faktoren 0).
+    pub reference_from: NaiveDate,
+    pub reference_to: Option<NaiveDate>,
+    pub persons: Vec<ForecastPerson>,
+    /// Alle Monate vom Jahresanfang (bzw. Budget-Beginn) bis `to`.
+    pub months: Vec<ForecastMonth>,
+    pub budgets: Vec<BudgetStatus>,
+    pub notes: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ForecastPerson {
+    pub name: String,
+    /// Anteil krank an der verfügbaren Zeit (Soll − Urlaub), 0…1.
+    pub sick_factor: f64,
+    /// Anteil der gearbeiteten Zeit, der nicht abgerechnet wurde, 0…1.
+    pub distraction_factor: f64,
+    /// Grundlage der Faktoren (Referenzzeitraum).
+    pub reference: ForecastReference,
+    /// Soll im Prognosezeitraum (Werktage × h/Tag, im Einsatz).
+    pub contract_hours: f64,
+    /// Davon geplant abwesend.
+    pub planned_absence_hours: f64,
+    pub planned_absence_days: f64,
+    /// Erwartete abgerechnete Stunden (zum vollen Satz).
+    pub hours: f64,
+    pub net: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ForecastReference {
+    /// Soll brutto − Urlaub
+    pub available_hours: f64,
+    pub sick_hours: f64,
+    /// Gearbeitet (× Mult, ohne Abwesenheit)
+    pub worked_hours: f64,
+    /// Abgerechnet zum vollen Satz (Stunden × Satz-Anteil der Regel)
+    pub invoiced_hours: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ForecastMonth {
+    /// "2026-11"
+    pub month: String,
+    /// Rechnung bis zum Stand der Daten (Netto, abgerechnete Stunden).
+    pub actual_net: f64,
+    pub actual_hours: f64,
+    /// Prognose für die restlichen Tage des Monats.
+    pub forecast_net: f64,
+    pub forecast_hours: f64,
+}
+
+/// Budget-Zeitraum mit Ist, Prognose und Richtwert.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct BudgetStatus {
+    /// "2026-01"
+    pub from: String,
+    /// "2026-12"
+    pub to: String,
+    pub amount: f64,
+    /// Richtwert je Monat = Betrag ÷ Anzahl Monate.
+    pub monthly_target: f64,
+    pub month_count: u32,
+    /// Richtwert bis zum Stand der Daten (anteilig im laufenden Monat).
+    pub target_to_date: f64,
+    /// Abgerechnet bis zum Stand der Daten.
+    pub actual_net: f64,
+    /// Prognose bis zum Ende des Zeitraums.
+    pub forecast_net: f64,
+    /// Ist + Prognose.
+    pub expected_net: f64,
+    /// Erwartet − Budget (positiv = Überziehung).
+    pub deviation: f64,
+    /// Tag, an dem das Budget laut Prognose aufgebraucht ist (`None`: reicht
+    /// bzw. schon aufgebraucht → `exceeded`).
+    pub exhausted_on: Option<NaiveDate>,
+    /// Ist liegt bereits über dem Budget.
+    pub exceeded: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

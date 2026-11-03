@@ -61,6 +61,8 @@ fn config() -> ProjectConfig {
         vat_percent: 19.0,
         billing_rules: default_billing_rules(),
         missing_threshold_percent: 50.0,
+        planned_absences: vec![],
+        budgets: vec![],
     }
 }
 

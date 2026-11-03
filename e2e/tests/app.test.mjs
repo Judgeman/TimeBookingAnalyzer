@@ -299,6 +299,38 @@ test("Fenster: zu groß oder außerhalb des Bildschirms → passend und vollstä
   }
 });
 
+test("Prognose: Budget-Überziehung, Diagramm, Budget im Projekt ändern", () =>
+  withApp("prognose", {}, async (app) => {
+    await loadSample(app);
+    await app.tab("Prognose");
+    await app.waitForText("Prognose je Person");
+    let text = await app.text();
+    for (const expected of [
+      "Rechnung November 2026 (laufender Monat)",
+      "23.362,30 €",
+      "Voraussichtliche Überziehung: 7.494,52 € über Budget zum Ende Dezember 2026",
+      "Budget laut Prognose aufgebraucht am 17.12.2026.",
+      "367.494,52 €",
+    ]) {
+      assert.ok(text.includes(expected), `fehlt: ${expected}`);
+    }
+    const chart = await app.execute(
+      "return document.querySelector('svg[role=img]').getAttribute('aria-label')",
+    );
+    assert.equal(chart, "Abgerechnet und Prognose kumuliert mit Richtwert und Budget");
+
+    // Budget im Projekt auf 400.000 € erhöhen → reicht
+    await app.click("button", "Projekt bearbeiten");
+    await app.waitForText("Planung (Budget & Prognose)");
+    await app.setValue('input[aria-label="Budget netto"]', "400000");
+    await app.click("button", "Speichern");
+    await app.waitForText("Auswertung 01.01.2026");
+    await app.tab("Prognose");
+    await app.waitForText("Budget reicht voraussichtlich: 32.505,48 € Rest zum Ende Dezember 2026");
+    text = await app.text();
+    assert.ok(!text.includes("aufgebraucht am"));
+  }));
+
 test("Fehlende Buchungen: Schwelle im Projekt einstellbar", () =>
   withApp("schwelle", {}, async (app) => {
     await loadSample(app);

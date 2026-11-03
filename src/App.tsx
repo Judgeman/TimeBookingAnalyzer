@@ -276,6 +276,7 @@ export default function App() {
                 <ResultsView
                   result={result}
                   elementFilter={activeProject.element_filter}
+                  plannedAbsences={activeProject.planned_absences}
                   busy={busy}
                   onCutoffChange={setCutoff}
                 />

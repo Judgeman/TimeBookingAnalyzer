@@ -11,6 +11,7 @@ import { parseDateList } from "../lib/dates";
 import { errorMessage } from "../lib/api";
 import { GuestEditor } from "./editor/GuestEditor";
 import { PeriodListEditor } from "./editor/PeriodListEditor";
+import { PlanningEditor } from "./editor/PlanningEditor";
 import { RulesEditor } from "./editor/RulesEditor";
 import { TeamEditor } from "./editor/TeamEditor";
 import { Field, numberOf, ui } from "./editor/ui";
@@ -148,6 +149,17 @@ export function ProjectEditor({ initial, onSave, onCancel, onDelete }: Props) {
           guests={draft.guests}
           onChange={(guests) => patch({ guests })}
           defaultFrom={defaultFrom}
+        />
+      </fieldset>
+
+      <fieldset className={ui.card}>
+        <legend className={ui.legend}>Planung (Budget &amp; Prognose)</legend>
+        <PlanningEditor
+          budgets={draft.budgets}
+          absences={draft.planned_absences}
+          team={draft.team.map((m) => m.name).filter((n) => n.trim() !== "")}
+          onBudgets={(budgets) => patch({ budgets })}
+          onAbsences={(planned_absences) => patch({ planned_absences })}
         />
       </fieldset>
 
