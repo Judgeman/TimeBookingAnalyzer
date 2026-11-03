@@ -22,6 +22,7 @@ serde_json = "1"
 calamine = { version = "0.37", features = ["chrono"] }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4"] }
+tauri-plugin-window-state = "2"
 
 [dev-dependencies]
 rust_xlsxwriter = "0.102"

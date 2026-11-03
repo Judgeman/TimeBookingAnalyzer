@@ -35,15 +35,33 @@ export async function waitForDriver(timeoutMs = 20_000) {
 }
 
 export class AppSession {
-  static async start(application) {
+  /**
+   * Startet die App. `resize`: Fenster auf eine feste Größe bringen (einheitliche
+   * Screenshots); aus, wenn die gespeicherte Fenstergröße geprüft wird.
+   */
+  static async start(application, { resize = true } = {}) {
     const value = await call("POST", "/session", {
       capabilities: {
         alwaysMatch: { browserName: "wry", "tauri:options": { application } },
       },
     });
     const session = new AppSession(value.sessionId);
-    await session.#call("POST", "/window/rect", { width: 1440, height: 1000 }).catch(() => {});
+    if (resize) await session.setWindowRect({ width: 1440, height: 1000 }).catch(() => {});
     return session;
+  }
+
+  /** Position und Größe des Fensters ({ x, y, width, height }). */
+  windowRect() {
+    return this.#call("GET", "/window/rect");
+  }
+
+  setWindowRect(rect) {
+    return this.#call("POST", "/window/rect", rect);
+  }
+
+  /** Schließt das Fenster – die App beendet sich wie beim Klick auf „X“. */
+  async closeWindow() {
+    await this.#call("DELETE", "/window").catch(() => {});
   }
 
   constructor(id) {

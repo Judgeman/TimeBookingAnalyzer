@@ -61,7 +61,7 @@ src/                        # React Frontend
 src-tauri/
   src/
     main.rs                 # ruft billing_tracker_lib::run()
-    lib.rs                  # Tauri-Builder, Plugins, State, Command-Registrierung
+    lib.rs                  # Tauri-Builder, Plugins (dialog, window-state), State, Commands
     commands/
       parse_export.rs       # Export einlesen (+ später auswerten)
       config.rs             # Projekte laden/speichern
@@ -493,6 +493,11 @@ interface PeriodData {
    „Stand“ des Exports), dazu `import.json` (Originalpfad, Zeitpunkt); ältere Kopie wird
    ersetzt. Beim Start/Projektwechsel wird die Kopie automatisch ausgewertet; Projekt ohne
    gemerkte Datei → leere Drop-Zone. Projekt löschen entfernt auch `Import/<id>/`.
+   **Fenster**: Position/Größe/maximiert über `tauri-plugin-window-state` in
+   `window-state.json` neben der Exe (absoluter Dateiname ersetzt `app_config_dir`).
+   Gespeichert wird 500 ms nach dem letzten Verschieben/Ändern der Größe (und beim
+   Beenden) – **auf dem Haupt-Thread** (`run_on_main_thread`), sonst Deadlock mit den
+   Fenster-Ereignissen des Plugins. Erster Start ohne gespeicherten Zustand: zentriert.
 8. **Drag & Drop**: HTML5-Drop liefert in Tauri keine Pfade → `getCurrentWebview().onDragDropEvent()` verwenden
 9. **IPC-Argumente**: Tauri mappt camelCase (JS) auf snake_case (Rust): `invoke("parse_export", { filePath, projectId })`
 

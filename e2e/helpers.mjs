@@ -16,6 +16,9 @@ export const projectsDir = () => join(dirname(env.app), "projects");
 /** Letzte Import-Dateien je Projekt: `Import` neben der Programmdatei. */
 export const importDir = () => join(dirname(env.app), "Import");
 
+/** Fensterposition und -größe des letzten Aufrufs: neben der Programmdatei. */
+export const windowStateFile = () => join(dirname(env.app), "window-state.json");
+
 /** Früherer Ablageort im App-Datenverzeichnis (Linux: XDG_DATA_HOME, Windows: APPDATA). */
 export const legacyDir = () => join(env.dataDir, "de.judgeman.billingtracker", "projects");
 
@@ -25,6 +28,7 @@ export const legacyDir = () => join(env.dataDir, "de.judgeman.billingtracker", "
  */
 export function resetProjects({ withSample, legacySample = false }) {
   rmSync(importDir(), { recursive: true, force: true });
+  rmSync(windowStateFile(), { force: true });
   for (const dir of [projectsDir(), legacyDir()]) {
     rmSync(dir, { recursive: true, force: true });
     mkdirSync(dir, { recursive: true });
@@ -40,7 +44,7 @@ export function resetProjects({ withSample, legacySample = false }) {
  */
 export async function withApp(
   name,
-  { withSample = true, legacySample = false, keepData = false } = {},
+  { withSample = true, legacySample = false, keepData = false, resize = true } = {},
   body,
 ) {
   for (let attempt = 1; ; attempt++) {
@@ -48,7 +52,7 @@ export async function withApp(
     if (!keepData) resetProjects({ withSample, legacySample });
     let session;
     try {
-      session = await AppSession.start(env.app);
+      session = await AppSession.start(env.app, { resize });
       await body(session);
       return;
     } catch (error) {
@@ -69,4 +73,14 @@ export async function withApp(
       await session?.end();
     }
   }
+}
+
+/** Wartet, bis `condition()` wahr ist (z. B. auf eine Datei der App). */
+export async function waitUntil(condition, message, timeoutMs = 10_000) {
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end) {
+    if (condition()) return;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  throw new Error(message);
 }

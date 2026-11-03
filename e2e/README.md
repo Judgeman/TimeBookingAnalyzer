@@ -45,5 +45,5 @@ wird der betroffene Test einmal wiederholt.
 | --- | --- |
 | `run.mjs` | legt die App in einen temporären Ordner, startet `tauri-driver` (isoliertes Datenverzeichnis) und `node --test` |
 | `webdriver.mjs` | minimaler WebDriver-Client (Session, Script, Klick, Eingabe, Drop) |
-| `helpers.mjs` | `withApp()`: App starten, Projekte zurücksetzen, Screenshot, Wiederholung |
+| `helpers.mjs` | `withApp()`: App starten, Projekte/Importe/Fensterzustand zurücksetzen (`keepData` = Neustart), Screenshot, Wiederholung |
 | `tests/*.test.mjs` | die Tests |

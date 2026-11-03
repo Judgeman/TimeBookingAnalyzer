@@ -4,7 +4,15 @@ import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, sep } from "node:path";
 import { test } from "node:test";
-import { env, importDir, legacyDir, projectsDir, withApp } from "../helpers.mjs";
+import {
+  env,
+  importDir,
+  legacyDir,
+  projectsDir,
+  waitUntil,
+  windowStateFile,
+  withApp,
+} from "../helpers.mjs";
 
 async function loadSample(app) {
   await app.waitForText("Musterkunde GmbH / Lager-App");
@@ -226,6 +234,25 @@ test("Letzte Import-Datei: Kopie im Ordner „Import“, beim Neustart automatis
     await app.click("button", "Ja, löschen");
     await app.waitForText("Noch keine Projekte angelegt.");
     assert.ok(!existsSync(copy));
+  });
+});
+
+test("Fenster: Position und Größe vom letzten Aufruf (gespeichert neben der Exe)", async () => {
+  const saved = () =>
+    existsSync(windowStateFile()) ? JSON.parse(readFileSync(windowStateFile(), "utf8")).main : null;
+  const rect = { x: 40, y: 30, width: 1000, height: 700 };
+  await withApp("fenster-verschieben", { resize: false }, async (app) => {
+    await app.waitForText("Musterkunde GmbH / Lager-App");
+    await app.setWindowRect(rect);
+    // gespeichert wird kurz nach dem Verschieben – nicht erst beim Beenden
+    await waitUntil(
+      () => saved()?.x === rect.x && saved()?.width === rect.width,
+      `Fensterzustand nicht gespeichert: ${JSON.stringify(saved())}`,
+    );
+  });
+  await withApp("fenster-neustart", { keepData: true, resize: false }, async (app) => {
+    await app.waitForText("Musterkunde GmbH / Lager-App");
+    assert.deepEqual(await app.windowRect(), rect);
   });
 });
 
