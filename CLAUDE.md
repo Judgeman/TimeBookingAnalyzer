@@ -62,6 +62,7 @@ src-tauri/
   src/
     main.rs                 # ruft billing_tracker_lib::run()
     lib.rs                  # Tauri-Builder, Plugins (dialog, window-state), State, Commands
+    window.rs               # Fenster an den Bildschirm anpassen (fit: reine Rechnung + Anwenden)
     commands/
       parse_export.rs       # Export einlesen (+ später auswerten)
       config.rs             # Projekte laden/speichern
@@ -498,6 +499,12 @@ interface PeriodData {
    Gespeichert wird 500 ms nach dem letzten Verschieben/Ändern der Größe (und beim
    Beenden) – **auf dem Haupt-Thread** (`run_on_main_thread`), sonst Deadlock mit den
    Fenster-Ereignissen des Plugins. Erster Start ohne gespeicherten Zustand: zentriert.
+   Danach `window::fit_to_screen`: Fenster muss in den nutzbaren Bereich (`work_area`,
+   ohne Taskleiste) des Bildschirms mit der größten Überdeckung passen (sonst
+   Hauptbildschirm, zentriert) – zu groß → verkleinern, überstehend → verschieben,
+   Bereich kleiner als minWidth/minHeight → maximieren; maximiert/Vollbild bleibt.
+   Läuft sofort (wenn die Maße plausibel sind) und 400 ms später erneut (GTK liefert
+   vor dem Anzeigen unsinnige Maße).
 8. **Drag & Drop**: HTML5-Drop liefert in Tauri keine Pfade → `getCurrentWebview().onDragDropEvent()` verwenden
 9. **IPC-Argumente**: Tauri mappt camelCase (JS) auf snake_case (Rust): `invoke("parse_export", { filePath, projectId })`
 

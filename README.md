@@ -18,7 +18,8 @@ konfigurierbaren Projekt-Regeln. Details zu Regeln und Datenmodell: [CLAUDE.md](
 - [x] Einsatzzeitraum je Person; Projektbuchungen außerhalb des Teams deutlich markiert
 - [x] Rolle „darf buchen“ (ohne Zeiterfassung, abgerechnet nach Kost2Art)
 - [x] Letzte Export-Datei je Projekt gemerkt (Kopie im Ordner `Import`), beim Öffnen automatisch ausgewertet
-- [x] Fensterposition und -größe vom letzten Aufruf (je Instanz, `window-state.json` neben der Exe)
+- [x] Fensterposition und -größe vom letzten Aufruf (je Instanz, `window-state.json` neben der Exe),
+      angepasst an den Bildschirm (nie größer als der Bildschirm, immer vollständig sichtbar)
 - [x] Projekt-Editor mit Formularen für Team, Arbeitszeiten, Regeln, Feiertage
 - [x] Tests: Rust-Unit-Tests, Vitest (Unit/Komponenten/Integration), E2E, Vertragstest, CI
 - [ ] Spalten-Mapping per Drag & Drop auf eine Beispielzeile
@@ -79,7 +80,9 @@ Frühere Versionen speicherten unter `<App-Datenverzeichnis>/projects/` (Windows
 leer, bietet die App an, diese Projekte zu übernehmen (sie werden kopiert).
 
 Position und Größe des Fensters merkt sich jede Instanz in `window-state.json` neben der
-Programmdatei; beim ersten Start öffnet sich das Fenster zentriert.
+Programmdatei; beim ersten Start öffnet sich das Fenster zentriert. Passt das Fenster nicht
+(anderer Monitor, kleinere Auflösung), wird es verkleinert bzw. in den sichtbaren Bereich
+geschoben.
 
 Die zuletzt eingelesene Export-Datei jedes Projekts legt die App als Kopie unter
 `Import/<Projekt-ID>/` neben der Programmdatei ab (nur die neueste) und wertet sie beim

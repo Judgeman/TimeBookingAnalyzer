@@ -1,7 +1,7 @@
 // E2E-Tests der Desktop-App mit den fiktiven Beispieldaten (sample-data/).
 // Start: npm run build:e2e && npm run test:e2e   (Details: e2e/README.md)
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, sep } from "node:path";
 import { test } from "node:test";
 import {
@@ -9,6 +9,7 @@ import {
   importDir,
   legacyDir,
   projectsDir,
+  resetProjects,
   waitUntil,
   windowStateFile,
   withApp,
@@ -254,6 +255,48 @@ test("Fenster: Position und Größe vom letzten Aufruf (gespeichert neben der Ex
     await app.waitForText("Musterkunde GmbH / Lager-App");
     assert.deepEqual(await app.windowRect(), rect);
   });
+});
+
+test("Fenster: zu groß oder außerhalb des Bildschirms → passend und vollständig sichtbar", async () => {
+  const cases = [
+    // vom großen Monitor auf einen kleineren Bildschirm → verkleinert
+    { name: "zu-gross", saved: { x: 100, y: 50, width: 2560, height: 1400 }, fill: true },
+    // ragt rechts unten heraus → in den Bildschirm geschoben, Größe bleibt
+    { name: "halb-ausserhalb", saved: { x: 1200, y: 900, width: 1000, height: 700 }, corner: true },
+    // gespeicherter Monitor fehlt → sichtbar, Größe bleibt
+    { name: "monitor-fehlt", saved: { x: 3000, y: 200, width: 1000, height: 700 } },
+  ];
+  for (const c of cases) {
+    resetProjects({ withSample: true });
+    writeFileSync(
+      windowStateFile(),
+      JSON.stringify({
+        main: { ...c.saved, prev_x: c.saved.x, prev_y: c.saved.y, maximized: false, visible: true, decorated: true, fullscreen: false },
+      }),
+    );
+    await withApp(`fenster-${c.name}`, { keepData: true, resize: false }, async (app) => {
+      await app.waitForText("Musterkunde GmbH / Lager-App");
+      const screen = await app.execute("return { width: screen.width, height: screen.height }");
+      const expected = (r) =>
+        c.fill
+          ? r.x === 0 && r.y === 0 && r.width === screen.width && r.height === screen.height
+          : r.width === 1000 &&
+            r.height === 700 &&
+            r.x >= 0 &&
+            r.y >= 0 &&
+            r.x + r.width <= screen.width &&
+            r.y + r.height <= screen.height &&
+            (!c.corner || (r.x === screen.width - 1000 && r.y === screen.height - 700));
+      // angepasst wird, sobald das Fenster angezeigt ist
+      let rect;
+      for (let i = 0; i < 50; i++) {
+        rect = await app.windowRect();
+        if (expected(rect)) break;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      assert.ok(expected(rect), `${c.name}: ${JSON.stringify(rect)} auf ${JSON.stringify(screen)}`);
+    });
+  }
 });
 
 test("Fehlende Buchungen: Schwelle im Projekt einstellbar", () =>

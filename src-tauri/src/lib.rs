@@ -3,6 +3,7 @@ mod commands;
 mod models;
 mod parsing;
 mod storage;
+mod window;
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -73,6 +74,13 @@ pub fn run() {
             let legacy_dir = app.path().app_data_dir().ok().map(|d| d.join("projects"));
             app.manage(ProjectStore::new(beside_exe(&exe, "projects")).with_legacy(legacy_dir));
             app.manage(ImportStore::new(beside_exe(&exe, "Import")));
+            // Gespeichertes Fenster (bzw. Standardgröße) an den Bildschirm anpassen.
+            // Sofort (Windows: Maße stimmen schon) und noch einmal, sobald das
+            // Fenster angezeigt wird (GTK liefert vorher unsinnige Maße).
+            if let Some(main) = app.get_webview_window("main") {
+                let _ = window::fit_to_screen(&main);
+                window::fit_to_screen_soon(main);
+            }
             save_window_state_on_change(app);
             Ok(())
         })
