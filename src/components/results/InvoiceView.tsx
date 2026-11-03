@@ -54,9 +54,7 @@ export function InvoiceView({ invoice, persons, cutoffDate }: Props) {
             </span>
           )}
         </Card>
-        <Card label="Brutto gesamt" strong>
-          {formatEuro(invoice.total.gross)}
-        </Card>
+        <Card label="Brutto gesamt">{formatEuro(invoice.total.gross)}</Card>
         <Card label="Abgerechnete Stunden">{formatHours(invoice.total.hours)}</Card>
       </dl>
 
@@ -74,7 +72,7 @@ export function InvoiceView({ invoice, persons, cutoffDate }: Props) {
                 ))}
                 <th className={`${styles.thNum} bg-slate-100`}>Netto</th>
                 <th className={styles.thNum}>USt.</th>
-                <th className={`${styles.thNum} bg-slate-100`}>Brutto</th>
+                <th className={styles.thNum}>Brutto</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -89,17 +87,15 @@ export function InvoiceView({ invoice, persons, cutoffDate }: Props) {
                       {formatEuro(netOf(month, p))}
                     </td>
                   ))}
-                  <td className={`${styles.tdNum} bg-slate-50 font-medium`}>
+                  <td className={`${styles.tdNum} bg-slate-50 font-semibold text-slate-900`}>
                     {formatEuro(month.net)}
                   </td>
                   <td className={styles.tdNum}>{formatEuro(month.vat)}</td>
-                  <td className={`${styles.tdNum} bg-slate-50 font-medium`}>
-                    {formatEuro(month.gross)}
-                  </td>
+                  <td className={`${styles.tdNum} text-slate-500`}>{formatEuro(month.gross)}</td>
                 </tr>
               ))}
             </tbody>
-            <tfoot className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
+            <tfoot className="border-t-2 border-slate-200 bg-slate-50 font-medium">
               <tr>
                 <td className={styles.td}>Gesamt</td>
                 {persons.map((p) => (
@@ -107,9 +103,13 @@ export function InvoiceView({ invoice, persons, cutoffDate }: Props) {
                     {formatEuro(personTotal(p))}
                   </td>
                 ))}
-                <td className={styles.tdNum}>{formatEuro(invoice.total.net)}</td>
+                <td className={`${styles.tdNum} font-semibold text-slate-900`}>
+                  {formatEuro(invoice.total.net)}
+                </td>
                 <td className={styles.tdNum}>{formatEuro(invoice.total.vat)}</td>
-                <td className={styles.tdNum}>{formatEuro(invoice.total.gross)}</td>
+                <td className={`${styles.tdNum} font-normal text-slate-500`}>
+                  {formatEuro(invoice.total.gross)}
+                </td>
               </tr>
             </tfoot>
           </table>
@@ -131,8 +131,9 @@ export function InvoiceView({ invoice, persons, cutoffDate }: Props) {
                 {month.partial && <PartialBadge cutoffDate={cutoffDate} />}
               </span>
               <span className="tabular-nums text-slate-600">
-                {formatHours(month.hours)} h · netto {formatEuro(month.net)} · brutto{" "}
-                <span className="font-medium text-slate-900">{formatEuro(month.gross)}</span>
+                {formatHours(month.hours)} h · netto{" "}
+                <span className="font-semibold text-slate-900">{formatEuro(month.net)}</span> ·
+                brutto {formatEuro(month.gross)}
               </span>
             </summary>
             <MonthLines month={month} />
@@ -184,7 +185,12 @@ function MonthLines({ month }: { month: InvoiceMonth }) {
           ))}
         </tbody>
         <tfoot className="border-t-2 border-slate-200 bg-slate-50">
-          <TotalRow label="Netto" value={formatEuro(month.net)} hours={formatHours(month.hours)} />
+          <TotalRow
+            label="Netto"
+            value={formatEuro(month.net)}
+            hours={formatHours(month.hours)}
+            strong
+          />
           {month.vat_groups.map((g) => (
             <TotalRow
               key={g.vat_percent}
@@ -192,7 +198,7 @@ function MonthLines({ month }: { month: InvoiceMonth }) {
               value={formatEuro(g.vat)}
             />
           ))}
-          <TotalRow label="Brutto" value={formatEuro(month.gross)} strong />
+          <TotalRow label="Brutto" value={formatEuro(month.gross)} muted />
         </tfoot>
       </table>
     </div>
@@ -204,14 +210,18 @@ function TotalRow({
   value,
   hours,
   strong,
+  muted,
 }: {
   label: string;
   value: string;
   hours?: string;
+  /** Hervorgehoben (Netto – wir rechnen netto ab). */
   strong?: boolean;
+  /** Zurückhaltend (Brutto). */
+  muted?: boolean;
 }) {
   return (
-    <tr className={strong ? "font-semibold" : ""}>
+    <tr className={strong ? "font-semibold text-slate-900" : muted ? "text-slate-500" : ""}>
       <td className={styles.td} colSpan={2}>
         {label}
       </td>

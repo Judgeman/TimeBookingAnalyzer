@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { sampleResult } from "../../test/fixture";
 import type { InvoiceSummary } from "../../types/results";
+import { formatEuro } from "../../lib/format";
 import { InvoiceView } from "./InvoiceView";
 
 const text = () => document.body.textContent!.replace(/ | /g, " ");
@@ -58,5 +59,37 @@ describe("InvoiceView", () => {
     };
     render(<InvoiceView invoice={empty} persons={[]} cutoffDate="2026-10-31" />);
     expect(screen.getByText(/keine abrechenbaren Stunden/)).toBeInTheDocument();
+  });
+});
+
+describe("InvoiceView – Netto ist die führende Größe", () => {
+  // Testing Library vergleicht mit normalisiertem Text (geschützte Leerzeichen → Leerzeichen).
+  const euro = (value: number) => formatEuro(value).replace(/ | /g, " ");
+
+  it("hebt Netto hervor, Brutto nur zurückhaltend", () => {
+    const r = sampleResult();
+    render(<InvoiceView invoice={r.invoice} persons={r.persons.map((p) => p.name)} cutoffDate={r.cutoff_date} />);
+    const october = r.invoice.months.find((m) => m.month === "2026-10")!;
+
+    // Kacheln: nur Netto dunkel hervorgehoben
+    expect(screen.getByText(/Netto gesamt bis/).closest("div")).toHaveClass("bg-slate-800");
+    expect(screen.getByText("Brutto gesamt").closest("div")).not.toHaveClass("bg-slate-800");
+
+    // Monatstabelle: Netto fett, Brutto grau
+    const table = screen.getByText("Netto pro Person und Monat").nextElementSibling as HTMLElement;
+    const row = within(table).getByText("Oktober 2026").closest("tr")!;
+    expect(within(row).getByText(euro(october.net))).toHaveClass("font-semibold");
+    expect(within(row).getByText(euro(october.gross))).toHaveClass("text-slate-500");
+    expect(within(row).getByText(euro(october.gross))).not.toHaveClass("font-semibold");
+
+    // Kopfzeile des Monats (aufgeklappt): fett ist der Netto-Betrag
+    const summary = screen.getByText("Oktober 2026", { selector: "summary span" }).closest("summary")!;
+    expect(within(summary).getByText(euro(october.net))).toHaveClass("font-semibold");
+    expect(within(summary).queryByText(euro(october.gross))).toBeNull(); // Brutto nur als normaler Text
+
+    // Summenzeilen der Monatsdetails
+    const details = summary.parentElement!;
+    expect(within(details).getByText("Netto", { selector: "td" }).closest("tr")).toHaveClass("font-semibold");
+    expect(within(details).getByText("Brutto", { selector: "td" }).closest("tr")).not.toHaveClass("font-semibold");
   });
 });
