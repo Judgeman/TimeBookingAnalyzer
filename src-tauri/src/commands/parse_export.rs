@@ -80,6 +80,8 @@ pub fn parse_export_file(
     let forecast = calculation::forecast::build(config, &outcome.entries, &evaluation);
     let forecast_accuracy = calculation::forecast::backtest(config, &outcome.entries, &evaluation);
     let vacation = calculation::vacation::vacation_status(config, &evaluation);
+    let missing_current =
+        calculation::current_missing(config, &outcome.entries, &evaluation, default_cutoff);
     let overview = summarize(config, file_name.clone(), export.map(|(d, _)| d), outcome);
 
     Ok(AuswertungResult {
@@ -101,6 +103,7 @@ pub fn parse_export_file(
         missing: evaluation.missing,
         missing_checked_until: evaluation.missing_checked_until,
         missing_threshold_percent: config.missing_threshold_percent,
+        missing_current,
         outside: evaluation.outside,
         guests: config.guests.iter().map(|g| g.name.clone()).collect(),
         guest_bookings: evaluation.guest_bookings,
@@ -323,6 +326,34 @@ mod tests {
                 ("Jonas Beispiel", "2026-10-01".to_string(), false, 0.0),
             ]
         );
+
+        // Aktuell fehlende Buchungen: bis zum Vortag des Exports (30.10.) –
+        // auch wenn der Stichtag früher liegt (Ende Vormonat)
+        let current = |r: &AuswertungResult| {
+            let m = r.missing_current.as_ref().unwrap();
+            let list: Vec<(String, String)> = m
+                .bookings
+                .iter()
+                .map(|b| (b.person.clone(), b.date.to_string()))
+                .collect();
+            (m.checked_until.to_string(), list)
+        };
+        let expected = (
+            "2026-10-30".to_string(),
+            vec![
+                ("Erika Mustermann".to_string(), "2026-10-20".to_string()),
+                ("Max Mustermann".to_string(), "2026-10-22".to_string()),
+            ],
+        );
+        assert_eq!(current(&auswertung), expected);
+        let end_of_september = parse_export_file(
+            &sample("Beispiel-Export_2026-10-31.xlsx"),
+            &config,
+            NaiveDate::from_ymd_opt(2026, 9, 30),
+        )
+        .unwrap();
+        assert!(end_of_september.missing.is_empty());
+        assert_eq!(current(&end_of_september), expected);
 
         // Karl: Rolle „darf buchen“ – nur Projektbuchungen, abgerechnet nach Kost2Art
         assert_eq!(auswertung.guests, vec!["Karl Beispiel".to_string()]);

@@ -118,6 +118,12 @@ export function endOfPreviousMonth(iso: string): string {
   return last.toISOString().slice(0, 10);
 }
 
+/** Tag vor `iso` ("2026-11-01" → "2026-10-31"). */
+export function previousDay(iso: string): string {
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day - 1)).toISOString().slice(0, 10);
+}
+
 /** ISO-Kalenderwoche eines Datums, z. B. "2026-W43" (wie im Backend). */
 export function isoWeekKey(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);

@@ -511,6 +511,39 @@ fn missing_bookings_below_threshold() {
 }
 
 #[test]
+fn current_missing_bookings_are_checked_until_the_day_before_the_export() {
+    let (config, entries, stand) = (config(), entries(), d(2026, 1, 16));
+    let count =
+        |m: &CurrentMissing, person: &str| m.bookings.iter().filter(|b| b.person == person).count();
+
+    // Stichtag = Stand des Exports: aus der Auswertung, ohne den 16.01. selbst
+    let full = evaluate(&config, &entries, stand, Some(stand));
+    let current = current_missing(&config, &entries, &full, stand).unwrap();
+    assert_eq!(current.checked_until, d(2026, 1, 15));
+    assert_eq!(
+        (count(&current, ERIKA), count(&current, "Max Mustermann")),
+        (3, 8)
+    );
+    assert!(current.bookings.iter().all(|b| b.date <= d(2026, 1, 15)));
+    assert_eq!(current.bookings[0], full.missing[0]);
+
+    // Stichtag früher (z. B. Ende Vormonat): unabhängig davon bis zum 15.01.
+    let early = evaluate(&config, &entries, d(2026, 1, 9), Some(stand));
+    assert_eq!(early.missing.len(), 2 + 4); // Erika 08./09., Max 06.–09.01.
+    assert_eq!(
+        current_missing(&config, &entries, &early, stand),
+        Some(current)
+    );
+
+    // Stand am 1. Januar: Vortag liegt im Vorjahr (dort ohne Arbeitszeit)
+    let new_year = d(2026, 1, 1);
+    let jan = evaluate(&config, &entries, new_year, Some(new_year));
+    let prior = current_missing(&config, &entries, &jan, new_year).unwrap();
+    assert_eq!(prior.checked_until, d(2025, 12, 31));
+    assert!(prior.bookings.is_empty());
+}
+
+#[test]
 fn missing_bookings_respect_partial_bookings_threshold_and_export_date() {
     let mut entries = entries();
     entries.push(e(ERIKA, d(2026, 1, 15), 2.0, 1.0, P100, DELIVERY)); // 2 von 6 h

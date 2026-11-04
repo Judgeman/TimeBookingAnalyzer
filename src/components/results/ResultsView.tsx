@@ -21,6 +21,7 @@ import {
   isoWeekKey,
   isoWeekRange,
   monthRange,
+  previousDay,
   todayIso,
 } from "../../lib/format";
 import { ExportSummary } from "../ExportSummary";
@@ -150,10 +151,16 @@ export function ResultsView({
         : "letzte Buchung";
 
   const today = todayIso();
-  const quickCutoffs: [string, string][] = [
-    ["Heute", today],
-    ["Stand des Exports", result.default_cutoff_date],
-    ["Ende Vormonat", endOfPreviousMonth(today)],
+  // [Beschriftung, Datum, Erklärung]
+  const quickCutoffs: [string, string, string][] = [
+    ["Heute", today, ""],
+    ["Stand des Exports", result.default_cutoff_date, ""],
+    [
+      "Vortag des Exports",
+      previousDay(result.default_cutoff_date),
+      " – der Export entsteht meist morgens, der Tag selbst ist dann noch nicht gebucht",
+    ],
+    ["Ende Vormonat", endOfPreviousMonth(today), ""],
   ];
 
   return (
@@ -179,12 +186,12 @@ export function ResultsView({
             />
           </label>
           <div className="flex gap-1">
-            {quickCutoffs.map(([label, date]) => (
+            {quickCutoffs.map(([label, date, hint]) => (
               <button
                 key={label}
                 type="button"
                 onClick={() => onCutoffChange(date)}
-                title={formatDate(date)}
+                title={formatDate(date) + hint}
                 className={`rounded px-2 py-0.5 text-xs ${
                   result.cutoff_date === date
                     ? "bg-slate-800 text-white"

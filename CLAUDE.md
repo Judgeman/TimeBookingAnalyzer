@@ -288,7 +288,8 @@ plus_krank = plus - sick_h_norm
 
 ### Festlegungen (umgesetzt in `calculation/`)
 - **Zeitraum**: 1. Januar des Stichtag-Jahres bis Stichtag. Stichtag in der UI beim
-  Programmstart = heute (Schnellwahl: Heute / Stand des Exports / Ende Vormonat); ohne
+  Programmstart = heute (Schnellwahl: Heute / Stand des Exports / Vortag des Exports /
+  Ende Vormonat – der Export entsteht meist morgens, der Tag selbst ist dann unvollständig); ohne
   Vorgabe im Backend = Export-Datum. Liegt der Stichtag nach dem Export-Stand → Hinweis.
   Buchungen nach dem Stichtag werden ignoriert (Hinweis), aus Vorjahren still ignoriert.
 - **Personen**: nur Teammitglieder aus der Konfiguration (Namensabgleich ohne
@@ -348,13 +349,20 @@ plus_krank = plus - sick_h_norm
   ≥ 5 Tagen in den letzten 3 Monaten.
 - **Insights** (`insights.ts`, im Frontend aus PeriodData/Prognose): nur **abgeschlossene**
   Monate (Monatsende ≤ Stand der Daten). Rekord-Monate des Teams (Krank-/Urlaubstage,
-  Über-/Minusstunden, fehlende Buchungen; Budget: abgerechnet − Richtwert min/max).
-  Pace Team = Ø abgerechnet je Monat ÷ Richtwert (gesamt, letzte 3 Monate); nötig je
-  Restmonat = (Budget − Ist) ÷ offene Monate. Pace Person (Monate im Einsatz): Abrechnungs-
-  quote = bill_h ÷ soll_n (Jahr, letzte 3), Ø bill_eur/Monat, € je gearbeitete Stunde =
-  bill_eur ÷ gearb, Überstunden (plus), Krankenquote = sick_h ÷ soll_b. Hinweise ab den
-  Schwellen in `THRESHOLDS` (Pace > 105 % / < 90 %, Quote −10 Pp., Plus > 40 h / < −20 h,
-  krank > 5 %, Ablenkung > 15 %, fehlende Buchungen).
+  Über-/Minusstunden, Minusstunden „Krank = Fehlzeit“ = `plus_krank`; Budget: abgerechnet −
+  Richtwert min/max). Pace Team = Ø abgerechnet je Monat ÷ Richtwert des aktiven Budgets
+  (gesamt, letzte 3 Monate); nötig je Restmonat = (Budget − Ist) ÷ offene Monate. Diagramm
+  „Abruf je Monat“ wählbar: ein Budget (Standard: aktives), alle Budgets oder eigener
+  Zeitraum (Monate) – je Monat der Richtwert seines Budgets, Monate ohne Budget fehlen.
+  Pace Person (Monate im Einsatz): Abrechnungsquote = bill_h ÷ soll_n (Jahr, letzte 3),
+  Ø bill_eur/Monat, € je gearbeitete Stunde = bill_eur ÷ gearb, Überstunden (plus), Saldo
+  Krank = Fehlzeit (plus_krank), Krankenquote = sick_h ÷ soll_b. Hinweise ab den Schwellen
+  in `THRESHOLDS` (Pace > 105 % / < 90 %, Quote −10 Pp., Plus > 40 h / < −20 h, sonst
+  plus_krank < −20 h, krank > 5 %, Ablenkung > 15 %, fehlende Buchungen).
+  **Fehlende Buchungen aktuell** (`missing_current`, Backend `calculation::current_missing`):
+  geprüft bis zum Vortag des Stands des Exports, unabhängig vom Stichtag (deckt die
+  Auswertung das nicht ab → zusätzliche Auswertung bis dahin); Insights: je Person Tage,
+  offene Stunden, Daten (meiste zuerst).
 - **Urlaub/Krank** zählt an **jedem** Tag (auch Wochenende/Feiertag) mit h/Tag der
   Person. Hervorgehoben (`flagged`) werden: arbeitsfreie Tage, Dauern ≠ ganzer/halber
   Tag, Tage ohne hinterlegte Arbeitszeit.
@@ -465,6 +473,7 @@ interface AuswertungResult {
   flagged: FlaggedBooking[];      // hervorgehobene Urlaubs-/Krank-Tage (zählen mit)
   missing: MissingBooking[];      // Werktage mit fehlender/zu geringer Buchung
   missing_checked_until: string;  // min(Stichtag, Stand des Exports)
+  missing_current: { checked_until: string; bookings: MissingBooking[] } | null; // bis Stand − 1 Tag
   outside: OutsideBooking[];      // Projektbuchungen außerhalb des Teams (s. Einsatzzeitraum)
   guests: string[];               // Rolle „darf buchen“ (Konfiguration)
   guest_bookings: GuestBooking[]; // deren Projektbuchungen (rule: string | null, invoiced, net)

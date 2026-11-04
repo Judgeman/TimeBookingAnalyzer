@@ -1,17 +1,28 @@
-import type { ReactNode } from "react";
-import type { AuswertungResult, PeriodData } from "../../types/results";
-import { formatEuro, formatHours, formatMonth, formatNumber, formatPercent } from "../../lib/format";
+import { useState, type ReactNode } from "react";
+import type { AuswertungResult, BudgetStatus, PeriodData } from "../../types/results";
+import {
+  formatDate,
+  formatDateWithWeekday,
+  formatEuro,
+  formatHours,
+  formatMonth,
+  formatNumber,
+  formatPercent,
+} from "../../lib/format";
 import { DeviationChart } from "./DeviationChart";
-import { dataEndOf } from "./forecast";
+import { activeBudgetIndex, dataEndOf, monthEnd } from "./forecast";
 import {
   completedMonths,
+  currentMissing,
   extremeMonth,
   insights,
   personPace,
   RECENT_MONTHS,
+  selectedBudgetMonths,
   teamPace,
   THRESHOLDS,
   vacationInsights,
+  type BudgetSelection,
   type Extreme,
 } from "./insights";
 import { styles } from "./styles";
@@ -23,6 +34,7 @@ interface Props {
 const pct = (v: number | null) => (v === null ? "–" : formatPercent(v * 100));
 const signedHours = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${formatHours(Math.abs(v))} h`;
 const signedEuro = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${formatEuro(Math.abs(v))}`;
+const budgetLabel = (b: BudgetStatus) => `${formatMonth(b.from)} – ${formatMonth(b.to)} · ${formatEuro(b.amount)}`;
 
 /** Trend „zuletzt“ gegenüber dem Jahr (±5 Prozentpunkte gelten als gleich). */
 function Trend({ year, recent }: { year: number | null; recent: number | null }) {
@@ -88,6 +100,8 @@ export function InsightsView({ result }: Props) {
         </section>
       )}
 
+      <CurrentMissingSection result={result} />
+
       <section>
         <h3 className={styles.heading}>Rekord-Monate (Team)</h3>
         <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -95,7 +109,7 @@ export function InsightsView({ result }: Props) {
           <Record label="Meiste Urlaubstage" extreme={extremeMonth(result, (d) => d.vac_days)} unit={(v) => `${formatNumber(v)} Tage`} />
           <Record label="Meiste Überstunden" extreme={extremeMonth(result, (d) => d.plus)} unit={signedHours} />
           <Record label="Meiste Minusstunden" extreme={extremeMonth(result, (d) => d.plus, "min")} unit={signedHours} />
-          <Record label="Meiste fehlende Buchungen" extreme={extremeMonth(result, (d) => d.missing_days)} unit={(v) => `${formatNumber(v)} Tage`} />
+          <Record label="Meiste Minusstunden (Krank = Fehlzeit)" extreme={extremeMonth(result, (d) => d.plus_krank, "min")} unit={signedHours} />
           {pace ? (
             <>
               <Tile label="Meistes Budget liegen gelassen">
@@ -128,6 +142,9 @@ export function InsightsView({ result }: Props) {
 
       <section className="space-y-4">
         <h3 className={styles.heading}>Pace des Teams</h3>
+        {pace && result.forecast.budgets.length > 1 && (
+          <p className="text-sm text-slate-600">Bezogen auf das aktuelle Budget {budgetLabel(pace.budget)}.</p>
+        )}
         <dl className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {pace && (
             <>
@@ -151,12 +168,7 @@ export function InsightsView({ result }: Props) {
             <Trend year={quota(team)} recent={quota(recentTeam)} />
           </Tile>
         </dl>
-        {pace && pace.months.length > 0 && (
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <p className="mb-2 text-sm font-medium text-slate-700">Abruf je Monat gegenüber dem Richtwert</p>
-            <DeviationChart months={pace.months} ariaLabel="Abweichung des Abrufs vom Richtwert je Monat" />
-          </div>
-        )}
+        {pace && <BudgetDeviation result={result} />}
       </section>
 
       <section>
@@ -171,8 +183,10 @@ export function InsightsView({ result }: Props) {
                 <th className={styles.thNum}>Ø abgerechnet / Monat</th>
                 <th className={styles.thNum} title="Abgerechnet (€) ÷ gearbeitete Stunden">€ je gearb. Stunde</th>
                 <th className={styles.thNum}>Überstunden</th>
+                <th className={styles.thNum} title="Saldo, wenn Krankheit als Fehlzeit zählt: gearbeitet − (Soll brutto − Urlaub)">
+                  Krank = Fehlzeit
+                </th>
                 <th className={styles.thNum}>Krank · Urlaub</th>
-                <th className={styles.thNum}>Fehlend</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -196,10 +210,13 @@ export function InsightsView({ result }: Props) {
                     <span className="block text-xs text-slate-500">zuletzt {signedHours(p.recentOvertime)}</span>
                   </td>
                   <td className={styles.tdNum}>
-                    {pct(p.sickRate)} · {formatNumber(p.vacationDays)} T
+                    <span className={p.overtimeSick < THRESHOLDS.overtimeLow ? "font-semibold text-slate-900" : ""}>
+                      {signedHours(p.overtimeSick)}
+                    </span>
+                    <span className="block text-xs text-slate-500">zuletzt {signedHours(p.recentOvertimeSick)}</span>
                   </td>
-                  <td className={styles.tdNum} title="Tage mit fehlender Buchung">
-                    {p.missingDays > 0 ? `${formatNumber(p.missingDays)} T` : "–"}
+                  <td className={styles.tdNum}>
+                    {pct(p.sickRate)} · {formatNumber(p.vacationDays)} T
                   </td>
                 </tr>
               ))}
@@ -218,10 +235,141 @@ export function InsightsView({ result }: Props) {
           <li><strong>Abrechnungsquote</strong>: abrechenbare Stunden ÷ Soll netto; über 100 % = mehr abgerechnet als vertraglich verfügbar (Überstunden). Hinweis, wenn die letzten {RECENT_MONTHS} Monate {pct(THRESHOLDS.utilizationDrop)}-Punkte unter dem Jahr liegen.</li>
           <li><strong>€ je gearbeitete Stunde</strong>: abgerechnet ÷ gearbeitet – sinkt, wenn viel nicht abrechenbare Arbeit anfällt.</li>
           <li><strong>Überstunden</strong>: gearbeitet − Soll netto. Hinweis über +{THRESHOLDS.overtimeHigh} h bzw. unter {THRESHOLDS.overtimeLow} h.</li>
+          <li><strong>Krank = Fehlzeit</strong>: Saldo, wenn Krankheit nicht als Arbeitszeit angerechnet wird (Überstunden − Krankheitsstunden). Hinweis unter {THRESHOLDS.overtimeLow} h.</li>
+          <li><strong>Fehlende Buchungen aktuell</strong>: Werktage bis zum Vortag des Exports, an denen weniger als die Schwelle des Projekts gebucht ist – unabhängig vom Stichtag.</li>
           <li><strong>Resturlaub</strong>: Anspruch + Übertrag − genommen (bis Stichtag) − geplant (geplante Urlaube nach dem Stand der Daten). Hinweis, wenn in den letzten {THRESHOLDS.vacationMonthsLeft} Monaten noch mindestens {THRESHOLDS.vacationOpenDays} Tage offen sind.</li>
           <li><strong>Krankenquote</strong>: krank ÷ Soll brutto (Hinweis über {pct(THRESHOLDS.sickRate)}); nicht abrechenbarer Anteil aus der Prognose (Hinweis über {pct(THRESHOLDS.distraction)}).</li>
         </ul>
       </details>
+    </div>
+  );
+}
+
+/** Wer aktuell (bis zum Vortag des Exports) die meisten Tage ohne Buchung hat. */
+function CurrentMissingSection({ result }: { result: AuswertungResult }) {
+  const current = result.missing_current;
+  if (!current) return null;
+  const persons = currentMissing(current.bookings);
+  const SHOWN = 6;
+  return (
+    <section>
+      <h3 className={styles.heading}>Fehlende Buchungen aktuell</h3>
+      <p className="mb-2 text-sm text-slate-600">
+        Bis {formatDate(current.checked_until)} (Vortag des Exports) – unabhängig vom Stichtag; Werktage mit
+        weniger als {formatNumber(result.missing_threshold_percent)} % der Soll-Stunden gebucht.
+      </p>
+      {persons.length === 0 ? (
+        <p className="rounded-md bg-slate-100 px-4 py-3 text-sm text-slate-600">
+          Alles gebucht bis {formatDate(current.checked_until)}.
+        </p>
+      ) : (
+        <div className={styles.tableWrap}>
+          <table className="w-full text-sm">
+            <thead className={styles.thead}>
+              <tr>
+                <th className={styles.th}>Person</th>
+                <th className={styles.thNum}>Tage</th>
+                <th className={styles.thNum}>offen</th>
+                <th className={styles.th}>fehlt am (neueste zuerst)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {persons.map((p, i) => (
+                <tr key={p.name}>
+                  <td className={`${styles.td} ${i === 0 ? "font-semibold" : ""}`}>{p.name}</td>
+                  <td className={`${styles.tdNum} ${i === 0 ? "font-semibold" : ""}`}>{p.dates.length}</td>
+                  <td className={styles.tdNum}>{formatHours(p.hours)} h</td>
+                  <td className={`${styles.td} text-slate-600`}>
+                    {p.dates.slice(0, SHOWN).map(formatDateWithWeekday).join(" · ")}
+                    {p.dates.length > SHOWN && ` · +${p.dates.length - SHOWN} weitere`}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Abruf je Monat gegenüber dem Richtwert – wählbar: ein Budget (Standard: das
+ * aktuelle), alle Budgets oder ein eigener Zeitraum.
+ */
+function BudgetDeviation({ result }: { result: AuswertungResult }) {
+  const { budgets } = result.forecast;
+  const dataEnd = dataEndOf(result.forecast);
+  const lastCompleted = result.forecast.months.filter((m) => monthEnd(m.month) <= dataEnd).at(-1)?.month;
+  const [mode, setMode] = useState(`budget:${activeBudgetIndex(result.forecast)}`);
+  const [range, setRange] = useState({
+    from: budgets.reduce((a, b) => (b.from < a ? b.from : a), budgets[0].from),
+    to: lastCompleted ?? budgets[0].to,
+  });
+  const selection: BudgetSelection =
+    mode === "all"
+      ? { kind: "all" }
+      : mode === "range"
+        ? { kind: "range", ...range }
+        : { kind: "budget", index: Number(mode.slice("budget:".length)) };
+  const months = selectedBudgetMonths(result, selection);
+  const actual = months.reduce((s, m) => s + m.actual, 0);
+  const target = months.reduce((s, m) => s + m.target, 0);
+  const input = "rounded-md border border-slate-300 px-2 py-1 text-sm";
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-medium text-slate-700">Abruf je Monat gegenüber dem Richtwert</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <select aria-label="Zeitraum des Diagramms" value={mode} onChange={(e) => setMode(e.target.value)} className={input}>
+            {budgets.map((b, i) => (
+              <option key={b.from} value={`budget:${i}`}>
+                Budget {budgetLabel(b)}
+              </option>
+            ))}
+            {budgets.length > 1 && <option value="all">Alle Budgets</option>}
+            <option value="range">Eigener Zeitraum …</option>
+          </select>
+          {mode === "range" && (
+            <>
+              <input
+                type="month"
+                aria-label="Zeitraum von"
+                value={range.from}
+                max={range.to}
+                onChange={(e) => e.target.value && setRange({ ...range, from: e.target.value })}
+                className={input}
+              />
+              <span className="text-slate-400">–</span>
+              <input
+                type="month"
+                aria-label="Zeitraum bis"
+                value={range.to}
+                min={range.from}
+                onChange={(e) => e.target.value && setRange({ ...range, to: e.target.value })}
+                className={input}
+              />
+            </>
+          )}
+        </div>
+      </div>
+      {months.length === 0 ? (
+        <p className="rounded-md bg-slate-100 px-4 py-3 text-sm text-slate-600">
+          Keine abgeschlossenen Monate mit Budget in diesem Zeitraum.
+        </p>
+      ) : (
+        <>
+          <DeviationChart months={months} ariaLabel="Abweichung des Abrufs vom Richtwert je Monat" />
+          <p className="mt-2 text-xs text-slate-600">
+            {months.length} {months.length === 1 ? "Monat" : "Monate"} ({formatMonth(months[0].month)} –{" "}
+            {formatMonth(months[months.length - 1].month)}): {formatEuro(actual)} abgerufen, Richtwert{" "}
+            {formatEuro(target)} → <strong className="text-slate-900">{signedEuro(actual - target)}</strong>
+            {target > 0 && ` (${pct(actual / target)} des Richtwerts)`}
+            {mode === "range" && " · Monate ohne Budget haben keinen Richtwert und fehlen."}
+          </p>
+        </>
+      )}
     </div>
   );
 }

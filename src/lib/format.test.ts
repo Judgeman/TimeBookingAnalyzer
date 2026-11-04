@@ -3,6 +3,7 @@ import {
   clampRange,
   columnLetter,
   endOfPreviousMonth,
+  previousDay,
   fileNameOf,
   formatDate,
   formatDateWithWeekday,
@@ -88,6 +89,9 @@ describe("Datum", () => {
     expect(todayIso()).toBe("2026-01-15");
     expect(endOfPreviousMonth("2026-01-15")).toBe("2025-12-31");
     expect(endOfPreviousMonth("2026-03-01")).toBe("2026-02-28");
+    expect(previousDay("2026-10-31")).toBe("2026-10-30");
+    expect(previousDay("2026-03-01")).toBe("2026-02-28");
+    expect(previousDay("2026-01-01")).toBe("2025-12-31");
   });
 });
 

@@ -125,6 +125,9 @@ pub struct AuswertungResult {
     /// (Stichtag, höchstens Stand des Exports).
     pub missing_checked_until: NaiveDate,
     pub missing_threshold_percent: f64,
+    /// Fehlende Buchungen „aktuell“: bis zum Tag vor dem Stand des Exports,
+    /// unabhängig vom Stichtag.
+    pub missing_current: Option<CurrentMissing>,
     /// Buchungen aufs Projekt „außerhalb des Teams“: außerhalb des
     /// Einsatzzeitraums (abgerechnet) oder von Nicht-Teammitgliedern (nicht abgerechnet).
     pub outside: Vec<OutsideBooking>,
@@ -308,6 +311,14 @@ pub struct GuestBooking {
     pub billed_hours: f64,
     /// Nettobetrag (0, wenn nicht abgerechnet oder ohne Stundensatz).
     pub net: f64,
+}
+
+/// Fehlende Buchungen bis zum Tag vor dem Stand des Exports – der Export
+/// entsteht meist morgens, der Tag selbst ist dann noch nicht gebucht.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct CurrentMissing {
+    pub checked_until: NaiveDate,
+    pub bookings: Vec<MissingBooking>,
 }
 
 /// Werktag, an dem weniger als die Schwelle der Soll-Stunden gebucht ist.

@@ -54,6 +54,18 @@ export function DeviationChart({ months, ariaLabel }: Props) {
     months.reduce((a, b) => (b.diff < a.diff ? b : a)).month,
   ]);
   const current = active === null ? null : months[active];
+  // Beschriftung: bei engen Säulen nur jede n-te; über mehrere Jahre mit Jahr
+  // am ersten Monat und bei jedem Jahreswechsel.
+  const every = Math.max(1, Math.ceil(34 / slot));
+  const multiYear = months[0].month.slice(0, 4) !== months[months.length - 1].month.slice(0, 4);
+  const labels = new Map<number, string>();
+  let lastYear = "";
+  months.forEach((m, i) => {
+    if (i % every !== 0) return;
+    const year = m.month.slice(0, 4);
+    labels.set(i, formatMonth(m.month).slice(0, 3) + (multiYear && year !== lastYear ? ` ${year.slice(2)}` : ""));
+    lastYear = year;
+  });
 
   return (
     <figure className="space-y-2">
@@ -114,9 +126,11 @@ export function DeviationChart({ months, ariaLabel }: Props) {
                     {euro0.format(m.diff)}
                   </text>
                 )}
-                <text x={cx(i)} y={H - 8} textAnchor="middle" className="fill-slate-500 text-[11px]">
-                  {formatMonth(m.month).slice(0, 3)}
-                </text>
+                {labels.has(i) && (
+                  <text x={cx(i)} y={H - 8} textAnchor="middle" className="fill-slate-500 text-[11px]">
+                    {labels.get(i)}
+                  </text>
+                )}
               </g>
             );
           })}

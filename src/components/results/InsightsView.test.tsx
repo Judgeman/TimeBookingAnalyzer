@@ -20,6 +20,10 @@ describe("InsightsView", () => {
     expect(text(tile("Meiste Urlaubstage"))).toContain("Juli 2026");
     expect(text(tile("Meiste Überstunden"))).toContain("+54,50 h");
     expect(text(tile("Meiste Minusstunden"))).toContain("−0,75 h");
+    expect(text(tile("Meiste Minusstunden (Krank = Fehlzeit)"))).toContain(
+      "Februar 2026−15,50 hErika Mustermann −14,50 h · Max Mustermann −1,00 h",
+    );
+    expect(screen.queryByText("Meiste fehlende Buchungen")).not.toBeInTheDocument();
     expect(text(tile("Meistes Budget liegen gelassen"))).toContain("August 2026−5.442,50 €24.557,50 € statt 30.000,00 €");
     expect(text(tile("Meistes Budget abgerufen"))).toContain("Januar 2026+14.350,00 €");
 
@@ -34,6 +38,7 @@ describe("InsightsView", () => {
     expect(text(max)).toContain("117 %");
     expect(within(max).getByLabelText("steigend")).toBeInTheDocument();
     expect(text(max)).toContain("+91,50 hzuletzt +83,50 h");
+    expect(text(max)).toContain("+73,50 hzuletzt +65,50 h"); // Krank = Fehlzeit
     expect(text(max)).toContain("1,1 % · 11 T");
     expect(text(within(paceTable).getByText("Lena Beispiel", { selector: "td" }).closest("tr")!)).toContain("2 M.");
     expect(screen.getByText("Kennzahlen erklärt")).toBeInTheDocument();
@@ -45,6 +50,81 @@ describe("InsightsView", () => {
     expect(text(screen.getByText(/Ohne Urlaubsanspruch 2026/))).toBe("Ohne Urlaubsanspruch 2026: Lena Beispiel");
     expect(text(hints)).toContain("Erika Mustermann: noch 12 Urlaubstage offen und nicht eingeplant – bis 31.12.2026 einplanen.");
     expect(text(hints)).toContain("Max Mustermann: noch 9 Urlaubstage offen");
+  });
+
+  it("fehlende Buchungen aktuell: bis zum Vortag des Exports, meiste zuerst", () => {
+    render(<InsightsView result={sampleResult()} />);
+    const section = screen.getByText("Fehlende Buchungen aktuell", { selector: "h3" }).closest("section")!;
+    expect(text(section)).toContain("Bis 30.10.2026 (Vortag des Exports) – unabhängig vom Stichtag");
+    const rows = within(section).getAllByRole("row").slice(1).map((row) => text(row));
+    expect(rows).toEqual([
+      "Erika Mustermann17,50 hDi, 20.10.2026",
+      "Max Mustermann14,00 hDo, 22.10.2026",
+    ]);
+  });
+
+  it("fehlende Buchungen aktuell: alles gebucht, viele Tage, ohne Angabe", () => {
+    const r = sampleResult();
+    r.missing_current = { checked_until: "2026-10-30", bookings: [] };
+    const { unmount } = render(<InsightsView result={r} />);
+    expect(text()).toContain("Alles gebucht bis 30.10.2026.");
+    unmount();
+
+    const many = sampleResult();
+    many.missing_current!.bookings = Array.from({ length: 8 }, (_, i) => ({
+      ...many.missing_current!.bookings[1],
+      date: `2026-10-${String(19 + i).padStart(2, "0")}`,
+    }));
+    const second = render(<InsightsView result={many} />);
+    expect(text()).toContain("Max Mustermann832,00 hMo, 26.10.2026 · ");
+    expect(text()).toContain(" · +2 weitere");
+    second.unmount();
+
+    const none = sampleResult();
+    none.missing_current = null;
+    render(<InsightsView result={none} />);
+    expect(screen.queryByText("Fehlende Buchungen aktuell", { selector: "h3" })).not.toBeInTheDocument();
+  });
+
+  it("Abruf je Monat: Budget wählen, alle Budgets oder eigener Zeitraum", () => {
+    const r = sampleResult();
+    const [b] = r.forecast.budgets;
+    r.forecast.budgets = [
+      { ...b, from: "2026-01", to: "2026-06", amount: 210_000, monthly_target: 35_000, month_count: 6 },
+      { ...b, from: "2026-07", to: "2026-12", amount: 150_000, monthly_target: 25_000, month_count: 6 },
+    ];
+    render(<InsightsView result={r} />);
+    expect(text()).toContain("Bezogen auf das aktuelle Budget Juli 2026 – Dezember 2026 · 150.000,00 €.");
+    const select = screen.getByLabelText<HTMLSelectElement>("Zeitraum des Diagramms");
+    const card = select.closest<HTMLElement>("div.rounded-xl")!;
+    // Standard: das aktuelle (zuletzt begonnene) Budget
+    expect(select.value).toBe("budget:1");
+    expect([...select.options].map((o) => text(o))).toEqual([
+      "Budget Januar 2026 – Juni 2026 · 210.000,00 €",
+      "Budget Juli 2026 – Dezember 2026 · 150.000,00 €",
+      "Alle Budgets",
+      "Eigener Zeitraum …",
+    ]);
+    expect(text(card)).toContain(
+      "4 Monate (Juli 2026 – Oktober 2026): 117.795,00 € abgerufen, Richtwert 100.000,00 € → +17.795,00 € (117,8 % des Richtwerts)",
+    );
+
+    fireEvent.change(select, { target: { value: "all" } });
+    expect(text(card)).toContain("10 Monate (Januar 2026 – Oktober 2026): 319.865,00 € abgerufen, Richtwert 310.000,00 €");
+    expect(within(card).getAllByRole("button", { name: /zum Richtwert/ })).toHaveLength(10);
+
+    fireEvent.change(select, { target: { value: "range" } });
+    const from = screen.getByLabelText("Zeitraum von");
+    const to = screen.getByLabelText("Zeitraum bis");
+    expect([from, to].map((i) => (i as HTMLInputElement).value)).toEqual(["2026-01", "2026-10"]);
+    fireEvent.change(from, { target: { value: "2026-03" } });
+    fireEvent.change(to, { target: { value: "2026-05" } });
+    expect(text(card)).toContain("3 Monate (März 2026 – Mai 2026): 84.955,00 € abgerufen, Richtwert 105.000,00 €");
+    expect(text(card)).toContain("Monate ohne Budget haben keinen Richtwert und fehlen.");
+    fireEvent.change(to, { target: { value: "" } }); // geleertes Feld ändert nichts
+    fireEvent.change(from, { target: { value: "2025-01" } });
+    fireEvent.change(to, { target: { value: "2025-02" } });
+    expect(text(card)).toContain("Keine abgeschlossenen Monate mit Budget in diesem Zeitraum.");
   });
 
   it("Urlaub ohne Anspruch und überzogen", () => {
@@ -95,5 +175,19 @@ describe("DeviationChart", () => {
     fireEvent.blur(screen.getByRole("button", { name: /Januar 2026/ }));
     rerender(<DeviationChart months={[]} ariaLabel="Abweichung" />);
     expect(container.querySelector("svg")).toBeNull();
+  });
+
+  it("über mehrere Jahre mit Jahr, bei vielen Monaten nur jede zweite Beschriftung", () => {
+    const month = (key: string) => ({ month: key, actual: 100, target: 90, diff: 10 });
+    const labels = () =>
+      [...document.querySelectorAll("svg text")].map((t) => t.textContent).filter((t) => /^[A-ZÄÖÜ][a-zäöü]{2}/.test(t!));
+    const { rerender } = render(
+      <DeviationChart months={["2025-11", "2025-12", "2026-01", "2026-02"].map(month)} ariaLabel="A" />,
+    );
+    expect(labels()).toEqual(["Nov 25", "Dez", "Jan 26", "Feb"]);
+    const keys = Array.from({ length: 36 }, (_, i) => `${2024 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`);
+    rerender(<DeviationChart months={keys.map(month)} ariaLabel="A" />);
+    expect(labels()).toHaveLength(18);
+    expect(labels().slice(0, 7)).toEqual(["Jan 24", "Mär", "Mai", "Jul", "Sep", "Nov", "Jan 25"]);
   });
 });

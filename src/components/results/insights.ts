@@ -1,4 +1,10 @@
-import type { AuswertungResult, BudgetStatus, PeriodData, VacationStatus } from "../../types/results";
+import type {
+  AuswertungResult,
+  BudgetStatus,
+  MissingBooking,
+  PeriodData,
+  VacationStatus,
+} from "../../types/results";
 import { activeBudgetIndex, dataEndOf, monthEnd } from "./forecast";
 
 /**
@@ -73,15 +79,32 @@ export interface BudgetMonth {
 
 /** Abgeschlossene Monate des Budget-Zeitraums mit Abweichung zum Richtwert. */
 export function budgetMonths(result: AuswertungResult, budget: BudgetStatus): BudgetMonth[] {
+  return selectedBudgetMonths(result, { kind: "range", from: budget.from, to: budget.to });
+}
+
+/** Auswahl für „Abruf je Monat“: ein Budget, alle Budgets oder ein eigener Zeitraum. */
+export type BudgetSelection =
+  | { kind: "budget"; index: number }
+  | { kind: "all" }
+  | { kind: "range"; from: string; to: string };
+
+/**
+ * Abgeschlossene Monate der Auswahl, jeweils mit dem Richtwert des Budgets, zu
+ * dem der Monat gehört (Budget-Zeiträume überschneiden sich nicht). Monate ohne
+ * Budget haben keinen Richtwert und fehlen.
+ */
+export function selectedBudgetMonths(result: AuswertungResult, selection: BudgetSelection): BudgetMonth[] {
   const dataEnd = dataEndOf(result.forecast);
-  return result.forecast.months
-    .filter((m) => m.month >= budget.from && m.month <= budget.to && monthEnd(m.month) <= dataEnd)
-    .map((m) => ({
-      month: m.month,
-      actual: m.actual_net,
-      target: budget.monthly_target,
-      diff: m.actual_net - budget.monthly_target,
-    }));
+  const { budgets } = result.forecast;
+  const only = selection.kind === "budget" ? budgets[selection.index] : undefined;
+  return result.forecast.months.flatMap((m) => {
+    if (monthEnd(m.month) > dataEnd) return [];
+    if (selection.kind === "range" && (m.month < selection.from || m.month > selection.to)) return [];
+    const budget = budgets.find((b) => b.from <= m.month && m.month <= b.to);
+    if (!budget || (only && budget !== only)) return [];
+    const target = budget.monthly_target;
+    return [{ month: m.month, actual: m.actual_net, target, diff: m.actual_net - target }];
+  });
 }
 
 export interface TeamPace {
@@ -151,6 +174,9 @@ export interface PersonPace {
   /** Überstundensaldo (Plus) gesamt und in den letzten 3 Monaten. */
   overtime: number;
   recentOvertime: number;
+  /** Saldo, wenn Krankheit als Fehlzeit zählt (Plus − Krank), gesamt und zuletzt. */
+  overtimeSick: number;
+  recentOvertimeSick: number;
   /** Krank ÷ Soll brutto. */
   sickRate: number | null;
   vacationDays: number;
@@ -178,6 +204,8 @@ export function personPace(result: AuswertungResult): PersonPace[] {
       effectiveRate: share(sum(active, (d) => d.bill_eur), sum(active, (d) => d.gearb)),
       overtime: sum(active, (d) => d.plus),
       recentOvertime: sum(recent, (d) => d.plus),
+      overtimeSick: sum(active, (d) => d.plus_krank),
+      recentOvertimeSick: sum(recent, (d) => d.plus_krank),
       sickRate: share(sum(active, (d) => d.sick_h), sum(active, (d) => d.soll_b)),
       vacationDays: sum(active, (d) => d.vac_days),
       missingDays: sum(active, (d) => d.missing_days),
@@ -230,6 +258,11 @@ export function insights(pace: TeamPace | null, persons: PersonPace[]): Insight[
       list.push({ level: "warning", text: `${p.name}: ${hours(p.overtime)} Überstunden – Abbau einplanen.` });
     } else if (p.overtime < THRESHOLDS.overtimeLow) {
       list.push({ level: "warning", text: `${p.name}: ${hours(p.overtime)} unter Soll.` });
+    } else if (p.overtimeSick < THRESHOLDS.overtimeLow) {
+      list.push({
+        level: "info",
+        text: `${p.name}: ${hours(p.overtimeSick)} unter Soll, wenn Krankheit als Fehlzeit zählt.`,
+      });
     }
     if (p.sickRate !== null && p.sickRate > THRESHOLDS.sickRate) {
       list.push({ level: "info", text: `${p.name}: Krankenquote ${pct(p.sickRate)}.` });
@@ -248,6 +281,28 @@ export function insights(pace: TeamPace | null, persons: PersonPace[]): Insight[
     }
   }
   return list;
+}
+
+export interface PersonMissing {
+  name: string;
+  /** Tage mit fehlender Buchung (neueste zuerst). */
+  dates: string[];
+  /** Fehlende Stunden: Σ (Soll − gebucht). */
+  hours: number;
+}
+
+/** Fehlende Buchungen bis zum Vortag des Exports je Person – meiste zuerst. */
+export function currentMissing(bookings: MissingBooking[]): PersonMissing[] {
+  const byPerson = new Map<string, PersonMissing>();
+  for (const b of bookings) {
+    const entry = byPerson.get(b.person) ?? { name: b.person, dates: [], hours: 0 };
+    entry.dates.push(b.date);
+    entry.hours += b.expected_hours - b.booked_hours;
+    byPerson.set(b.person, entry);
+  }
+  return [...byPerson.values()]
+    .map((p) => ({ ...p, dates: [...p.dates].sort().reverse() }))
+    .sort((a, b) => b.dates.length - a.dates.length || b.hours - a.hours || a.name.localeCompare(b.name));
 }
 
 const days = (v: number) => new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 }).format(v);

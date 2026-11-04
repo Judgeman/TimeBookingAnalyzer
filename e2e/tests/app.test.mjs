@@ -389,11 +389,42 @@ test("Insights: Rekord-Monate, Pace und Hinweise", () =>
       "+14.350,00 €",
       "31.986,50 €",
       "Max Mustermann: +91,5 h Überstunden – Abbau einplanen.",
+      "Meiste Minusstunden (Krank = Fehlzeit)",
+      "−15,50 h",
+      "Fehlende Buchungen aktuell",
+      "Bis 30.10.2026 (Vortag des Exports)",
     ]) {
       assert.ok(text.includes(expected), `fehlt: ${expected}`);
     }
-    const bars = await app.execute("return document.querySelectorAll('svg[role=img] g[role=button]').length");
-    assert.equal(bars, 10); // Januar–Oktober
+    assert.ok(!text.includes("Meiste fehlende Buchungen"));
+    const bars = () => app.execute("return document.querySelectorAll('svg[role=img] g[role=button]').length");
+    assert.equal(await bars(), 10); // Januar–Oktober
+
+    // Diagramm „Abruf je Monat“: eigener Zeitraum März–Mai
+    await app.execute(`const s = document.querySelector('select[aria-label="Zeitraum des Diagramms"]');
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value").set.call(s, "range");
+      s.dispatchEvent(new Event("change", { bubbles: true }));`);
+    await app.waitForText("Monate ohne Budget haben keinen Richtwert");
+    await app.execute(`const set = (label, value) => {
+        const el = document.querySelector('input[aria-label="' + label + '"]');
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, value);
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      };
+      set("Zeitraum von", "2026-03");
+      set("Zeitraum bis", "2026-05");`);
+    await app.waitForText("3 Monate (März 2026 – Mai 2026): 84.955,00 € abgerufen, Richtwert 90.000,00 €");
+    assert.equal(await bars(), 3);
+
+    // Schnellwahl „Vortag des Exports“: Oktober ist dann noch nicht abgeschlossen,
+    // die aktuell fehlenden Buchungen bleiben dieselben
+    await app.click("button", "Vortag des Exports");
+    await app.waitForText("Auswertung 01.01.2026 – 30.10.2026");
+    await app.tab("Insights");
+    await app.waitForText("abgeschlossene Monate Januar 2026 – September 2026");
+    const current = await app.execute(`return [...document.querySelectorAll("h3")]
+      .find((h) => h.textContent === "Fehlende Buchungen aktuell")
+      .closest("section").querySelectorAll("tbody tr").length`);
+    assert.equal(current, 2); // Erika 20.10., Max 22.10.
   }));
 
 test("Resturlaub: Anspruch im Projekt, Rest und Hinweis in Insights", () =>

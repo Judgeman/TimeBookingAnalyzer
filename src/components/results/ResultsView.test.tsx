@@ -41,6 +41,10 @@ describe("ResultsView", () => {
     expect(onCutoffChange).toHaveBeenLastCalledWith("2026-10-31");
     await user.click(screen.getByRole("button", { name: "Stand des Exports" }));
     expect(onCutoffChange).toHaveBeenLastCalledWith("2026-10-31");
+    const dayBefore = screen.getByRole("button", { name: "Vortag des Exports" });
+    expect(dayBefore.title).toMatch(/^30\.10\.2026 – der Export entsteht meist morgens/);
+    await user.click(dayBefore);
+    expect(onCutoffChange).toHaveBeenLastCalledWith("2026-10-30");
   });
 
   it("wechselt Tabs und Personen", async () => {

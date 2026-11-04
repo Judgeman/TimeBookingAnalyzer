@@ -102,6 +102,8 @@ export interface AuswertungResult {
   /** Geprüft bis (Stichtag, höchstens Stand des Exports). */
   missing_checked_until: IsoDate;
   missing_threshold_percent: number;
+  /** Fehlende Buchungen bis zum Tag vor dem Stand des Exports – unabhängig vom Stichtag. */
+  missing_current: CurrentMissing | null;
   /** Buchungen aufs Projekt außerhalb des Einsatzzeitraums oder von Nicht-Teammitgliedern. */
   outside: OutsideBooking[];
   /** Personen mit der Rolle „darf buchen“ (Reihenfolge der Konfiguration). */
@@ -203,6 +205,11 @@ export interface BudgetStatus {
   exhausted_on: IsoDate | null;
   /** Ist liegt bereits über dem Budget. */
   exceeded: boolean;
+}
+
+export interface CurrentMissing {
+  checked_until: IsoDate;
+  bookings: MissingBooking[];
 }
 
 export interface MissingBooking {

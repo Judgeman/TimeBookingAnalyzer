@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import { sampleResult } from "../../test/fixture";
 import {
   completedMonths,
+  currentMissing,
   extremeMonth,
   insights,
   personPace,
+  selectedBudgetMonths,
   teamPace,
   THRESHOLDS,
   vacationInsights,
@@ -32,6 +34,15 @@ describe("Insights – Kennzahlen", () => {
     expect(extremeMonth(r, (d) => d.vac_days)).toMatchObject({ month: "2026-07", value: 11 });
     expect(extremeMonth(r, (d) => d.plus)).toMatchObject({ month: "2026-09", value: 54.5 });
     expect(extremeMonth(r, (d) => d.plus, "min")).toMatchObject({ month: "2026-03", value: -0.75 });
+    // Krank = Fehlzeit: Februar (Erika krank)
+    expect(extremeMonth(r, (d) => d.plus_krank, "min")).toEqual({
+      month: "2026-02",
+      value: -15.5,
+      persons: [
+        { name: "Erika Mustermann", value: -14.5 },
+        { name: "Max Mustermann", value: -1 },
+      ],
+    });
     expect(extremeMonth(r, (d) => d.missing_days)).toMatchObject({ month: "2026-10", value: 2 });
     expect(extremeMonth(r, () => 0)).toBeNull();
   });
@@ -69,6 +80,8 @@ describe("Insights – Kennzahlen", () => {
     expect(max.utilization).toBeCloseTo(1.0323, 4);
     expect(max.recentUtilization).toBeCloseTo(1.1698, 4);
     expect(max.overtime).toBe(91.5);
+    expect([erika.overtimeSick, erika.recentOvertimeSick]).toEqual([21, 22.25]);
+    expect([max.overtimeSick, max.recentOvertimeSick]).toEqual([73.5, 65.5]);
     // Lena nur Januar/Februar im Einsatz
     expect(lena).toMatchObject({ activeMonths: 2, utilization: 1, averageInvoiced: 13_120, effectiveRate: 80 });
   });
@@ -84,7 +97,8 @@ describe("Insights – Kennzahlen", () => {
 
     const base: PersonPace = {
       name: "Test", activeMonths: 6, utilization: 0.95, recentUtilization: 0.8, averageInvoiced: 1, effectiveRate: 1,
-      overtime: -25, recentOvertime: 0, sickRate: 0.08, vacationDays: 0, missingDays: 0, distraction: 0.2,
+      overtime: -25, recentOvertime: 0, overtimeSick: -30, recentOvertimeSick: 0, sickRate: 0.08, vacationDays: 0,
+      missingDays: 0, distraction: 0.2,
     };
     const low = teamPace(r)!;
     low.ratio = 0.8;
@@ -97,8 +111,70 @@ describe("Insights – Kennzahlen", () => {
       "Test: Krankenquote 8 %.",
       "Test: 20 % der Arbeitszeit nicht abrechenbar.",
     ]);
-    expect(insights(null, [{ ...base, utilization: null, overtime: 0, sickRate: null, distraction: null }])).toEqual([]);
+    expect(insights(null, [{ ...base, utilization: null, overtime: 0, overtimeSick: 0, sickRate: null, distraction: null }])).toEqual([]);
+    // erst mit Krankheit als Fehlzeit unter Soll
+    expect(insights(null, [{ ...base, utilization: null, overtime: 5, sickRate: null, distraction: null }])).toEqual([
+      { level: "info", text: "Test: -30 h unter Soll, wenn Krankheit als Fehlzeit zählt." },
+    ]);
     expect(THRESHOLDS.paceHigh).toBeGreaterThan(1);
+  });
+});
+
+describe("Insights – Abruf je Monat (Auswahl)", () => {
+  const sum = (months: { actual: number; target: number }[]) =>
+    months.reduce((t, m) => ({ actual: t.actual + m.actual, target: t.target + m.target }), { actual: 0, target: 0 });
+
+  it("ein Budget, alle Budgets oder ein eigener Zeitraum", () => {
+    const r = sampleResult();
+    const single = selectedBudgetMonths(r, { kind: "budget", index: 0 });
+    expect(single).toEqual(teamPace(r)!.months);
+    expect(sum(single)).toEqual({ actual: 319_865, target: 300_000 });
+    expect(selectedBudgetMonths(r, { kind: "all" })).toEqual(single);
+    const spring = selectedBudgetMonths(r, { kind: "range", from: "2026-03", to: "2026-05" });
+    expect(spring.map((m) => m.month)).toEqual(["2026-03", "2026-04", "2026-05"]);
+    expect(sum(spring)).toEqual({ actual: 84_955, target: 90_000 });
+    // November/Dezember sind noch nicht abgeschlossen
+    expect(selectedBudgetMonths(r, { kind: "range", from: "2026-10", to: "2026-12" })).toHaveLength(1);
+  });
+
+  it("jeder Monat mit dem Richtwert seines Budgets, Monate ohne Budget fehlen", () => {
+    const r = sampleResult();
+    const [b] = r.forecast.budgets;
+    r.forecast.budgets = [
+      { ...b, from: "2026-01", to: "2026-03", monthly_target: 35_000 },
+      { ...b, from: "2026-07", to: "2026-12", monthly_target: 25_000 },
+    ];
+    const second = selectedBudgetMonths(r, { kind: "budget", index: 1 });
+    expect(second.map((m) => m.month)).toEqual(["2026-07", "2026-08", "2026-09", "2026-10"]);
+    expect(sum(second)).toEqual({ actual: 117_795, target: 100_000 });
+    const all = selectedBudgetMonths(r, { kind: "all" });
+    expect(all.map((m) => m.month)).toEqual(["2026-01", "2026-02", "2026-03", "2026-07", "2026-08", "2026-09", "2026-10"]);
+    expect(all.find((m) => m.month === "2026-02")).toEqual({ month: "2026-02", actual: 40_790, target: 35_000, diff: 5_790 });
+    const range = selectedBudgetMonths(r, { kind: "range", from: "2026-03", to: "2026-07" });
+    expect(range.map((m) => [m.month, m.target])).toEqual([["2026-03", 35_000], ["2026-07", 25_000]]);
+  });
+});
+
+describe("Insights – fehlende Buchungen aktuell", () => {
+  it("je Person, meiste Tage zuerst, neueste Tage zuerst", () => {
+    const r = sampleResult();
+    expect(r.missing_current!.checked_until).toBe("2026-10-30");
+    // je 1 Tag – bei Gleichstand mehr offene Stunden zuerst
+    expect(currentMissing(r.missing_current!.bookings)).toEqual([
+      { name: "Erika Mustermann", dates: ["2026-10-20"], hours: 7.5 },
+      { name: "Max Mustermann", dates: ["2026-10-22"], hours: 4 },
+    ]);
+    const missing = (person: string, date: string) => ({
+      person, date, expected_hours: 8, booked_hours: 0, coverage_percent: 0,
+    });
+    expect(
+      currentMissing([missing("Max Mustermann", "2026-10-28"), missing("Erika Mustermann", "2026-10-29"),
+        missing("Max Mustermann", "2026-10-30")]).map((p) => [p.name, p.dates]),
+    ).toEqual([
+      ["Max Mustermann", ["2026-10-30", "2026-10-28"]],
+      ["Erika Mustermann", ["2026-10-29"]],
+    ]);
+    expect(currentMissing([])).toEqual([]);
   });
 });
 

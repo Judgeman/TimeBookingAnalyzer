@@ -22,8 +22,8 @@ use chrono::{Datelike, NaiveDate, Weekday};
 use crate::models::config::{BillingRule, ProjectConfig, RatePeriod, TeamMember};
 use crate::models::entry::TimeEntry;
 use crate::models::results::{
-    AbsenceKind, FlaggedBooking, GuestBooking, InvoiceSummary, MissingBooking, OutsideBooking,
-    OutsideReason, PeriodBreakdown, PeriodData, PersonResult,
+    AbsenceKind, CurrentMissing, FlaggedBooking, GuestBooking, InvoiceSummary, MissingBooking,
+    OutsideBooking, OutsideReason, PeriodBreakdown, PeriodData, PersonResult,
 };
 use gearb::Absence;
 use holidays::Holiday;
@@ -367,6 +367,32 @@ pub fn evaluate(
         reference_to,
         references,
     }
+}
+
+/// Fehlende Buchungen bis zum Tag vor dem Stand des Exports (`stand`) –
+/// unabhängig vom Stichtag: aus der Auswertung, wenn sie diesen Zeitraum
+/// abdeckt, sonst aus einer zusätzlichen Auswertung bis zu diesem Tag.
+pub fn current_missing(
+    config: &ProjectConfig,
+    entries: &[TimeEntry],
+    ev: &Evaluation,
+    stand: NaiveDate,
+) -> Option<CurrentMissing> {
+    let until = stand.pred_opt()?;
+    let covered = ev.period_start.year() == until.year() && ev.missing_checked_until >= until;
+    let bookings = if covered {
+        ev.missing
+            .iter()
+            .filter(|m| m.date <= until)
+            .cloned()
+            .collect()
+    } else {
+        evaluate(config, entries, until, ev.export_date).missing
+    };
+    Some(CurrentMissing {
+        checked_until: until,
+        bookings,
+    })
 }
 
 /// Stellt Buchungen einer Person nach ihrer Abrechnungsregel in Rechnung.
