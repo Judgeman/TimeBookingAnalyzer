@@ -19,6 +19,7 @@ konfigurierbaren Projekt-Regeln. Details zu Regeln und Datenmodell: [CLAUDE.md](
 - [x] Rolle „darf buchen“ (ohne Zeiterfassung, abgerechnet nach Kost2Art)
 - [x] Prognose der Rechnung (Krankheits-/Ablenkungsfaktor je Person, geplante Abwesenheiten)
       mit Budget-Zeitraum, Richtwert und Diagramm (Ist, Prognose, Richtwert, Budget)
+- [x] Insights: Rekord-Monate, Pace von Team und Personen, automatische Hinweise
 - [x] Letzte Export-Datei je Projekt gemerkt (Kopie im Ordner `Import`), beim Öffnen automatisch ausgewertet
 - [x] Fensterposition und -größe vom letzten Aufruf (je Instanz, `window-state.json` neben der Exe),
       angepasst an den Bildschirm (nie größer als der Bildschirm, immer vollständig sichtbar)

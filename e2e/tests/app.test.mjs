@@ -331,6 +331,27 @@ test("Prognose: Budget-Überziehung, Diagramm, Budget im Projekt ändern", () =>
     assert.ok(!text.includes("aufgebraucht am"));
   }));
 
+test("Insights: Rekord-Monate, Pace und Hinweise", () =>
+  withApp("insights", {}, async (app) => {
+    await loadSample(app);
+    await app.tab("Insights");
+    await app.waitForText("Rekord-Monate (Team)");
+    const text = await app.text();
+    for (const expected of [
+      "Das Team ruft 107 % des Richtwerts ab – bei diesem Tempo wird das Budget um 7.495 € überzogen.",
+      "Meistes Budget liegen gelassen",
+      "−5.442,50 €",
+      "Meistes Budget abgerufen",
+      "+14.350,00 €",
+      "31.986,50 €",
+      "Max Mustermann: +91,5 h Überstunden – Abbau einplanen.",
+    ]) {
+      assert.ok(text.includes(expected), `fehlt: ${expected}`);
+    }
+    const bars = await app.execute("return document.querySelectorAll('svg[role=img] g[role=button]').length");
+    assert.equal(bars, 10); // Januar–Oktober
+  }));
+
 test("Fehlende Buchungen: Schwelle im Projekt einstellbar", () =>
   withApp("schwelle", {}, async (app) => {
     await loadSample(app);

@@ -158,4 +158,12 @@ describe("ResultsView – Prognose", () => {
     expect(screen.getByText("Prognose je Person")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /Abgerechnet und Prognose kumuliert mit Richtwert und Budget/ })).toBeInTheDocument();
   });
+
+  it("zeigt Insights im eigenen Tab", async () => {
+    const user = userEvent.setup();
+    render(<ResultsView result={sampleResult()} elementFilter="P100 Lager-App" busy={false} onCutoffChange={() => {}} />);
+    await user.click(screen.getByRole("tab", { name: "Insights" }));
+    expect(screen.getByText("Rekord-Monate (Team)")).toBeInTheDocument();
+    expect(screen.getByText("Pace je Person")).toBeInTheDocument();
+  });
 });

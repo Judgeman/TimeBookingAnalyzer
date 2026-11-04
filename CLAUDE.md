@@ -46,6 +46,9 @@ src/                        # React Frontend
       ForecastView.tsx      # Prognose: laufender Monat, Budget-Status, Monate, Faktoren je Person
       BudgetChart.tsx       # SVG-Linien kumuliert: Ist, Prognose (gestrichelt), Richtwert, Budget
       forecast.ts           # Hilfen: kumulierte Kurven, aktives Budget, Stand der Daten
+      InsightsView.tsx      # Insights: Hinweise, Rekord-Monate, Pace Team/Person
+      DeviationChart.tsx    # Säulen „abgerechnet − Richtwert“ je Monat (Gegensatzpaar blau/rot)
+      insights.ts           # Kennzahlen + Hinweis-Schwellen (THRESHOLDS), nur Frontend
       metrics.ts            # Kennzahl-Labels, Tooltips (Rechenregeln), Formatierung
   lib/
     api.ts                  # Typisierte Wrapper um invoke()
@@ -320,6 +323,15 @@ plus_krank = plus - sick_h_norm
   Tagen, erwartet = Ist + Prognose, Abweichung = erwartet − Budget, `exhausted_on` = erster
   Prognosetag, an dem Ist + kumulierte Prognose das Budget erreicht. Geplante Abwesenheiten
   (`planned_absences`) je Teammitglied, je Person ohne Überschneidung.
+- **Insights** (`insights.ts`, im Frontend aus PeriodData/Prognose): nur **abgeschlossene**
+  Monate (Monatsende ≤ Stand der Daten). Rekord-Monate des Teams (Krank-/Urlaubstage,
+  Über-/Minusstunden, fehlende Buchungen; Budget: abgerechnet − Richtwert min/max).
+  Pace Team = Ø abgerechnet je Monat ÷ Richtwert (gesamt, letzte 3 Monate); nötig je
+  Restmonat = (Budget − Ist) ÷ offene Monate. Pace Person (Monate im Einsatz): Abrechnungs-
+  quote = bill_h ÷ soll_n (Jahr, letzte 3), Ø bill_eur/Monat, € je gearbeitete Stunde =
+  bill_eur ÷ gearb, Überstunden (plus), Krankenquote = sick_h ÷ soll_b. Hinweise ab den
+  Schwellen in `THRESHOLDS` (Pace > 105 % / < 90 %, Quote −10 Pp., Plus > 40 h / < −20 h,
+  krank > 5 %, Ablenkung > 15 %, fehlende Buchungen).
 - **Urlaub/Krank** zählt an **jedem** Tag (auch Wochenende/Feiertag) mit h/Tag der
   Person. Hervorgehoben (`flagged`) werden: arbeitsfreie Tage, Dauern ≠ ganzer/halber
   Tag, Tage ohne hinterlegte Arbeitszeit.
@@ -480,7 +492,7 @@ interface PeriodData {
 ### Hauptansicht
 1. **Sidebar links**: Projektliste + "Neues Projekt"-Button
 2. **Mitte oben**: Drag-and-Drop-Zone (oder Datei-Browser)
-3. **Mitte**: Auswertungsergebnis (Tabs: Jahr / Monate / Wochen / Stundenkonto / Arbeitsort / Rechnung / Prognose / Import)
+3. **Mitte**: Auswertungsergebnis (Tabs: Jahr / Monate / Wochen / Stundenkonto / Arbeitsort / Rechnung / Prognose / Insights / Import)
 4. **Oben rechts**: Projekt-bearbeiten-Button
 
 ### Drag & Drop

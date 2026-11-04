@@ -28,6 +28,7 @@ import { AccountView } from "./AccountView";
 import { colorMapFor } from "./chartColors";
 import { ForecastView } from "./ForecastView";
 import { GuestBookings } from "./GuestBookings";
+import { InsightsView } from "./InsightsView";
 import { InvoiceView } from "./InvoiceView";
 import { LocationView } from "./LocationView";
 import { OutsideBookings } from "./OutsideBookings";
@@ -42,6 +43,7 @@ type Tab =
   | "locations"
   | "invoice"
   | "forecast"
+  | "insights"
   | "import";
 
 const TABS: [Tab, string][] = [
@@ -52,6 +54,7 @@ const TABS: [Tab, string][] = [
   ["locations", "Arbeitsort"],
   ["invoice", "Rechnung"],
   ["forecast", "Prognose"],
+  ["insights", "Insights"],
   ["import", "Import"],
 ];
 
@@ -322,6 +325,7 @@ export function ResultsView({
           {tab === "forecast" && (
             <ForecastView forecast={result.forecast} plannedAbsences={plannedAbsences} />
           )}
+          {tab === "insights" && <InsightsView result={result} />}
         </>
       )}
       {tab === "import" && <ExportSummary result={result.overview} elementFilter={elementFilter} />}
