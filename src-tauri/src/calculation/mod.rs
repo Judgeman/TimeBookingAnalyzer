@@ -99,6 +99,7 @@ pub fn evaluate(
     let mut after_cutoff = 0usize;
     let mut outside = Vec::new();
     let mut guest_entries: Vec<(usize, &TimeEntry)> = Vec::new();
+    let mut guest_bookings: Vec<GuestBooking> = Vec::new();
     for entry in entries {
         let Some(index) = config.team_index(&entry.name) else {
             // Buchung aufs Projekt von jemandem außerhalb des Teams: mit der
@@ -209,6 +210,11 @@ pub fn evaluate(
                     if gearb::absence(entry, special).is_some()
                         || !is_project_booking(config, entry)
                     {
+                        continue;
+                    }
+                    if member.may_book_outside {
+                        // wie „darf buchen“: erlaubt, abgerechnet, ohne Zeiterfassung
+                        guest_bookings.push(guest_booking(&mut biller, entry));
                         continue;
                     }
                     let mut item = outside_booking(entry, OutsideReason::OutsideAssignment);
@@ -323,41 +329,23 @@ pub fn evaluate(
     guest_entries.sort_by_key(|(guest, entry)| (entry.date, *guest));
     let mut guest_missing_rate: Vec<Missing> =
         config.guests.iter().map(|_| Missing::default()).collect();
-    let mut guest_bookings = Vec::with_capacity(guest_entries.len());
     for (g, entry) in guest_entries {
         let guest = &config.guests[g];
-        let rule = billing::matching_rule(&config.billing_rules, entry, filter);
-        let mut booking = GuestBooking {
-            person: guest.name.clone(),
-            date: entry.date,
-            element: entry.element.clone(),
-            kost2art: entry.kost2art.clone(),
-            hours: round2(entry.hours),
-            rule: rule.map(|(_, r)| r.name.clone()),
-            invoiced: false,
-            billed_hours: 0.0,
-            net: 0.0,
+        let mut biller = Biller {
+            config,
+            person: &guest.name,
+            rates: &guest.rates,
+            index: config.team.len() + g,
+            invoice: &mut invoice,
+            missing_rate: &mut guest_missing_rate[g],
         };
-        if let Some((rule_index, rule)) = rule {
-            let mut biller = Biller {
-                config,
-                person: &guest.name,
-                rates: &guest.rates,
-                index: config.team.len() + g,
-                invoice: &mut invoice,
-                missing_rate: &mut guest_missing_rate[g],
-            };
-            if let Some((billed, net)) = biller.invoice(entry, rule_index, rule, false) {
-                booking.invoiced = true;
-                booking.billed_hours = round2(billed);
-                booking.net = round2(net);
-            }
-        }
-        guest_bookings.push(booking);
+        guest_bookings.push(guest_booking(&mut biller, entry));
     }
     for (guest, missing_rate) in config.guests.iter().zip(&guest_missing_rate) {
         warnings.extend(missing_rate.warning(&guest.name));
     }
+    // nach Datum; am selben Tag Teammitglieder vor „darf buchen“
+    guest_bookings.sort_by_key(|b| b.date);
 
     Evaluation {
         period_start,
@@ -460,6 +448,32 @@ fn is_project_booking(config: &ProjectConfig, entry: &TimeEntry) -> bool {
     billing::matching_rule(&config.billing_rules, entry, &config.element_filter).is_some()
         || is(&config.element_filter)
         || config.billing_rules.iter().any(|r| is(&r.element))
+}
+
+/// Buchung mit der Rolle „darf buchen“: nach Regel (Kost2Art) abgerechnet,
+/// ohne Zeiterfassung.
+fn guest_booking(biller: &mut Biller, entry: &TimeEntry) -> GuestBooking {
+    let config = biller.config;
+    let rule = billing::matching_rule(&config.billing_rules, entry, &config.element_filter);
+    let mut booking = GuestBooking {
+        person: biller.person.to_string(),
+        date: entry.date,
+        element: entry.element.clone(),
+        kost2art: entry.kost2art.clone(),
+        hours: round2(entry.hours),
+        rule: rule.map(|(_, r)| r.name.clone()),
+        invoiced: false,
+        billed_hours: 0.0,
+        net: 0.0,
+    };
+    if let Some((rule_index, rule)) = rule
+        && let Some((billed, net)) = biller.invoice(entry, rule_index, rule, false)
+    {
+        booking.invoiced = true;
+        booking.billed_hours = round2(billed);
+        booking.net = round2(net);
+    }
+    booking
 }
 
 fn outside_booking(entry: &TimeEntry, reason: OutsideReason) -> OutsideBooking {

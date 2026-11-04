@@ -93,6 +93,7 @@ describe("TeamEditor", () => {
         rates: [{ from: "2026-01-01", to: null, rate: 0 }],
         working_hours: [{ from: "2026-01-01", to: null, hours_per_day: 8 }],
         assignments: [],
+        may_book_outside: false,
         vacation: [],
       },
     ]);
@@ -178,6 +179,28 @@ describe("TeamEditor – Einsatzzeitraum", () => {
     expect(onChange.mock.calls.at(-1)![0][0].assignments).toEqual([{ from: "2026-01-15", to: "2026-02-28" }]);
     await user.click(screen.getByTitle("Einsatzzeitraum entfernen"));
     expect(onChange.mock.calls.at(-1)![0][0].assignments).toEqual([]);
+  });
+
+  it("außerhalb des Einsatzes wie „darf buchen“ – nur mit Einsatzzeitraum wählbar", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <Stateful<TeamMember[]>
+        initial={[{ name: "Lena Beispiel", rates: [], working_hours: [], assignments: [], vacation: [] }]}
+        onChange={onChange}
+        render={(team, set) => <TeamEditor team={team} onChange={set} defaultFrom="2026-01-01" />}
+      />,
+    );
+    const label = /Außerhalb des Einsatzzeitraums wie „darf buchen“ behandeln/;
+    expect(screen.queryByRole("checkbox", { name: label })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "+ Einsatzzeitraum" }));
+    const checkbox = screen.getByRole("checkbox", { name: label });
+    expect(checkbox).not.toBeChecked();
+    await user.click(checkbox);
+    expect(onChange.mock.calls.at(-1)![0][0].may_book_outside).toBe(true);
+    expect(checkbox).toBeChecked();
+    await user.click(checkbox);
+    expect(onChange.mock.calls.at(-1)![0][0].may_book_outside).toBe(false);
   });
 });
 

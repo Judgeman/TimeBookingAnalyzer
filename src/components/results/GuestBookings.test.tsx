@@ -46,4 +46,20 @@ describe("GuestBookings (darf buchen)", () => {
     expect(text()).toContain("Petra Beispiel: 1,00 h aufs Projekt · 1,00 h nicht abgerechnet");
     expect(text()).toContain("P100 Lager-App · –");
   });
+
+  it("kennzeichnet Teammitglieder, die außerhalb ihres Einsatzes buchen dürfen", async () => {
+    const user = userEvent.setup();
+    const result = sampleResult();
+    const lena = result.persons.find((p) => p.name === "Lena Beispiel")!;
+    const bookings: GuestBooking[] = [
+      ...result.guest_bookings,
+      { ...result.guest_bookings[0], person: lena.name, date: "2026-05-04" },
+    ];
+    render(<GuestBookings bookings={bookings} persons={result.persons} />);
+    await user.click(screen.getByText(/Darf buchen \(ohne Zeiterfassung\)/));
+    const badges = screen.getAllByText("außerhalb Einsatz");
+    expect(badges).toHaveLength(1);
+    expect(badges[0].closest("td")).toHaveTextContent("Lena Beispiel");
+    expect(badges[0]).toHaveAttribute("title", "Team – im Projekt: 01.01.2026–28.02.2026");
+  });
 });

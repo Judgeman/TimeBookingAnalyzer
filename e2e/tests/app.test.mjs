@@ -168,6 +168,48 @@ test("Einsatzzeitraum: Buchungen außerhalb des Teams fallen sofort auf", () =>
     }
   }));
 
+test("Einsatzzeitraum: außerhalb wie „darf buchen“ – neutral statt rot, weiter abgerechnet", () =>
+  withApp("einsatz-darf-buchen", {}, async (app) => {
+    await loadSample(app);
+    await app.waitForText("2 Buchungen auf das Projekt außerhalb des Teams");
+
+    // Lena (Einsatz Januar/Februar) darf danach wie „darf buchen“ aufs Projekt buchen
+    await app.click("button", "Projekt bearbeiten");
+    await app.waitForText("Außerhalb des Einsatzzeitraums wie „darf buchen“ behandeln");
+    const checked = await app.execute(`const boxes = [...document.querySelectorAll("label")]
+      .filter((l) => l.textContent.startsWith("Außerhalb des Einsatzzeitraums wie"))
+      .map((l) => l.querySelector('input[type="checkbox"]'));
+      boxes[0].click();
+      return boxes.map((b) => b.checked);`);
+    assert.deepEqual(checked, [true]); // nur Lena hat einen Einsatzzeitraum
+    await app.click("button", "Speichern");
+    await app.waitForText("1 Buchung auf das Projekt außerhalb des Teams");
+
+    const text = await app.text();
+    for (const expected of [
+      "3,00 h von Personen, die nicht im Team sind – nicht abgerechnet",
+      "ℹ Darf buchen (ohne Zeiterfassung): 11,00 h aufs Projekt · 6,00 h abgerechnet (640,00 € netto) · 5,00 h nicht abgerechnet",
+    ]) {
+      assert.ok(text.includes(expected), `fehlt: ${expected}`);
+    }
+    assert.ok(!text.includes("außerhalb des Einsatzzeitraums – abgerechnet"));
+    const lena = await app.execute(
+      "return [...document.querySelectorAll('td')].filter((td) => td.textContent.startsWith('Lena Beispiel')).map((td) => td.textContent)",
+    );
+    assert.deepEqual(lena, ["Lena Beispielaußerhalb Einsatz"]);
+    const saved = readdirSync(projectsDir())
+      .filter((f) => f.endsWith(".json"))
+      .map((f) => JSON.parse(readFileSync(join(projectsDir(), f), "utf8")))
+      .flatMap((p) => p.team)
+      .find((m) => m.name === "Lena Beispiel");
+    assert.equal(saved.may_book_outside, true);
+
+    // Rechnung: Betrag unverändert, keine rote Markierung mehr für Lena
+    await app.tab("Rechnung");
+    await app.waitForText("319.865,00 €");
+    assert.ok(!(await app.text()).includes("⚠ enthält Buchungen außerhalb des Einsatzzeitraums"));
+  }));
+
 test("Darf buchen: Buchungen ohne Zeiterfassung, abgerechnet nach Kost2Art", () =>
   withApp("darf-buchen", {}, async (app) => {
     await loadSample(app);

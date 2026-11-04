@@ -72,6 +72,11 @@ pub struct TeamMember {
     /// abgerechnet und als „außerhalb des Teams“ markiert).
     #[serde(default)]
     pub assignments: Vec<AssignmentPeriod>,
+    /// Außerhalb der Einsatzzeiträume wie die Rolle „darf buchen“ behandeln:
+    /// Buchungen aufs Projekt sind erlaubt (neutral statt „außerhalb des
+    /// Teams“), werden nach Regel abgerechnet, aber nicht als Zeiterfassung.
+    #[serde(default)]
+    pub may_book_outside: bool,
     /// Urlaubsanspruch je Kalenderjahr (für den Resturlaub).
     #[serde(default)]
     pub vacation: Vec<VacationEntitlement>,

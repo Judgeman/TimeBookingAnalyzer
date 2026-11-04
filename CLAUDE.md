@@ -166,6 +166,7 @@ Jedes Projekt wird als JSON-Datei gespeichert:
       "name": "Lena Beispiel",
       "rates": [{ "from": "2026-01-01", "to": null, "rate": 80 }],
       "assignments": [{ "from": "2026-01-01", "to": "2026-02-28" }],
+      "may_book_outside": false,
       "vacation": [{ "year": 2026, "days": 30, "carry_over": 2 }]
     }
   ],
@@ -303,6 +304,11 @@ plus_krank = plus - sick_h_norm
   `outside` (`reason = not_in_team`), werden aber nicht abgerechnet (kein Satz).
   UI: roter Hinweis über der Auswertung, ⚠-Zähler am Tab „Rechnung“, markierte
   Rechnungspositionen/Monate, Monate/Wochen außerhalb des Einsatzes ausgegraut.
+  Option `may_book_outside` am Teammitglied („Außerhalb des Einsatzzeitraums wie
+  „darf buchen“ behandeln“, im Editor nur mit Einsatzzeitraum): Projektbuchungen
+  außerhalb stehen dann in `guest_bookings` (neutraler Hinweis, Kennzeichnung
+  „außerhalb Einsatz“) statt in `outside`, Rechnung ohne Markierung, nicht in
+  `bill_h`/`bill_eur` der Person; Zeiterfassung im Einsatz unverändert.
 - **Rolle „darf buchen“** (`guests`: Name + Stundensätze, z. B. Geschäftsführung):
   keine Zeiterfassung – keine Person in Jahr/Monaten/Stundenkonto/Arbeitsort, nicht in
   den Team-Summen, keine fehlenden/hervorgehobenen Buchungen, nicht in `outside`.

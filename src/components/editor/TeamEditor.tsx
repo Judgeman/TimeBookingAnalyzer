@@ -83,6 +83,24 @@ export function TeamEditor({ team, onChange, defaultFrom }: Props) {
                 emptyText="Kein Zeitraum – die Person ist durchgehend im Projekt."
                 addLabel="Einsatzzeitraum"
               />
+              {member.assignments.length > 0 && (
+                <label className="mt-3 flex items-start gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={member.may_book_outside ?? false}
+                    onChange={(e) => update(index, { may_book_outside: e.target.checked })}
+                    className="mt-0.5 h-4 w-4 shrink-0"
+                  />
+                  <span>
+                    Außerhalb des Einsatzzeitraums wie „darf buchen“ behandeln
+                    <span className={`block ${ui.hint}`}>
+                      Buchungen aufs Projekt sind dann erlaubt: neutraler Hinweis statt roter
+                      Warnung, abgerechnet nach Kost2Art mit dem Satz der Person – weiterhin ohne
+                      Soll, Stundenkonto und Prüfung auf fehlende Buchungen.
+                    </span>
+                  </span>
+                </label>
+              )}
             </section>
             <section className="lg:col-span-2">
               <h4 className="mb-1 text-sm font-medium text-slate-700">Urlaubsanspruch</h4>
@@ -103,7 +121,14 @@ export function TeamEditor({ team, onChange, defaultFrom }: Props) {
         onClick={() =>
           onChange([
             ...team,
-            { name: "", rates: [], working_hours: [], assignments: [], vacation: [] },
+            {
+              name: "",
+              rates: [],
+              working_hours: [],
+              assignments: [],
+              may_book_outside: false,
+              vacation: [],
+            },
           ])
         }
         className={ui.secondaryButton}

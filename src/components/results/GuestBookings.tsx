@@ -1,8 +1,11 @@
-import type { GuestBooking } from "../../types/results";
+import type { GuestBooking, PersonResult } from "../../types/results";
+import { describeAssignments } from "../../lib/assignments";
 import { formatDateWithWeekday, formatEuro, formatHours } from "../../lib/format";
 
 interface Props {
   bookings: GuestBooking[];
+  /** Team: Buchungen von Teammitgliedern stammen von außerhalb ihres Einsatzes. */
+  persons?: PersonResult[];
 }
 
 interface Totals {
@@ -36,9 +39,11 @@ function describe(t: Totals): string {
 /**
  * Buchungen von Personen mit der Rolle „darf buchen“ – neutraler Hinweis:
  * erlaubt, ohne Zeiterfassung; abgerechnet nach Kost2Art (Abrechnungsregeln).
+ * Dazu Teammitglieder, die außerhalb ihres Einsatzes buchen dürfen.
  */
-export function GuestBookings({ bookings }: Props) {
+export function GuestBookings({ bookings, persons: team = [] }: Props) {
   const persons = [...new Set(bookings.map((b) => b.person))];
+  const memberOf = (name: string) => team.find((p) => p.name === name);
 
   return (
     <details className="rounded-xl border border-sky-200 bg-sky-50">
@@ -70,26 +75,39 @@ export function GuestBookings({ bookings }: Props) {
               </tr>
             </thead>
             <tbody className="divide-y divide-sky-100">
-              {bookings.map((b, i) => (
-                <tr key={i}>
-                  <td className="px-4 py-1.5 whitespace-nowrap">{formatDateWithWeekday(b.date)}</td>
-                  <td className="px-4 py-1.5 whitespace-nowrap">{b.person}</td>
-                  <td className="px-4 py-1.5">
-                    {b.element} · <span className="text-sky-800">{b.kost2art || "–"}</span>
-                  </td>
-                  <td className="px-4 py-1.5 text-right tabular-nums">{formatHours(b.hours)}</td>
-                  <td className="px-4 py-1.5">
-                    {b.rule ?? <span className="text-sky-700">keine passende Regel</span>}
-                  </td>
-                  <td className="px-4 py-1.5 text-right whitespace-nowrap">
-                    {b.invoiced ? (
-                      <span className="font-medium">abgerechnet: {formatEuro(b.net)}</span>
-                    ) : (
-                      <span className="text-sky-700">nicht abgerechnet</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {bookings.map((b, i) => {
+                const member = memberOf(b.person);
+                return (
+                  <tr key={i}>
+                    <td className="px-4 py-1.5 whitespace-nowrap">{formatDateWithWeekday(b.date)}</td>
+                    <td className="px-4 py-1.5">
+                      <span className="whitespace-nowrap">{b.person}</span>
+                      {member && (
+                        <span
+                          className="ml-2 rounded bg-sky-200 px-1.5 py-0.5 text-xs whitespace-nowrap text-sky-950"
+                          title={`Team – im Projekt: ${describeAssignments(member.assignments) ?? "immer"}`}
+                        >
+                          außerhalb Einsatz
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-1.5">
+                      {b.element} · <span className="text-sky-800">{b.kost2art || "–"}</span>
+                    </td>
+                    <td className="px-4 py-1.5 text-right tabular-nums">{formatHours(b.hours)}</td>
+                    <td className="px-4 py-1.5">
+                      {b.rule ?? <span className="text-sky-700">keine passende Regel</span>}
+                    </td>
+                    <td className="px-4 py-1.5 text-right whitespace-nowrap">
+                      {b.invoiced ? (
+                        <span className="font-medium">abgerechnet: {formatEuro(b.net)}</span>
+                      ) : (
+                        <span className="text-sky-700">nicht abgerechnet</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

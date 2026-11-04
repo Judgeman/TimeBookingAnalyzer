@@ -220,7 +220,9 @@ export function ResultsView({
 
       {result.flagged.length > 0 && <FlaggedList flagged={result.flagged} />}
 
-      {result.guest_bookings.length > 0 && <GuestBookings bookings={result.guest_bookings} />}
+      {result.guest_bookings.length > 0 && (
+        <GuestBookings bookings={result.guest_bookings} persons={result.persons} />
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200">
         <nav className="flex gap-1" role="tablist">

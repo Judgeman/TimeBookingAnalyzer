@@ -112,6 +112,7 @@ mod tests {
                 hours_per_day: 6.0,
             }],
             assignments: vec![],
+            may_book_outside: false,
             vacation: vec![],
         };
         let project = periods();
