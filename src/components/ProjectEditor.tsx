@@ -174,7 +174,6 @@ export function ProjectEditor({ initial, onSave, onCancel, onDelete }: Props) {
           onChange={(working_hours) => patch({ working_hours })}
           valueKey="hours_per_day"
           valueLabel="h / Tag"
-          step={0.05}
           create={() => ({ from: defaultFrom, to: null, hours_per_day: 8 })}
           emptyText="Keine Arbeitszeit hinterlegt – das Soll ist 0 h."
           addLabel="Zeitraum"
@@ -227,7 +226,7 @@ export function ProjectEditor({ initial, onSave, onCancel, onDelete }: Props) {
               type="number"
               min={0}
               max={100}
-              step={0.1}
+              step="any"
               required
               value={draft.vat_percent}
               onChange={(e) => patch({ vat_percent: numberOf(e.target.value) })}
@@ -248,7 +247,7 @@ export function ProjectEditor({ initial, onSave, onCancel, onDelete }: Props) {
               type="number"
               min={0}
               max={100}
-              step={5}
+              step="any"
               required
               value={draft.missing_threshold_percent}
               onChange={(e) => patch({ missing_threshold_percent: numberOf(e.target.value) })}

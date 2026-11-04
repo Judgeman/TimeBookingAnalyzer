@@ -155,7 +155,7 @@ function BudgetRow({
       <input
         type="number"
         min={0}
-        step={100}
+        step="any"
         required
         aria-label="Budget netto"
         value={Number.isFinite(budget.amount) ? budget.amount : ""}

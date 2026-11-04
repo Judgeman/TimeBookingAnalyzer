@@ -11,7 +11,6 @@ interface Props<T extends Period, K extends keyof T & string> {
   /** Feld mit dem Zahlenwert, z. B. "rate" oder "hours_per_day". */
   valueKey: K;
   valueLabel: string;
-  step?: number;
   /** Vorlage für einen neuen Zeitraum. */
   create: () => T;
   emptyText: string;
@@ -24,7 +23,6 @@ export function PeriodListEditor<T extends Period, K extends keyof T & string>({
   onChange,
   valueKey,
   valueLabel,
-  step = 0.01,
   create,
   emptyText,
   addLabel,
@@ -47,7 +45,6 @@ export function PeriodListEditor<T extends Period, K extends keyof T & string>({
               key={index}
               item={item}
               value={item[valueKey] as unknown as number}
-              step={step}
               onFrom={(from) => update(index, { from } as Partial<T>)}
               onTo={(to) => update(index, { to } as Partial<T>)}
               onValue={(v) => update(index, { [valueKey]: v } as unknown as Partial<T>)}
@@ -66,7 +63,6 @@ export function PeriodListEditor<T extends Period, K extends keyof T & string>({
 function PeriodRow({
   item,
   value,
-  step,
   onFrom,
   onTo,
   onValue,
@@ -74,7 +70,6 @@ function PeriodRow({
 }: {
   item: Period;
   value: number;
-  step: number;
   onFrom: (v: string) => void;
   onTo: (v: string | null) => void;
   onValue: (v: number) => void;
@@ -99,7 +94,7 @@ function PeriodRow({
       <input
         type="number"
         min={0}
-        step={step}
+        step="any"
         required
         value={Number.isFinite(value) ? value : ""}
         onChange={(e) => onValue(numberOf(e.target.value))}

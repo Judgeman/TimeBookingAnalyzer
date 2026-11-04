@@ -320,14 +320,15 @@ test("Prognose: Budget-Überziehung, Diagramm, Budget im Projekt ändern", () =>
     );
     assert.equal(chart, "Abgerechnet und Prognose kumuliert mit Richtwert und Budget");
 
-    // Budget im Projekt auf 400.000 € erhöhen → reicht
+    // Budget im Projekt centgenau auf 400.000,55 € erhöhen → reicht (exakte Werte
+    // dürfen die Formularprüfung des Browsers nicht blockieren)
     await app.click("button", "Projekt bearbeiten");
     await app.waitForText("Planung (Budget & Prognose)");
-    await app.setValue('input[aria-label="Budget netto"]', "400000");
+    await app.setValue('input[aria-label="Budget netto"]', "400000.55");
     await app.click("button", "Speichern");
     await app.waitForText("Auswertung 01.01.2026");
     await app.tab("Prognose");
-    await app.waitForText("Budget reicht voraussichtlich: 32.505,48 € Rest zum Ende Dezember 2026");
+    await app.waitForText("Budget reicht voraussichtlich: 32.506,03 € Rest zum Ende Dezember 2026");
     text = await app.text();
     assert.ok(!text.includes("aufgebraucht am"));
   }));

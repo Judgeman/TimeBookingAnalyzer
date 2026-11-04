@@ -130,3 +130,17 @@ describe("ProjectEditor – Export-Format, Arbeitszeit, USt.", () => {
     expect(saved.working_hours[1]).toEqual({ from: "2026-07-01", to: "2026-12-31", hours_per_day: 7.5 });
   });
 });
+
+describe("ProjectEditor – exakte Werte", () => {
+  it("alle Zahlenfelder (außer dem Jahr) nehmen beliebige Nachkommastellen an", () => {
+    const config = sampleConfig();
+    config.team[0].vacation = [{ year: 2026, days: 30, carry_over: 0 }];
+    const { container } = render(<ProjectEditor initial={config} onSave={vi.fn()} onCancel={() => {}} />);
+    const fields = [...container.querySelectorAll<HTMLInputElement>('input[type="number"]')];
+    expect(fields.length).toBeGreaterThan(15);
+    for (const field of fields) {
+      const expected = field.getAttribute("aria-label") === "Urlaub Jahr" ? "1" : "any";
+      expect(field.getAttribute("step"), field.getAttribute("aria-label") ?? field.name).toBe(expected);
+    }
+  });
+});

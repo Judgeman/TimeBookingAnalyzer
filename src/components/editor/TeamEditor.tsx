@@ -64,7 +64,6 @@ export function TeamEditor({ team, onChange, defaultFrom }: Props) {
                 onChange={(working_hours) => update(index, { working_hours })}
                 valueKey="hours_per_day"
                 valueLabel="h / Tag"
-                step={0.05}
                 create={() => ({ from: defaultFrom, to: null, hours_per_day: 8 })}
                 emptyText="Keine Ausnahme – es gilt die Arbeitszeit des Projekts."
                 addLabel="Ausnahme"
@@ -184,7 +183,7 @@ function VacationRow({
         type="number"
         required
         min={0}
-        step={0.5}
+        step="any"
         aria-label="Urlaub Tage"
         value={item.days}
         onChange={(e) => onChange({ days: numberOf(e.target.value) })}
@@ -192,7 +191,7 @@ function VacationRow({
       />
       <input
         type="number"
-        step={0.5}
+        step="any"
         aria-label="Urlaub Übertrag"
         value={item.carry_over}
         onChange={(e) => onChange({ carry_over: numberOf(e.target.value) })}

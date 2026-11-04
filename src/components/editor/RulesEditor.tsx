@@ -139,7 +139,7 @@ export function RulesEditor({ rules, onChange, elementFilter, projectVat }: Prop
                   <input
                     type="number"
                     min={0}
-                    step={1}
+                    step="any"
                     required
                     value={rule.rate_percent}
                     onChange={(e) => update(index, { rate_percent: numberOf(e.target.value) })}
@@ -152,7 +152,7 @@ export function RulesEditor({ rules, onChange, elementFilter, projectVat }: Prop
                     type="number"
                     min={0}
                     max={100}
-                    step={0.1}
+                    step="any"
                     value={rule.vat_percent ?? ""}
                     placeholder={formatNumber(projectVat)}
                     onChange={(e) =>
