@@ -35,7 +35,7 @@ fn config() -> ProjectConfig {
                 ],
                 working_hours: vec![],
                 assignments: vec![],
-                may_book_outside: false,
+                untracked: false,
                 vacation: vec![],
             },
             TeamMember {
@@ -43,7 +43,7 @@ fn config() -> ProjectConfig {
                 rates: vec![rate(d(2026, 1, 5), None, 90.0)],
                 working_hours: vec![],
                 assignments: vec![],
-                may_book_outside: false,
+                untracked: false,
                 vacation: vec![],
             },
         ],
@@ -689,104 +689,113 @@ fn assignment_period_limits_person_but_project_bookings_are_still_billed() {
 }
 
 #[test]
-fn outside_the_assignment_a_member_may_book_like_a_guest() {
-    // Wie oben, aber Max darf außerhalb seines Einsatzes buchen („darf buchen“).
+fn members_without_time_tracking_are_billed_and_forecast() {
+    // Max ohne Zeiterfassung: der Export enthält nicht alle seine Buchungen.
     let mut config = config();
-    config.team[1].assignments = vec![AssignmentPeriod {
-        from: d(2026, 1, 1),
-        to: Some(d(2026, 1, 2)),
-    }];
-    let restricted = evaluate(&config, &entries(), d(2026, 1, 16), Some(d(2026, 1, 16)));
-    config.team[1].may_book_outside = true;
+    config.team[1].untracked = true;
     let mut entries = entries();
-    entries.push(e(
-        "Max Mustermann",
-        d(2026, 1, 12),
-        8.0,
-        1.0,
-        "(Vacation)",
-        "",
-    )); // Abwesenheit außerhalb → ignoriert
-    entries.push(e(
-        "Max Mustermann",
-        d(2026, 1, 13),
-        2.0,
-        1.0,
-        P100,
-        "Management",
-    )); // keine Regel
-    entries.push(e("Lena Fremd", d(2026, 1, 7), 2.0, 1.0, P100, DELIVERY)); // nicht im Team
+    entries.extend([
+        e("Max Mustermann", d(2026, 1, 7), 8.0, 1.0, "(Vacation)", ""),
+        e(
+            "Max Mustermann",
+            d(2026, 1, 8),
+            3.0,
+            1.0,
+            "Z900 Intern",
+            "Internal",
+        ),
+        e("Max Mustermann", d(2026, 1, 9), 8.0, 1.0, "(Sick)", ""),
+        e(
+            "Max Mustermann",
+            d(2026, 1, 13),
+            2.0,
+            1.0,
+            P100,
+            "Management",
+        ), // keine Regel
+    ]);
     let result = evaluate(&config, &entries, d(2026, 1, 16), Some(d(2026, 1, 16)));
+    let baseline = run();
 
-    // Zeiterfassung wie mit Einsatzzeitraum: nur der 02.01. zählt
-    let max = &result.persons[1].periods;
-    let before = &restricted.persons[1].periods;
-    assert_eq!(
-        (max.ytd.soll_b, max.ytd.gearb, max.ytd.missing_days),
-        (before.ytd.soll_b, before.ytd.gearb, before.ytd.missing_days)
-    );
-    assert_eq!(max.ytd.vac_h, 0.0);
-    // … aber die Projektbuchung vom 05.01. ist erlaubt: nicht in Max' Zahlen,
-    // sondern wie „darf buchen“ (neutral) und ohne Markierung abgerechnet
-    assert_eq!((max.ytd.bill_h, max.ytd.bill_eur), (8.0, 0.0));
-    assert_eq!(
-        result.team.ytd.bill_eur,
-        restricted.team.ytd.bill_eur - 720.0
-    );
+    // keine Zeiterfassung: nicht unter den Personen, nicht in den Team-Summen,
+    // keine fehlenden Buchungen, nicht „außerhalb des Teams“
     assert_eq!(
         result
-            .outside
+            .persons
             .iter()
-            .map(|o| (o.person.as_str(), o.reason))
+            .map(|p| p.name.as_str())
             .collect::<Vec<_>>(),
-        vec![("Lena Fremd", OutsideReason::NotInTeam)]
+        vec![ERIKA]
     );
-    type Row<'a> = (&'a str, NaiveDate, Option<&'a str>, bool, f64, f64);
+    assert_eq!(result.team.ytd, baseline.persons[0].periods.ytd);
+    assert!(result.missing.iter().all(|m| m.person == ERIKA));
+    assert!(result.outside.iter().all(|o| o.person != "Max Mustermann"));
+
+    // Buchungen aufs Projekt: wie „darf buchen“, Rechnung unverändert
+    type Row<'a> = (NaiveDate, Option<&'a str>, bool, f64, f64);
     let bookings: Vec<Row> = result
         .guest_bookings
         .iter()
         .map(|b| {
-            (
-                b.person.as_str(),
-                b.date,
-                b.rule.as_deref(),
-                b.invoiced,
-                b.billed_hours,
-                b.net,
-            )
+            assert_eq!(b.person, "Max Mustermann");
+            (b.date, b.rule.as_deref(), b.invoiced, b.billed_hours, b.net)
         })
         .collect();
     assert_eq!(
         bookings,
         vec![
-            (
-                "Max Mustermann",
-                d(2026, 1, 5),
-                Some("Delivery"),
-                true,
-                8.0,
-                720.0
-            ),
-            ("Max Mustermann", d(2026, 1, 13), None, false, 0.0, 0.0),
+            (d(2026, 1, 2), Some("Delivery"), true, 8.0, 0.0), // noch ohne Satz
+            (d(2026, 1, 5), Some("Delivery"), true, 8.0, 720.0),
+            (d(2026, 1, 13), None, false, 0.0, 0.0),
         ]
     );
-
-    let jan = &result.invoice.months[0];
-    let line = jan
-        .lines
-        .iter()
-        .find(|l| l.person == "Max Mustermann" && l.rate == Some(90.0))
-        .unwrap();
+    assert_eq!(result.invoice.total, baseline.invoice.total);
     assert_eq!(
-        (line.hours, line.outside_hours, line.net),
-        (8.0, 0.0, 720.0)
+        serde_json::to_value(&result.invoice).unwrap(),
+        serde_json::to_value(&baseline.invoice).unwrap()
     );
-    assert_eq!(jan.net, restricted.invoice.months[0].net);
-    // Rechnung netto = Team + „darf buchen“
+    assert!(
+        result
+            .warnings
+            .iter()
+            .any(|w| w.starts_with("Max Mustermann: kein Stundensatz"))
+    );
     let guest_net: f64 = result.guest_bookings.iter().map(|b| b.net).sum();
     assert_eq!(
         result.invoice.total.net,
         result.team.ytd.bill_eur + guest_net
+    );
+
+    // Prognose: Auslastung = abgerechnet ÷ (Soll − Urlaub) im Referenzzeitraum
+    // Soll 02.01. + 05.–09.01. à 8 h + 12.–16.01. à 6 h = 78 h, Urlaub 07.01. 8 h
+    // → 70 h verfügbar; abgerechnet 02.01. + 05.01. = 16 h → 16 ÷ 70
+    let forecast = forecast::build(&config, &entries, &result);
+    let max = &forecast.persons[1];
+    assert_eq!(max.utilization, Some(0.2286));
+    assert_eq!((max.sick_factor, max.distraction_factor), (0.0, 0.0));
+    assert_eq!(
+        (max.reference.available_hours, max.reference.invoiced_hours),
+        (70.0, 16.0)
+    );
+    assert_eq!(max.reference.worked_hours, 0.0);
+    assert!(max.contract_hours > 0.0);
+    assert!((max.hours - round2(max.contract_hours * 16.0 / 70.0)).abs() < 0.011);
+    assert!((max.net - max.hours * 90.0).abs() < 1.0);
+    assert_eq!(forecast.persons[0].utilization, None);
+
+    // ohne Zeit im Einsatz: volle Arbeitszeit (mit Hinweis)
+    config.team[1].assignments = vec![AssignmentPeriod {
+        from: d(2026, 2, 1),
+        to: None,
+    }];
+    let later = evaluate(&config, &entries, d(2026, 1, 16), Some(d(2026, 1, 16)));
+    let forecast = forecast::build(&config, &entries, &later);
+    assert_eq!(forecast.persons[1].utilization, Some(1.0));
+    assert!(
+        forecast
+            .notes
+            .iter()
+            .any(|n| n.contains("Max Mustermann (ohne Zeiterfassung)"))
     );
 }
 

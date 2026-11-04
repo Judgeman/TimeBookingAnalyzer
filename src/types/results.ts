@@ -108,6 +108,8 @@ export interface AuswertungResult {
   outside: OutsideBooking[];
   /** Personen mit der Rolle „darf buchen“ (Reihenfolge der Konfiguration). */
   guests: string[];
+  /** Teammitglieder ohne Zeiterfassung (Projektbuchungen in guest_bookings, nicht in persons). */
+  untracked: string[];
   /** Ihre Buchungen aufs Projekt im Auswertungszeitraum. */
   guest_bookings: GuestBooking[];
   /** Prognose der Rechnung und Budget-Abgleich. */
@@ -165,6 +167,8 @@ export interface ForecastPerson {
   sick_factor: number;
   /** Anteil der gearbeiteten Zeit, der nicht abgerechnet wurde, 0…1. */
   distraction_factor: number;
+  /** Nur ohne Zeiterfassung: abgerechnet ÷ (Soll − Urlaub), 0…1 (statt der Faktoren). */
+  utilization: number | null;
   reference: {
     available_hours: number;
     sick_hours: number;

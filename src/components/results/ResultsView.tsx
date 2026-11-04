@@ -228,7 +228,7 @@ export function ResultsView({
       {result.flagged.length > 0 && <FlaggedList flagged={result.flagged} />}
 
       {result.guest_bookings.length > 0 && (
-        <GuestBookings bookings={result.guest_bookings} persons={result.persons} />
+        <GuestBookings bookings={result.guest_bookings} untracked={result.untracked} />
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200">
@@ -326,8 +326,9 @@ export function ResultsView({
             <InvoiceView
               invoice={result.invoice}
               outside={result.outside}
-              persons={result.persons.map((p) => p.name)}
+              persons={[...result.persons.map((p) => p.name), ...result.untracked]}
               guests={result.guests}
+              untracked={result.untracked}
               cutoffDate={result.cutoff_date}
             />
           )}

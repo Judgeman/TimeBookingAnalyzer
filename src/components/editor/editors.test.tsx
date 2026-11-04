@@ -93,7 +93,7 @@ describe("TeamEditor", () => {
         rates: [{ from: "2026-01-01", to: null, rate: 0 }],
         working_hours: [{ from: "2026-01-01", to: null, hours_per_day: 8 }],
         assignments: [],
-        may_book_outside: false,
+        untracked: false,
         vacation: [],
       },
     ]);
@@ -181,7 +181,7 @@ describe("TeamEditor – Einsatzzeitraum", () => {
     expect(onChange.mock.calls.at(-1)![0][0].assignments).toEqual([]);
   });
 
-  it("außerhalb des Einsatzes wie „darf buchen“ – nur mit Einsatzzeitraum wählbar", async () => {
+  it("ohne Zeiterfassung (Export unvollständig) – an- und abwählbar", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     render(
@@ -191,16 +191,13 @@ describe("TeamEditor – Einsatzzeitraum", () => {
         render={(team, set) => <TeamEditor team={team} onChange={set} defaultFrom="2026-01-01" />}
       />,
     );
-    const label = /Außerhalb des Einsatzzeitraums wie „darf buchen“ behandeln/;
-    expect(screen.queryByRole("checkbox", { name: label })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "+ Einsatzzeitraum" }));
-    const checkbox = screen.getByRole("checkbox", { name: label });
+    const checkbox = screen.getByRole("checkbox", { name: /^Ohne Zeiterfassung/ });
     expect(checkbox).not.toBeChecked();
     await user.click(checkbox);
-    expect(onChange.mock.calls.at(-1)![0][0].may_book_outside).toBe(true);
+    expect(onChange.mock.calls.at(-1)![0][0].untracked).toBe(true);
     expect(checkbox).toBeChecked();
     await user.click(checkbox);
-    expect(onChange.mock.calls.at(-1)![0][0].may_book_outside).toBe(false);
+    expect(onChange.mock.calls.at(-1)![0][0].untracked).toBe(false);
   });
 });
 

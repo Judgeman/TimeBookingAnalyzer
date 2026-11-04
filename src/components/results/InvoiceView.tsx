@@ -9,6 +9,8 @@ interface Props {
   persons: string[];
   /** Personen mit der Rolle „darf buchen“ (eigene Spalten, wenn abgerechnet). */
   guests?: string[];
+  /** Teammitglieder ohne Zeiterfassung (gekennzeichnet). */
+  untracked?: string[];
   cutoffDate: string;
   /** Buchungen aufs Projekt außerhalb des Teams (für die Hinweise). */
   outside?: OutsideBooking[];
@@ -26,9 +28,10 @@ function vatLabelOf(groups: VatGroup[], fallback: number): string {
  * Rechnungsübersicht: pro Monat eine Rechnung. Netto je Position = Stunden ×
  * Satz, USt. je Steuersatz auf die Monats-Nettosumme, Brutto = Netto + USt.
  */
-export function InvoiceView({ invoice, persons, guests = [], cutoffDate, outside = [] }: Props) {
+export function InvoiceView({ invoice, persons, guests = [], untracked = [], cutoffDate, outside = [] }: Props) {
   const vatLabel = vatLabelOf(invoice.total.vat_groups, invoice.vat_percent);
-  const isGuest = (person: string) => guests.includes(person);
+  const roleOf = (person: string) =>
+    guests.includes(person) ? "darf buchen" : untracked.includes(person) ? "ohne Zeiterfassung" : null;
   // Spalten: Team, danach „darf buchen“ mit Rechnungspositionen.
   const columns = [
     ...persons,
@@ -109,7 +112,7 @@ export function InvoiceView({ invoice, persons, guests = [], cutoffDate, outside
                 {columns.map((p) => (
                   <th key={p} className={styles.thNum}>
                     {p}
-                    {isGuest(p) && <GuestNote />}
+                    <RoleNote role={roleOf(p)} />
                   </th>
                 ))}
                 <th className={`${styles.thNum} bg-slate-100`}>Netto</th>
@@ -195,7 +198,7 @@ export function InvoiceView({ invoice, persons, guests = [], cutoffDate, outside
                 brutto {formatEuro(month.gross)}
               </span>
             </summary>
-            <MonthLines month={month} isGuest={isGuest} />
+            <MonthLines month={month} roleOf={roleOf} />
           </details>
         ))}
       </section>
@@ -205,10 +208,10 @@ export function InvoiceView({ invoice, persons, guests = [], cutoffDate, outside
 
 function MonthLines({
   month,
-  isGuest,
+  roleOf,
 }: {
   month: InvoiceMonth;
-  isGuest: (person: string) => boolean;
+  roleOf: (person: string) => string | null;
 }) {
   const multipleVat = month.vat_groups.length > 1;
   return (
@@ -229,7 +232,7 @@ function MonthLines({
             <tr key={i} className={line.outside_hours > 0 ? "bg-red-50" : ""}>
               <td className={styles.td}>
                 {line.person}
-                {isGuest(line.person) && <GuestNote />}
+                <RoleNote role={roleOf(line.person)} />
               </td>
               <td className={styles.td}>
                 {line.service}
@@ -309,10 +312,10 @@ function TotalRow({
 }
 
 /** Kennzeichnung der Rolle „darf buchen“ (neutral). */
-function GuestNote() {
-  return (
-    <span className="block text-[11px] font-normal text-sky-700">darf buchen</span>
-  );
+/** Kennzeichnung ohne Zeiterfassung: „darf buchen“ bzw. Teammitglied „ohne Zeiterfassung“. */
+function RoleNote({ role }: { role: string | null }) {
+  if (!role) return null;
+  return <span className="block text-[11px] font-normal text-sky-700">{role}</span>;
 }
 
 function PartialBadge({ cutoffDate }: { cutoffDate: string }) {

@@ -9,6 +9,11 @@
 //! erwartete Stunden = (h/Tag − geplante Abwesenheit) × (1 − Krankheit) × (1 − Ablenkung),
 //! Netto = Stunden × Stundensatz des Tages. Prognostiziert wird bis Jahresende
 //! bzw. bis zum Ende des spätesten Budget-Zeitraums.
+//!
+//! Teammitglieder ohne Zeiterfassung (Export unvollständig) haben statt der
+//! beiden Faktoren eine Auslastung = abgerechnet (zum vollen Satz) ÷ (Soll
+//! brutto − Urlaub) im Einsatz: erwartete Stunden = (h/Tag − geplante
+//! Abwesenheit) × Auslastung.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -109,7 +114,12 @@ fn build_until(
     let mut persons = Vec::with_capacity(config.team.len());
 
     for (member, reference) in config.team.iter().zip(&ev.references) {
-        let (sick, distraction) = factors(reference);
+        let utilization = member.untracked.then(|| utilization(reference));
+        let (sick, distraction) = if member.untracked {
+            (0.0, 0.0)
+        } else {
+            factors(reference)
+        };
         let absences: Vec<&PlannedAbsence> = config
             .planned_absences
             .iter()
@@ -143,7 +153,8 @@ fn build_until(
                         (hpd, 1.0)
                     }
                 });
-            let hours = (hpd - absent_hours) * (1.0 - sick) * (1.0 - distraction);
+            let hours =
+                (hpd - absent_hours) * utilization.unwrap_or((1.0 - sick) * (1.0 - distraction));
             let net = match billing::rate_for(&member.rates, day) {
                 Some(rate) => hours * rate,
                 None => {
@@ -173,10 +184,17 @@ fn build_until(
                 fmt_hours(hours)
             ));
         }
+        if member.untracked && reference.soll_b - reference.vac_h <= 0.0 && sums.contract > 0.0 {
+            notes.push(format!(
+                "Prognose: {} (ohne Zeiterfassung) hat noch keine Zeit im Einsatz im Referenzzeitraum – volle Arbeitszeit angesetzt.",
+                member.name
+            ));
+        }
         persons.push(ForecastPerson {
             name: member.name.clone(),
             sick_factor: round4(sick),
             distraction_factor: round4(distraction),
+            utilization: utilization.map(round4),
             reference: ForecastReference {
                 available_hours: round2(reference.soll_b - reference.vac_h),
                 sick_hours: round2(reference.sick_h),
@@ -307,6 +325,17 @@ struct PersonSums {
     net: f64,
 }
 
+/// Auslastung ohne Zeiterfassung: abgerechnet (voller Satz) ÷ (Soll − Urlaub)
+/// im Referenzzeitraum, 0…1; ohne Zeit im Einsatz 1 (volle Arbeitszeit).
+fn utilization(reference: &Acc) -> f64 {
+    let available = reference.soll_b - reference.vac_h;
+    if available > 0.0 {
+        (reference.inv_h / available).clamp(0.0, 1.0)
+    } else {
+        1.0
+    }
+}
+
 /// (Krankheitsfaktor, Ablenkungsfaktor) aus den Summen des Referenzzeitraums.
 fn factors(reference: &Acc) -> (f64, f64) {
     let available = reference.soll_b - reference.vac_h;
@@ -403,7 +432,7 @@ mod tests {
                 }],
                 working_hours: vec![],
                 assignments: vec![],
-                may_book_outside: false,
+                untracked: false,
                 vacation: vec![],
             }],
             guests: vec![],

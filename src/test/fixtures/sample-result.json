@@ -7931,6 +7931,7 @@
   "guests": [
     "Karl Beispiel"
   ],
+  "untracked": [],
   "guest_bookings": [
     {
       "person": "Karl Beispiel",
@@ -7976,6 +7977,7 @@
         "name": "Erika Mustermann",
         "sick_factor": 0.0131,
         "distraction_factor": 0.034,
+        "utilization": null,
         "reference": {
           "available_hours": 1521.0,
           "sick_hours": 20.0,
@@ -7992,6 +7994,7 @@
         "name": "Max Mustermann",
         "sick_factor": 0.0121,
         "distraction_factor": 0.0167,
+        "utilization": null,
         "reference": {
           "available_hours": 1487.5,
           "sick_hours": 18.0,
@@ -8008,6 +8011,7 @@
         "name": "Lena Beispiel",
         "sick_factor": 0.0,
         "distraction_factor": 0.0,
+        "utilization": null,
         "reference": {
           "available_hours": 328.0,
           "sick_hours": 0.0,

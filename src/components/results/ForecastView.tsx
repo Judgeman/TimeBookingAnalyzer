@@ -140,18 +140,31 @@ export function ForecastView({ forecast, plannedAbsences = [], accuracy = [] }: 
                     {p.name}
                     {p.contract_hours === 0 && <span className="ml-2 text-xs">(im Zeitraum nicht im Einsatz)</span>}
                   </td>
-                  <td
-                    className={`${styles.tdNum} cursor-help`}
-                    title={`${formatHours(p.reference.sick_hours)} h krank von ${formatHours(p.reference.available_hours)} h verfügbar (Soll − Urlaub)`}
-                  >
-                    {formatPercent(p.sick_factor * 100)}
-                  </td>
-                  <td
-                    className={`${styles.tdNum} cursor-help`}
-                    title={`${formatHours(p.reference.invoiced_hours)} h abgerechnet (zum vollen Satz) von ${formatHours(p.reference.worked_hours)} h gearbeitet`}
-                  >
-                    {formatPercent(p.distraction_factor * 100)}
-                  </td>
+                  {p.utilization !== null ? (
+                    <td
+                      colSpan={2}
+                      className={`${styles.tdNum} cursor-help`}
+                      title={`Ohne Zeiterfassung: ${formatHours(p.reference.invoiced_hours)} h abgerechnet (zum vollen Satz) von ${formatHours(p.reference.available_hours)} h verfügbar (Soll − Urlaub)`}
+                    >
+                      Auslastung {formatPercent(p.utilization * 100)}
+                      <span className="block text-xs text-slate-500">ohne Zeiterfassung</span>
+                    </td>
+                  ) : (
+                    <>
+                      <td
+                        className={`${styles.tdNum} cursor-help`}
+                        title={`${formatHours(p.reference.sick_hours)} h krank von ${formatHours(p.reference.available_hours)} h verfügbar (Soll − Urlaub)`}
+                      >
+                        {formatPercent(p.sick_factor * 100)}
+                      </td>
+                      <td
+                        className={`${styles.tdNum} cursor-help`}
+                        title={`${formatHours(p.reference.invoiced_hours)} h abgerechnet (zum vollen Satz) von ${formatHours(p.reference.worked_hours)} h gearbeitet`}
+                      >
+                        {formatPercent(p.distraction_factor * 100)}
+                      </td>
+                    </>
+                  )}
                   <td className={styles.tdNum}>{formatHours(p.contract_hours)}</td>
                   <td className={styles.tdNum}>
                     {p.planned_absence_days > 0
@@ -206,6 +219,11 @@ export function ForecastView({ forecast, plannedAbsences = [], accuracy = [] }: 
           <li>
             Je Werktag nach dem Stand: (h/Tag − geplante Abwesenheit) × (1 − Krankheit) × (1 −
             Ablenkung) × Stundensatz. Überstunden werden nicht hochgerechnet.
+          </li>
+          <li>
+            <strong>Ohne Zeiterfassung</strong> (Export unvollständig): statt der beiden Faktoren die
+            Auslastung = abgerechnet (zum vollen Satz) ÷ (Soll − Urlaub) im Einsatz; je Werktag (h/Tag −
+            geplante Abwesenheit) × Auslastung × Stundensatz.
           </li>
           <li>Richtwert = Budget ÷ Anzahl Monate; Abweichung = Abgerechnet + Prognose − Budget.</li>
         </ul>

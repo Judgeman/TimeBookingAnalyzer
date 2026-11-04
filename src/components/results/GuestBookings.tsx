@@ -1,12 +1,11 @@
 import { useState } from "react";
-import type { GuestBooking, PersonResult } from "../../types/results";
-import { describeAssignments } from "../../lib/assignments";
+import type { GuestBooking } from "../../types/results";
 import { formatDateWithWeekday, formatEuro, formatHours, formatMonth } from "../../lib/format";
 
 interface Props {
   bookings: GuestBooking[];
-  /** Team: Buchungen von Teammitgliedern stammen von außerhalb ihres Einsatzes. */
-  persons?: PersonResult[];
+  /** Teammitglieder ohne Zeiterfassung (gekennzeichnet). */
+  untracked?: string[];
 }
 
 interface Totals {
@@ -40,15 +39,14 @@ function describe(t: Totals): string {
 /**
  * Buchungen von Personen mit der Rolle „darf buchen“ – neutraler Hinweis:
  * erlaubt, ohne Zeiterfassung; abgerechnet nach Kost2Art (Abrechnungsregeln).
- * Dazu Teammitglieder, die außerhalb ihres Einsatzes buchen dürfen.
+ * Dazu Teammitglieder ohne Zeiterfassung (Export unvollständig).
  */
 const ALL = "";
 type Invoiced = "" | "yes" | "no";
 
-export function GuestBookings({ bookings, persons: team = [] }: Props) {
+export function GuestBookings({ bookings, untracked = [] }: Props) {
   const persons = [...new Set(bookings.map((b) => b.person))];
   const months = [...new Set(bookings.map((b) => b.date.slice(0, 7)))].sort().reverse();
-  const memberOf = (name: string) => team.find((p) => p.name === name);
   const [person, setPerson] = useState(ALL);
   const [month, setMonth] = useState(ALL);
   const [invoiced, setInvoiced] = useState<Invoiced>(ALL);
@@ -149,18 +147,17 @@ export function GuestBookings({ bookings, persons: team = [] }: Props) {
                 </tr>
               )}
               {filtered.map((b, i) => {
-                const member = memberOf(b.person);
                 return (
                   <tr key={i}>
                     <td className="px-4 py-1.5 whitespace-nowrap">{formatDateWithWeekday(b.date)}</td>
                     <td className="px-4 py-1.5">
                       <span className="whitespace-nowrap">{b.person}</span>
-                      {member && (
+                      {untracked.includes(b.person) && (
                         <span
                           className="ml-2 rounded bg-sky-200 px-1.5 py-0.5 text-xs whitespace-nowrap text-sky-950"
-                          title={`Team – im Projekt: ${describeAssignments(member.assignments) ?? "immer"}`}
+                          title="Teammitglied ohne Zeiterfassung – abgerechnet mit dem eigenen Stundensatz, in der Prognose enthalten"
                         >
-                          außerhalb Einsatz
+                          ohne Zeiterfassung
                         </span>
                       )}
                     </td>

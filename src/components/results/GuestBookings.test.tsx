@@ -52,7 +52,7 @@ describe("GuestBookings (darf buchen)", () => {
     const result = sampleResult();
     const [feb, jun, sep] = result.guest_bookings;
     const bookings: GuestBooking[] = [feb, { ...jun, person: "Lena Beispiel", date: "2026-05-04" }, jun, sep];
-    render(<GuestBookings bookings={bookings} persons={result.persons} />);
+    render(<GuestBookings bookings={bookings} untracked={["Lena Beispiel"]} />);
     await user.click(screen.getByText(/Darf buchen \(ohne Zeiterfassung\)/));
     const rows = () =>
       within(screen.getByRole("table")).getAllByRole("row").slice(1).map((r) => r.textContent!.replace(/\s/g, " "));
@@ -82,19 +82,18 @@ describe("GuestBookings (darf buchen)", () => {
     expect(rows().map((r) => r.slice(0, 14))).toEqual(["Mo, 04.05.2026", "Di, 16.06.2026"]);
   });
 
-  it("kennzeichnet Teammitglieder, die außerhalb ihres Einsatzes buchen dürfen", async () => {
+  it("kennzeichnet Teammitglieder ohne Zeiterfassung", async () => {
     const user = userEvent.setup();
     const result = sampleResult();
-    const lena = result.persons.find((p) => p.name === "Lena Beispiel")!;
     const bookings: GuestBooking[] = [
       ...result.guest_bookings,
-      { ...result.guest_bookings[0], person: lena.name, date: "2026-05-04" },
+      { ...result.guest_bookings[0], person: "Lena Beispiel", date: "2026-05-04" },
     ];
-    render(<GuestBookings bookings={bookings} persons={result.persons} />);
+    render(<GuestBookings bookings={bookings} untracked={["Lena Beispiel"]} />);
     await user.click(screen.getByText(/Darf buchen \(ohne Zeiterfassung\)/));
-    const badges = screen.getAllByText("außerhalb Einsatz");
+    const badges = screen.getAllByText("ohne Zeiterfassung");
     expect(badges).toHaveLength(1);
     expect(badges[0].closest("td")).toHaveTextContent("Lena Beispiel");
-    expect(badges[0]).toHaveAttribute("title", "Team – im Projekt: 01.01.2026–28.02.2026");
+    expect(badges[0].title).toMatch(/^Teammitglied ohne Zeiterfassung/);
   });
 });

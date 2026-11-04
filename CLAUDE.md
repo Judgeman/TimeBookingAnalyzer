@@ -179,7 +179,7 @@ Jedes Projekt wird als JSON-Datei gespeichert:
       "name": "Lena Beispiel",
       "rates": [{ "from": "2026-01-01", "to": null, "rate": 80 }],
       "assignments": [{ "from": "2026-01-01", "to": "2026-02-28" }],
-      "may_book_outside": false,
+      "untracked": false,
       "vacation": [{ "year": 2026, "days": 30, "carry_over": 2 }]
     }
   ],
@@ -318,11 +318,16 @@ plus_krank = plus - sick_h_norm
   `outside` (`reason = not_in_team`), werden aber nicht abgerechnet (kein Satz).
   UI: roter Hinweis über der Auswertung, ⚠-Zähler am Tab „Rechnung“, markierte
   Rechnungspositionen/Monate, Monate/Wochen außerhalb des Einsatzes ausgegraut.
-  Option `may_book_outside` am Teammitglied („Außerhalb des Einsatzzeitraums wie
-  „darf buchen“ behandeln“, im Editor nur mit Einsatzzeitraum): Projektbuchungen
-  außerhalb stehen dann in `guest_bookings` (neutraler Hinweis, Kennzeichnung
-  „außerhalb Einsatz“) statt in `outside`, Rechnung ohne Markierung, nicht in
-  `bill_h`/`bill_eur` der Person; Zeiterfassung im Einsatz unverändert.
+- **Ohne Zeiterfassung** (`untracked` am Teammitglied, Alias `may_book_outside` = frühere
+  Option; Editor: „Ohne Zeiterfassung (Export enthält nicht alle Buchungen der Person)“):
+  nur Buchungen **aufs Projekt** zählen – an allen Tagen bis Stichtag in `guest_bookings`
+  (wie „darf buchen“, Kennzeichnung „ohne Zeiterfassung“), abgerechnet nach Regel mit dem
+  Satz der Person (Rechnungsspalte der Person, gekennzeichnet). Keine Person in `persons`
+  (kein Soll/Stundenkonto/Arbeitsort/Urlaub/Krank/Resturlaub), nicht in den Team-Summen,
+  keine fehlenden/hervorgehobenen Buchungen, nie in `outside`; Namen in `untracked`.
+  Prognose: statt Krankheits-/Ablenkungsfaktor **Auslastung** = abgerechnet zum vollen
+  Satz ÷ (Soll brutto − Urlaub) im Einsatz im Referenzzeitraum (0…1; ohne Zeit im Einsatz
+  1 + Hinweis); je Werktag im Einsatz (h/Tag − geplante Abwesenheit) × Auslastung.
 - **Rolle „darf buchen“** (`guests`: Name + Stundensätze, z. B. Geschäftsführung):
   keine Zeiterfassung – keine Person in Jahr/Monaten/Stundenkonto/Arbeitsort, nicht in
   den Team-Summen, keine fehlenden/hervorgehobenen Buchungen, nicht in `outside`.
@@ -339,8 +344,8 @@ plus_krank = plus - sick_h_norm
   Krankheitsfaktor = krank ÷ (Soll brutto − Urlaub); Ablenkungsfaktor = 1 − abgerechnet
   zum vollen Satz (Σ abgerechnete Stunden × Satz-Anteil, ohne Buchungen außerhalb des
   Einsatzes) ÷ gearbeitet; beide 0…1. Je Werktag (im Einsatz, h/Tag > 0):
-  Stunden = (h/Tag − geplante Abwesenheit [ganz/halb]) × (1 − Krankheit) × (1 − Ablenkung),
-  Netto = Stunden × Satz des Tages (ohne Satz → 0 € + Hinweis). Keine Überstunden-,
+  Stunden = (h/Tag − geplante Abwesenheit [ganz/halb]) × (1 − Krankheit) × (1 − Ablenkung)
+  (ohne Zeiterfassung: × Auslastung, s. o.), Netto = Stunden × Satz des Tages (ohne Satz → 0 € + Hinweis). Keine Überstunden-,
   keine „darf buchen“-Prognose. Ist je Monat = Rechnung (für Budgets vor dem Jahr aus
   zusätzlichen Auswertungen der Vorjahre). Budget (`budgets`, ganze Monate, keine
   Überschneidung): Richtwert/Monat = Betrag ÷ Monate, Richtwert bis Stand anteilig nach
@@ -490,6 +495,7 @@ interface AuswertungResult {
   missing_current: { checked_until: string; bookings: MissingBooking[] } | null; // bis Stand − 1 Tag
   outside: OutsideBooking[];      // Projektbuchungen außerhalb des Teams (s. Einsatzzeitraum)
   guests: string[];               // Rolle „darf buchen“ (Konfiguration)
+  untracked: string[];            // Teammitglieder ohne Zeiterfassung (nicht in persons)
   guest_bookings: GuestBooking[]; // deren Projektbuchungen (rule: string | null, invoiced, net)
   forecast: Forecast;             // { from, to, reference_*, persons (Faktoren, Prognose h/€),
                                   //   months (Ist/Prognose je Monat), budgets (BudgetStatus), notes }

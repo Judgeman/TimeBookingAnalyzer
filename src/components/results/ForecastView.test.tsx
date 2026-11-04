@@ -44,6 +44,27 @@ describe("ForecastView", () => {
     expect(screen.getByText("So wird gerechnet")).toBeInTheDocument();
   });
 
+  it("ohne Zeiterfassung: Auslastung statt Krankheits- und Ablenkungsfaktor", () => {
+    const forecast = sampleResult().forecast;
+    forecast.persons[1] = {
+      ...forecast.persons[1],
+      sick_factor: 0,
+      distraction_factor: 0,
+      utilization: 0.6123,
+      reference: { available_hours: 1_000, sick_hours: 0, worked_hours: 0, invoiced_hours: 612.3 },
+    };
+    render(<ForecastView forecast={forecast} plannedAbsences={[]} />);
+    const max = screen.getByText("Max Mustermann", { selector: "td" }).closest("tr")!;
+    const cell = within(max).getByText(/Auslastung/).closest("td")!;
+    expect(cell).toHaveAttribute("colspan", "2");
+    expect(cell.textContent!.replace(/\s/g, " ")).toBe("Auslastung 61,2 %ohne Zeiterfassung");
+    expect(cell.title.replace(/\s/g, " ")).toBe(
+      "Ohne Zeiterfassung: 612,30 h abgerechnet (zum vollen Satz) von 1.000,00 h verfügbar (Soll − Urlaub)",
+    );
+    const erika = screen.getByText("Erika Mustermann", { selector: "td" }).closest("tr")!;
+    expect(within(erika).queryByText(/Auslastung/)).toBeNull();
+  });
+
   it("Budget reicht bzw. ist schon überschritten", () => {
     const forecast = sampleResult().forecast;
     forecast.budgets[0] = { ...forecast.budgets[0], amount: 400_000, deviation: -32_505.48, exhausted_on: null };

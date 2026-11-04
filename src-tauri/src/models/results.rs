@@ -133,6 +133,9 @@ pub struct AuswertungResult {
     pub outside: Vec<OutsideBooking>,
     /// Personen mit der Rolle „darf buchen“ (Reihenfolge der Konfiguration).
     pub guests: Vec<String>,
+    /// Teammitglieder ohne Zeiterfassung – ihre Projektbuchungen stehen in
+    /// `guest_bookings`, sie fehlen in `persons`.
+    pub untracked: Vec<String>,
     /// Ihre Buchungen aufs Projekt im Auswertungszeitraum.
     pub guest_bookings: Vec<GuestBooking>,
     /// Prognose der Rechnung und Budget-Abgleich.
@@ -197,6 +200,9 @@ pub struct ForecastPerson {
     pub sick_factor: f64,
     /// Anteil der gearbeiteten Zeit, der nicht abgerechnet wurde, 0…1.
     pub distraction_factor: f64,
+    /// Nur ohne Zeiterfassung: abgerechnet ÷ (Soll − Urlaub), 0…1 – ersetzt
+    /// Krankheits- und Ablenkungsfaktor.
+    pub utilization: Option<f64>,
     /// Grundlage der Faktoren (Referenzzeitraum).
     pub reference: ForecastReference,
     /// Soll im Prognosezeitraum (Werktage × h/Tag, im Einsatz).

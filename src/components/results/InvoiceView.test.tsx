@@ -58,6 +58,30 @@ describe("InvoiceView", () => {
     expect(line).not.toHaveClass("bg-red-50");
   });
 
+  it("kennzeichnet Teammitglieder ohne Zeiterfassung", async () => {
+    const user = userEvent.setup();
+    const r = sampleResult();
+    // Max ohne Zeiterfassung: nicht unter den Personen, aber mit Rechnungspositionen
+    render(
+      <InvoiceView
+        invoice={r.invoice}
+        persons={["Erika Mustermann", "Lena Beispiel", "Max Mustermann"]}
+        guests={r.guests}
+        untracked={["Max Mustermann"]}
+        cutoffDate={r.cutoff_date}
+      />,
+    );
+    const table = screen.getByText("Netto pro Person und Monat").nextElementSibling as HTMLElement;
+    expect(within(table).getByText("Max Mustermann").closest("th")).toHaveTextContent("Max Mustermannohne Zeiterfassung");
+    expect(within(table).getByText("Erika Mustermann").closest("th")).toHaveTextContent(/^Erika Mustermann$/);
+    await user.click(screen.getByText("Juni 2026", { selector: "summary span" }));
+    const line = screen
+      .getAllByText("Max Mustermann")
+      .map((el) => el.closest("tr")!)
+      .find((tr) => tr.closest("details"))!;
+    expect(line).toHaveTextContent("ohne Zeiterfassung");
+  });
+
   it("öffnet Monatsdetails mit Leistung, Satz-Anteil und USt.-Gruppen", async () => {
     const user = userEvent.setup();
     const r = sampleResult();

@@ -172,46 +172,50 @@ test("Einsatzzeitraum: Buchungen außerhalb des Teams fallen sofort auf", () =>
     }
   }));
 
-test("Einsatzzeitraum: außerhalb wie „darf buchen“ – neutral statt rot, weiter abgerechnet", () =>
-  withApp("einsatz-darf-buchen", {}, async (app) => {
+test("Ohne Zeiterfassung: abgerechnet und in der Prognose, aber keine Zeitkontrolle", () =>
+  withApp("ohne-zeiterfassung", {}, async (app) => {
     await loadSample(app);
-    await app.waitForText("2 Buchungen auf das Projekt außerhalb des Teams");
+    await app.waitForText("! 2 fehlende Buchungen"); // Erika 20.10., Max 22.10.
 
-    // Lena (Einsatz Januar/Februar) darf danach wie „darf buchen“ aufs Projekt buchen
+    // Max: Export enthält nicht alle seine Buchungen → ohne Zeiterfassung
     await app.click("button", "Projekt bearbeiten");
-    await app.waitForText("Außerhalb des Einsatzzeitraums wie „darf buchen“ behandeln");
-    const checked = await app.execute(`const boxes = [...document.querySelectorAll("label")]
-      .filter((l) => l.textContent.startsWith("Außerhalb des Einsatzzeitraums wie"))
-      .map((l) => l.querySelector('input[type="checkbox"]'));
-      boxes[0].click();
-      return boxes.map((b) => b.checked);`);
-    assert.deepEqual(checked, [true]); // nur Lena hat einen Einsatzzeitraum
+    await app.waitForText("Ohne Zeiterfassung (Export enthält nicht alle Buchungen der Person)");
+    await app.execute(`const card = [...document.querySelectorAll('input[aria-label="Name"]')]
+        .find((i) => i.value === "Max Mustermann").closest("div.rounded-lg");
+      [...card.querySelectorAll("label")]
+        .find((l) => l.textContent.startsWith("Ohne Zeiterfassung"))
+        .querySelector('input[type="checkbox"]').click();`);
     await app.click("button", "Speichern");
-    await app.waitForText("1 Buchung auf das Projekt außerhalb des Teams");
+    await app.waitForText("! 1 fehlende Buchung"); // nur noch Erika
 
-    const text = await app.text();
-    for (const expected of [
-      "3,00 h von Personen, die nicht im Team sind – nicht abgerechnet",
-      "ℹ Darf buchen (ohne Zeiterfassung): 11,00 h aufs Projekt · 6,00 h abgerechnet (640,00 € netto) · 5,00 h nicht abgerechnet",
-    ]) {
-      assert.ok(text.includes(expected), `fehlt: ${expected}`);
-    }
-    assert.ok(!text.includes("außerhalb des Einsatzzeitraums – abgerechnet"));
-    const lena = await app.execute(
-      "return [...document.querySelectorAll('td')].filter((td) => td.textContent.startsWith('Lena Beispiel')).map((td) => td.textContent)",
-    );
-    assert.deepEqual(lena, ["Lena Beispielaußerhalb Einsatz"]);
+    // keine Zeitkontrolle: Max fehlt bei den Personen, seine Projektbuchungen
+    // stehen im Hinweis „Darf buchen“ (gekennzeichnet)
+    const names = await app.execute(`return [...document.querySelectorAll("select[aria-label='Filter Person'] option")]
+      .map((o) => o.textContent)`);
+    assert.deepEqual(names, ["Alle Personen", "Max Mustermann", "Karl Beispiel"]);
+    assert.ok(await app.execute(`return [...document.querySelectorAll("td")]
+      .some((td) => td.textContent === "Max Mustermannohne Zeiterfassung")`));
+    await app.tab("Monate");
+    await app.waitForText("Team gesamt");
+    assert.ok(!(await app.execute(`return [...document.querySelectorAll("button")]
+      .some((b) => b.textContent === "Max Mustermann")`)));
     const saved = readdirSync(projectsDir())
       .filter((f) => f.endsWith(".json"))
       .map((f) => JSON.parse(readFileSync(join(projectsDir(), f), "utf8")))
       .flatMap((p) => p.team)
-      .find((m) => m.name === "Lena Beispiel");
-    assert.equal(saved.may_book_outside, true);
+      .find((m) => m.name === "Max Mustermann");
+    assert.equal(saved.untracked, true);
 
-    // Rechnung: Betrag unverändert, keine rote Markierung mehr für Lena
+    // Rechnung unverändert, Max gekennzeichnet; Prognose über die Auslastung
     await app.tab("Rechnung");
     await app.waitForText("319.865,00 €");
-    assert.ok(!(await app.text()).includes("⚠ enthält Buchungen außerhalb des Einsatzzeitraums"));
+    assert.ok(await app.execute(`return [...document.querySelectorAll("th")]
+      .some((th) => th.textContent === "Max Mustermannohne Zeiterfassung")`));
+    await app.tab("Prognose");
+    await app.waitForText("Prognose je Person");
+    const max = await app.execute(`return [...document.querySelectorAll("tr")]
+      .find((tr) => tr.querySelector("td")?.textContent === "Max Mustermann").textContent`);
+    assert.match(max, /Auslastung \d+(,\d)? %ohne Zeiterfassung/);
   }));
 
 test("Darf buchen: Buchungen ohne Zeiterfassung, abgerechnet nach Kost2Art", () =>

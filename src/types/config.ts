@@ -57,10 +57,11 @@ export interface TeamMember {
   /** Einsatzzeiträume im Projekt; leer = immer im Projekt. */
   assignments: AssignmentPeriod[];
   /**
-   * Außerhalb der Einsatzzeiträume wie „darf buchen“: Buchungen aufs Projekt
-   * erlaubt (neutral), abgerechnet nach Regel, ohne Zeiterfassung.
+   * Ohne Zeiterfassung (Export unvollständig): nur Buchungen aufs Projekt –
+   * abgerechnet wie „darf buchen“ und in der Prognose (Auslastung); kein Soll,
+   * kein Stundenkonto, keine fehlenden Buchungen.
    */
-  may_book_outside?: boolean;
+  untracked?: boolean;
   /** Urlaubsanspruch je Kalenderjahr. */
   vacation: VacationEntitlement[];
 }

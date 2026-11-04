@@ -83,24 +83,23 @@ export function TeamEditor({ team, onChange, defaultFrom }: Props) {
                 emptyText="Kein Zeitraum – die Person ist durchgehend im Projekt."
                 addLabel="Einsatzzeitraum"
               />
-              {member.assignments.length > 0 && (
-                <label className="mt-3 flex items-start gap-2 text-sm text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={member.may_book_outside ?? false}
-                    onChange={(e) => update(index, { may_book_outside: e.target.checked })}
-                    className="mt-0.5 h-4 w-4 shrink-0"
-                  />
-                  <span>
-                    Außerhalb des Einsatzzeitraums wie „darf buchen“ behandeln
-                    <span className={`block ${ui.hint}`}>
-                      Buchungen aufs Projekt sind dann erlaubt: neutraler Hinweis statt roter
-                      Warnung, abgerechnet nach Kost2Art mit dem Satz der Person – weiterhin ohne
-                      Soll, Stundenkonto und Prüfung auf fehlende Buchungen.
-                    </span>
+              <label className="mt-3 flex items-start gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={member.untracked ?? false}
+                  onChange={(e) => update(index, { untracked: e.target.checked })}
+                  className="mt-0.5 h-4 w-4 shrink-0"
+                />
+                <span>
+                  Ohne Zeiterfassung (Export enthält nicht alle Buchungen der Person)
+                  <span className={`block ${ui.hint}`}>
+                    Nur Buchungen aufs Projekt zählen: abgerechnet nach Kost2Art mit dem Satz der
+                    Person (Liste unter „Darf buchen“) und in der Prognose über die Auslastung
+                    (abgerechnet ÷ Soll − Urlaub, im Einsatzzeitraum). Kein Soll, kein Stundenkonto,
+                    keine Prüfung auf fehlende Buchungen.
                   </span>
-                </label>
-              )}
+                </span>
+              </label>
             </section>
             <section className="lg:col-span-2">
               <h4 className="mb-1 text-sm font-medium text-slate-700">Urlaubsanspruch</h4>
@@ -126,7 +125,7 @@ export function TeamEditor({ team, onChange, defaultFrom }: Props) {
               rates: [],
               working_hours: [],
               assignments: [],
-              may_book_outside: false,
+              untracked: false,
               vacation: [],
             },
           ])

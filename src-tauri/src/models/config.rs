@@ -72,11 +72,13 @@ pub struct TeamMember {
     /// abgerechnet und als „außerhalb des Teams“ markiert).
     #[serde(default)]
     pub assignments: Vec<AssignmentPeriod>,
-    /// Außerhalb der Einsatzzeiträume wie die Rolle „darf buchen“ behandeln:
-    /// Buchungen aufs Projekt sind erlaubt (neutral statt „außerhalb des
-    /// Teams“), werden nach Regel abgerechnet, aber nicht als Zeiterfassung.
-    #[serde(default)]
-    pub may_book_outside: bool,
+    /// Ohne Zeiterfassung (z. B. weil der Export nicht alle Buchungen der
+    /// Person enthält): nur Buchungen aufs Projekt zählen – abgerechnet nach
+    /// Regel wie „darf buchen“ und in der Prognose (Auslastung); kein Soll,
+    /// kein Stundenkonto, keine Prüfung auf fehlende Buchungen.
+    /// (`may_book_outside` = frühere Option, wird übernommen.)
+    #[serde(default, alias = "may_book_outside")]
+    pub untracked: bool,
     /// Urlaubsanspruch je Kalenderjahr (für den Resturlaub).
     #[serde(default)]
     pub vacation: Vec<VacationEntitlement>,
@@ -575,6 +577,19 @@ fn check_periods(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn without_time_tracking_takes_over_the_former_option() {
+        let member = |json: &str| serde_json::from_str::<TeamMember>(json).unwrap();
+        assert!(!member(r#"{ "name": "Lena Beispiel" }"#).untracked);
+        assert!(member(r#"{ "name": "Lena Beispiel", "untracked": true }"#).untracked);
+        // frühere Option „außerhalb des Einsatzzeitraums wie darf buchen“
+        let former = member(r#"{ "name": "Lena Beispiel", "may_book_outside": true }"#);
+        assert!(former.untracked);
+        let saved = serde_json::to_value(&former).unwrap();
+        assert_eq!(saved["untracked"], true);
+        assert!(saved.get("may_book_outside").is_none());
+    }
 
     const EXAMPLE: &str = r#"{
       "id": "6f1c2a8e-0000-4000-8000-000000000001",

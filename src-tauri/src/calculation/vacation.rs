@@ -22,8 +22,9 @@ pub fn vacation_status(config: &ProjectConfig, ev: &Evaluation) -> Vec<VacationS
     config
         .team
         .iter()
-        .zip(&ev.persons)
-        .filter_map(|(member, person)| {
+        .filter_map(|member| {
+            // ohne Zeiterfassung keine Person (und kein Resturlaub)
+            let person = ev.persons.iter().find(|p| p.name == member.name)?;
             let entitlement = member.vacation.iter().find(|v| v.year == year)?;
             let taken = person.periods.ytd.vac_days;
             let planned: f64 = config
@@ -76,7 +77,7 @@ mod tests {
             rates: vec![],
             working_hours: vec![],
             assignments: vec![],
-            may_book_outside: false,
+            untracked: false,
             vacation,
         }
     }

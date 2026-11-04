@@ -186,6 +186,46 @@ pub fn evaluate(
             missing_rate: &mut missing_rate,
         };
 
+        if member.untracked {
+            // Ohne Zeiterfassung: nur Buchungen aufs Projekt – abgerechnet wie
+            // „darf buchen“; für die Prognose Soll, Urlaub und Abgerechnetes im Einsatz.
+            for &date in &days {
+                let assigned = member.is_assigned(date);
+                let hpd = soll::hours_per_day_for(member, &config.working_hours, date);
+                let mut day = Acc {
+                    soll_b: if is_workday(date) && assigned {
+                        hpd.unwrap_or(0.0)
+                    } else {
+                        0.0
+                    },
+                    ..Acc::default()
+                };
+                let mut raw_vacation = 0.0;
+                for entry in by_person[index].get(&date).into_iter().flatten() {
+                    match gearb::absence(entry, special) {
+                        Some(Absence::Vacation) => raw_vacation += entry.hours,
+                        Some(Absence::Sick) => {}
+                        None if is_project_booking(config, entry) => {
+                            let (booking, full_rate_hours) = guest_booking(&mut biller, entry);
+                            if assigned {
+                                day.inv_h += full_rate_hours;
+                            }
+                            guest_bookings.push(booking);
+                        }
+                        None => {}
+                    }
+                }
+                if assigned && raw_vacation > 0.0 {
+                    day.vac_h = soll::normalize_absence(raw_vacation, hpd.unwrap_or(0.0)).1;
+                }
+                if reference_to.is_some_and(|to| date <= to) {
+                    references[index] += &day;
+                }
+            }
+            warnings.extend(missing_rate.warning(&member.name));
+            continue;
+        }
+
         for &date in &days {
             let workday = is_workday(date);
             let assigned = member.is_assigned(date);
@@ -210,11 +250,6 @@ pub fn evaluate(
                     if gearb::absence(entry, special).is_some()
                         || !is_project_booking(config, entry)
                     {
-                        continue;
-                    }
-                    if member.may_book_outside {
-                        // wie „darf buchen“: erlaubt, abgerechnet, ohne Zeiterfassung
-                        guest_bookings.push(guest_booking(&mut biller, entry));
                         continue;
                     }
                     let mut item = outside_booking(entry, OutsideReason::OutsideAssignment);
@@ -339,12 +374,12 @@ pub fn evaluate(
             invoice: &mut invoice,
             missing_rate: &mut guest_missing_rate[g],
         };
-        guest_bookings.push(guest_booking(&mut biller, entry));
+        guest_bookings.push(guest_booking(&mut biller, entry).0);
     }
     for (guest, missing_rate) in config.guests.iter().zip(&guest_missing_rate) {
         warnings.extend(missing_rate.warning(&guest.name));
     }
-    // nach Datum; am selben Tag Teammitglieder vor „darf buchen“
+    // nach Datum; am selben Tag Teammitglieder (ohne Zeiterfassung) vor „darf buchen“
     guest_bookings.sort_by_key(|b| b.date);
 
     Evaluation {
@@ -476,9 +511,10 @@ fn is_project_booking(config: &ProjectConfig, entry: &TimeEntry) -> bool {
         || config.billing_rules.iter().any(|r| is(&r.element))
 }
 
-/// Buchung mit der Rolle „darf buchen“: nach Regel (Kost2Art) abgerechnet,
-/// ohne Zeiterfassung.
-fn guest_booking(biller: &mut Biller, entry: &TimeEntry) -> GuestBooking {
+/// Buchung ohne Zeiterfassung („darf buchen“ bzw. Teammitglied ohne
+/// Zeiterfassung): nach Regel (Kost2Art) abgerechnet. Dazu die abgerechneten
+/// Stunden zum vollen Satz (für die Auslastung in der Prognose).
+fn guest_booking(biller: &mut Biller, entry: &TimeEntry) -> (GuestBooking, f64) {
     let config = biller.config;
     let rule = billing::matching_rule(&config.billing_rules, entry, &config.element_filter);
     let mut booking = GuestBooking {
@@ -492,14 +528,16 @@ fn guest_booking(biller: &mut Biller, entry: &TimeEntry) -> GuestBooking {
         billed_hours: 0.0,
         net: 0.0,
     };
+    let mut full_rate_hours = 0.0;
     if let Some((rule_index, rule)) = rule
         && let Some((billed, net)) = biller.invoice(entry, rule_index, rule, false)
     {
         booking.invoiced = true;
         booking.billed_hours = round2(billed);
         booking.net = round2(net);
+        full_rate_hours = billed * rule.rate_percent / 100.0;
     }
-    booking
+    (booking, full_rate_hours)
 }
 
 fn outside_booking(entry: &TimeEntry, reason: OutsideReason) -> OutsideBooking {

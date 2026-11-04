@@ -106,6 +106,12 @@ pub fn parse_export_file(
         missing_current,
         outside: evaluation.outside,
         guests: config.guests.iter().map(|g| g.name.clone()).collect(),
+        untracked: config
+            .team
+            .iter()
+            .filter(|m| m.untracked)
+            .map(|m| m.name.clone())
+            .collect(),
         guest_bookings: evaluation.guest_bookings,
         forecast,
         forecast_accuracy,
