@@ -80,6 +80,9 @@ pub fn run() {
             // Sofort (Windows: Maße stimmen schon) und noch einmal, sobald das
             // Fenster angezeigt wird (GTK liefert vorher unsinnige Maße).
             if let Some(main) = app.get_webview_window("main") {
+                // Versionsnummer (aus package.json) im Fenstertitel
+                let info = app.package_info();
+                let _ = main.set_title(&format!("{} {}", info.name, info.version));
                 let _ = window::fit_to_screen(&main);
                 window::fit_to_screen_soon(main);
             }
@@ -99,4 +102,30 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    /// Die Versionsnummer steht in package.json (Quelle für tauri.conf.json und
+    /// die Anzeige) und in Cargo.toml – beide müssen gleich sein.
+    #[test]
+    fn version_is_the_same_everywhere() {
+        let read = |file: &str| -> serde_json::Value {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(file);
+            serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
+        };
+        let package = read("../package.json");
+        assert_eq!(package["version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(read("tauri.conf.json")["version"], "../package.json");
+        let lock = read("../package-lock.json");
+        assert_eq!(lock["version"], package["version"]);
+        assert_eq!(lock["packages"][""]["version"], package["version"]);
+        // so liest Tauri sie (Fenstertitel, Datei-Version der Exe)
+        let context: tauri::Context<tauri::Wry> = tauri::generate_context!();
+        assert_eq!(
+            context.package_info().version.to_string(),
+            package["version"].as_str().unwrap()
+        );
+        assert_eq!(context.package_info().name, "Billing Tracker");
+    }
 }

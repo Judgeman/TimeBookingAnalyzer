@@ -27,6 +27,10 @@ async function loadSample(app) {
 test("Projekt über die Oberfläche anlegen", () =>
   withApp("projekt-anlegen", { withSample: false }, async (app) => {
     await app.waitForText("Noch keine Projekte angelegt.");
+    // Versionsnummer aus package.json in der Seitenleiste und im Titel
+    const { version } = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8"));
+    await app.waitForText(`Billing Tracker ${version}`);
+    assert.equal(await app.execute("return document.title"), `Billing Tracker ${version}`);
     await app.click("button", "+ Neues Projekt");
     await app.waitForText("Neues Projekt");
     await app.setValue('input[placeholder="Musterkunde GmbH / Lager-App"]', "Testprojekt");

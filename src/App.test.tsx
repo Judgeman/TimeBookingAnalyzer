@@ -121,6 +121,7 @@ describe("App (Integration mit nachgebildetem Backend)", () => {
     const user = userEvent.setup();
     render(<App />);
     expect(await screen.findByRole("heading", { name: "Musterkunde GmbH / Lager-App" })).toBeInTheDocument();
+    expect(document.title).toMatch(/^Billing Tracker \d+\.\d+\.\d+/);
 
     await drop("/daten/Beispiel-Export_2026-10-31.xlsx");
     // Stichtag beim Start = heute

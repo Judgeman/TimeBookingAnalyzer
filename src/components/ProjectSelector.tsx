@@ -1,4 +1,5 @@
 import { shortPath } from "../lib/format";
+import { APP_NAME, APP_VERSION } from "../lib/version";
 import type { ProjectFolder, ProjectSummary } from "../types/results";
 
 interface Props {
@@ -94,6 +95,9 @@ export function ProjectSelector({
         >
           + Neues Projekt
         </button>
+        <p className="mt-2 text-center text-[11px] text-slate-400">
+          {APP_NAME} {APP_VERSION}
+        </p>
       </div>
     </nav>
   );

@@ -52,6 +52,7 @@ src/                        # React Frontend
       metrics.ts            # Kennzahl-Labels, Tooltips (Rechenregeln), Formatierung
   lib/
     api.ts                  # Typisierte Wrapper um invoke()
+    version.ts              # Name + Versionsnummer (aus package.json, per Vite `define`)
     format.ts               # Zahl-/Datumsformatierung (de-DE)
     dates.ts                # Eingabe freier Tage (TT.MM.JJJJ / ISO) parsen
     assignments.ts          # Einsatzzeiträume: Text, Überschneidung mit Monat/KW
@@ -118,6 +119,18 @@ cd src-tauri && cargo clippy --all-targets -- -D warnings
 cd src-tauri && cargo llvm-cov --lib --summary-only         # Rust-Abdeckung
 cd src-tauri && cargo run --example generate_sample_export  # Beispiel-Export neu erzeugen
 cd src-tauri && UPDATE_FIXTURES=1 cargo test frontend_fixture  # Vertrags-Fixture neu erzeugen
+```
+
+### Versionsnummer
+Einzige Quelle ist `package.json` (`tauri.conf.json` verweist mit `"version": "../package.json"`
+darauf; das Frontend bekommt sie über Vite `define` als `__APP_VERSION__`). Angezeigt unten in
+der Seitenleiste und im Fenstertitel („Billing Tracker 0.1.0“), Datei-Version der Exe ebenso.
+`src-tauri/Cargo.toml` muss dieselbe Version haben – der Test `version_is_the_same_everywhere`
+prüft package.json, package-lock.json, Cargo.toml und die von Tauri gelesene Version. Erhöhen:
+
+```bash
+npm version 1.0.0 --no-git-tag-version   # package.json + package-lock.json
+# src-tauri/Cargo.toml: version = "1.0.0", danach cargo build (aktualisiert Cargo.lock)
 ```
 
 ### Tests

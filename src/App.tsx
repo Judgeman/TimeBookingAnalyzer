@@ -6,6 +6,7 @@ import { ProjectSelector } from "./components/ProjectSelector";
 import { ResultsView } from "./components/results/ResultsView";
 import { api, errorMessage } from "./lib/api";
 import { todayIso } from "./lib/format";
+import { APP_TITLE } from "./lib/version";
 import { newProject, type ProjectConfig } from "./types/config";
 import type {
   AuswertungResult,
@@ -52,6 +53,11 @@ export default function App() {
     setProjects(list);
     setFolder(location);
     return list;
+  }, []);
+
+  // Versionsnummer im Titel (das Fenster bekommt sie vom Backend).
+  useEffect(() => {
+    document.title = APP_TITLE;
   }, []);
 
   // Projektliste laden und zuletzt aktives Projekt wiederherstellen.

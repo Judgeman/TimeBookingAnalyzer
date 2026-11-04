@@ -1,6 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import pkg from "../../package.json";
+import { APP_TITLE, APP_VERSION } from "../lib/version";
 import { ProjectSelector } from "./ProjectSelector";
 
 describe("ProjectSelector", () => {
@@ -31,6 +33,13 @@ describe("ProjectSelector", () => {
     expect(onSelect).toHaveBeenCalledWith("b");
     await user.click(screen.getByRole("button", { name: "+ Neues Projekt" }));
     expect(onCreate).toHaveBeenCalled();
+  });
+
+  it("zeigt die Versionsnummer aus package.json", () => {
+    render(<ProjectSelector projects={[]} activeId={null} loading={false} onSelect={() => {}} onCreate={() => {}} />);
+    expect(APP_VERSION).toBe(pkg.version);
+    expect(APP_TITLE).toBe(`Billing Tracker ${pkg.version}`);
+    expect(screen.getByText(APP_TITLE)).toBeInTheDocument();
   });
 
   it("zeigt den Projektordner der Instanz und bietet frühere Projekte an", async () => {
