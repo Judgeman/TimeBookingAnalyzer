@@ -317,7 +317,8 @@ plus_krank = plus - sick_h_norm
   `guest_bookings` und werden nach den Abrechnungsregeln (Kost2Art) mit dem eigenen
   Satz abgerechnet (Rechnungspositionen nach dem Team; ohne Satz → 0 € + Hinweis).
   Name darf nicht zugleich im Team stehen (Validierung). Rechnung netto = Team
-  `bill_eur` + `guest_bookings[].net`. UI: neutraler (blauer) Hinweis mit Liste,
+  `bill_eur` + `guest_bookings[].net`. UI: neutraler (blauer) Hinweis mit Liste (filterbar
+  nach Person, Monat, abgerechnet ja/nein, mit Summen der Auswahl),
   eigene Spalte „darf buchen“ in der Rechnung, Kennzeichnung im Tab „Import“.
 - **Prognose** (`forecast.rs`): ab dem Tag nach min(Stichtag, Stand des Exports) bis
   Jahresende bzw. Ende des spätesten Budget-Zeitraums (max. 3 Jahre). Faktoren je

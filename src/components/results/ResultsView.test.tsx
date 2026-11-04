@@ -104,7 +104,8 @@ describe("ResultsView – Einsatzzeitraum und Buchungen außerhalb des Teams", (
     await user.click(screen.getByRole("tab", { name: "Monate" }));
     await user.click(screen.getByRole("button", { name: "Lena Beispiel" }));
 
-    const row = (month: string) => screen.getByText(month).closest("tr")!;
+    // ohne die Monate im Filter „darf buchen“
+    const row = (month: string) => screen.getByText(month, { ignore: "script, style, option" }).closest("tr")!;
     expect(within(row("Februar 2026")).queryByText("nicht im Projekt")).toBeNull();
     expect(within(row("April 2026")).getByText("nicht im Projekt")).toBeInTheDocument();
     expect(row("April 2026")).toHaveClass("text-slate-400");

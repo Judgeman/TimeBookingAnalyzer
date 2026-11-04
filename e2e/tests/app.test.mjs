@@ -221,6 +221,13 @@ test("Darf buchen: Buchungen ohne Zeiterfassung, abgerechnet nach Kost2Art", () 
     );
     assert.ok(text.includes("2 Buchungen auf das Projekt außerhalb des Teams"));
 
+    // Filter: nur nicht abgerechnete Buchungen
+    await app.execute(`const s = document.querySelector('select[aria-label="Filter abgerechnet"]');
+      s.closest("details").open = true;
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value").set.call(s, "no");
+      s.dispatchEvent(new Event("change", { bubbles: true }));`);
+    await app.waitForText("Auswahl: 2 von 3 Buchungen · 5,00 h aufs Projekt · 5,00 h nicht abgerechnet");
+
     await app.tab("Rechnung");
     await app.waitForText("Netto pro Person und Monat");
     const header = await app.execute(

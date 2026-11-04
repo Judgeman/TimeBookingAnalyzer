@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { sampleResult } from "../../test/fixture";
@@ -45,6 +45,41 @@ describe("GuestBookings (darf buchen)", () => {
     expect(text()).toContain("Karl Beispiel: 2,00 h aufs Projekt · 2,00 h abgerechnet (200,00 € netto)");
     expect(text()).toContain("Petra Beispiel: 1,00 h aufs Projekt · 1,00 h nicht abgerechnet");
     expect(text()).toContain("P100 Lager-App · –");
+  });
+
+  it("filtert nach Person, Monat und abgerechnet", async () => {
+    const user = userEvent.setup();
+    const result = sampleResult();
+    const [feb, jun, sep] = result.guest_bookings;
+    const bookings: GuestBooking[] = [feb, { ...jun, person: "Lena Beispiel", date: "2026-05-04" }, jun, sep];
+    render(<GuestBookings bookings={bookings} persons={result.persons} />);
+    await user.click(screen.getByText(/Darf buchen \(ohne Zeiterfassung\)/));
+    const rows = () =>
+      within(screen.getByRole("table")).getAllByRole("row").slice(1).map((r) => r.textContent!.replace(/\s/g, " "));
+    const status = () => screen.getByRole("status").textContent!.replace(/\s/g, " ");
+    expect(rows()).toHaveLength(4);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    const month = screen.getByLabelText<HTMLSelectElement>("Filter Monat");
+    expect([...month.options].map((o) => o.textContent)).toEqual([
+      "Alle Monate", "September 2026", "Juni 2026", "Mai 2026", "Februar 2026",
+    ]);
+
+    await user.selectOptions(screen.getByLabelText("Filter Person"), "Karl Beispiel");
+    expect(rows()).toHaveLength(3);
+    expect(status()).toBe(
+      "Auswahl: 3 von 4 Buchungen · 9,00 h aufs Projekt · 4,00 h abgerechnet (480,00 € netto) · 5,00 h nicht abgerechnet",
+    );
+    await user.selectOptions(screen.getByLabelText("Filter abgerechnet"), "no");
+    expect(rows().map((r) => r.slice(0, 14))).toEqual(["Di, 10.02.2026", "Di, 22.09.2026"]);
+    expect(status()).toBe("Auswahl: 2 von 4 Buchungen · 5,00 h aufs Projekt · 5,00 h nicht abgerechnet");
+    await user.selectOptions(month, "2026-06");
+    expect(rows()).toEqual(["Keine Buchungen für diese Auswahl."]);
+
+    await user.click(screen.getByRole("button", { name: "Filter zurücksetzen" }));
+    expect(rows()).toHaveLength(4);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("Filter abgerechnet"), "yes");
+    expect(rows().map((r) => r.slice(0, 14))).toEqual(["Mo, 04.05.2026", "Di, 16.06.2026"]);
   });
 
   it("kennzeichnet Teammitglieder, die außerhalb ihres Einsatzes buchen dürfen", async () => {

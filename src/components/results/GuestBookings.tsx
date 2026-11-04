@@ -1,6 +1,7 @@
+import { useState } from "react";
 import type { GuestBooking, PersonResult } from "../../types/results";
 import { describeAssignments } from "../../lib/assignments";
-import { formatDateWithWeekday, formatEuro, formatHours } from "../../lib/format";
+import { formatDateWithWeekday, formatEuro, formatHours, formatMonth } from "../../lib/format";
 
 interface Props {
   bookings: GuestBooking[];
@@ -41,9 +42,24 @@ function describe(t: Totals): string {
  * erlaubt, ohne Zeiterfassung; abgerechnet nach Kost2Art (Abrechnungsregeln).
  * Dazu Teammitglieder, die außerhalb ihres Einsatzes buchen dürfen.
  */
+const ALL = "";
+type Invoiced = "" | "yes" | "no";
+
 export function GuestBookings({ bookings, persons: team = [] }: Props) {
   const persons = [...new Set(bookings.map((b) => b.person))];
+  const months = [...new Set(bookings.map((b) => b.date.slice(0, 7)))].sort().reverse();
   const memberOf = (name: string) => team.find((p) => p.name === name);
+  const [person, setPerson] = useState(ALL);
+  const [month, setMonth] = useState(ALL);
+  const [invoiced, setInvoiced] = useState<Invoiced>(ALL);
+  const filtered = bookings.filter(
+    (b) =>
+      (person === ALL || b.person === person) &&
+      (month === ALL || b.date.startsWith(month)) &&
+      (invoiced === ALL || b.invoiced === (invoiced === "yes")),
+  );
+  const filterActive = person !== ALL || month !== ALL || invoiced !== ALL;
+  const select = "rounded-md border border-sky-300 bg-white px-2 py-1 text-sm text-sky-950";
 
   return (
     <details className="rounded-xl border border-sky-200 bg-sky-50">
@@ -62,6 +78,56 @@ export function GuestBookings({ bookings, persons: team = [] }: Props) {
             ))}
           </ul>
         )}
+        <div
+          role="group"
+          aria-label="Filter darf buchen"
+          className="flex flex-wrap items-center gap-2 border-t border-sky-200 px-4 py-2 text-sm text-sky-950"
+        >
+          <select aria-label="Filter Person" value={person} onChange={(e) => setPerson(e.target.value)} className={select}>
+            <option value={ALL}>Alle Personen</option>
+            {persons.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+          <select aria-label="Filter Monat" value={month} onChange={(e) => setMonth(e.target.value)} className={select}>
+            <option value={ALL}>Alle Monate</option>
+            {months.map((m) => (
+              <option key={m} value={m}>
+                {formatMonth(m)}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Filter abgerechnet"
+            value={invoiced}
+            onChange={(e) => setInvoiced(e.target.value as Invoiced)}
+            className={select}
+          >
+            <option value={ALL}>abgerechnet und nicht abgerechnet</option>
+            <option value="yes">nur abgerechnet</option>
+            <option value="no">nur nicht abgerechnet</option>
+          </select>
+          {filterActive && (
+            <>
+              <span role="status" className="text-sky-900">
+                Auswahl: {filtered.length} von {bookings.length} Buchungen · {describe(totalsOf(filtered))}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setPerson(ALL);
+                  setMonth(ALL);
+                  setInvoiced(ALL);
+                }}
+                className="text-sky-800 underline hover:text-sky-950"
+              >
+                Filter zurücksetzen
+              </button>
+            </>
+          )}
+        </div>
         <div className="max-h-72 overflow-auto">
           <table className="w-full text-sm text-sky-950">
             <thead className="sticky top-0 bg-sky-100 text-xs text-sky-900">
@@ -75,7 +141,14 @@ export function GuestBookings({ bookings, persons: team = [] }: Props) {
               </tr>
             </thead>
             <tbody className="divide-y divide-sky-100">
-              {bookings.map((b, i) => {
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-3 text-sky-800">
+                    Keine Buchungen für diese Auswahl.
+                  </td>
+                </tr>
+              )}
+              {filtered.map((b, i) => {
                 const member = memberOf(b.person);
                 return (
                   <tr key={i}>
