@@ -93,6 +93,7 @@ describe("TeamEditor", () => {
         rates: [{ from: "2026-01-01", to: null, rate: 0 }],
         working_hours: [{ from: "2026-01-01", to: null, hours_per_day: 8 }],
         assignments: [],
+        vacation: [],
       },
     ]);
     await user.click(screen.getByRole("button", { name: "Person entfernen" }));
@@ -164,7 +165,7 @@ describe("TeamEditor – Einsatzzeitraum", () => {
     const onChange = vi.fn();
     render(
       <Stateful<TeamMember[]>
-        initial={[{ name: "Lena Beispiel", rates: [], working_hours: [], assignments: [] }]}
+        initial={[{ name: "Lena Beispiel", rates: [], working_hours: [], assignments: [], vacation: [] }]}
         onChange={onChange}
         render={(team, set) => <TeamEditor team={team} onChange={set} defaultFrom="2026-01-01" />}
       />,
@@ -290,5 +291,33 @@ describe("PlanningEditor (Budget & Abwesenheiten)", () => {
     await user.click(screen.getAllByTitle("Abwesenheit entfernen")[0]);
     expect(onAbsences.mock.calls.at(-1)![0]).toHaveLength(1);
     vi.useRealTimers();
+  });
+});
+
+describe("TeamEditor – Urlaubsanspruch", () => {
+  it("legt Ansprüche je Jahr an, ändert und entfernt sie", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <Stateful<TeamMember[]>
+        initial={[{ name: "Erika Mustermann", rates: [], working_hours: [], assignments: [], vacation: [] }]}
+        onChange={onChange}
+        render={(team, set) => <TeamEditor team={team} onChange={set} defaultFrom="2026-01-01" />}
+      />,
+    );
+    expect(screen.getByText(/Kein Anspruch hinterlegt/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "+ Urlaubsanspruch" }));
+    expect(onChange.mock.calls.at(-1)![0][0].vacation).toEqual([{ year: 2026, days: 30, carry_over: 0 }]);
+    fireEvent.change(screen.getByLabelText("Urlaub Tage"), { target: { value: "28" } });
+    fireEvent.change(screen.getByLabelText("Urlaub Übertrag"), { target: { value: "2.5" } });
+    expect(onChange.mock.calls.at(-1)![0][0].vacation).toEqual([{ year: 2026, days: 28, carry_over: 2.5 }]);
+    await user.click(screen.getByRole("button", { name: "+ Urlaubsanspruch" })); // nächstes Jahr
+    expect(onChange.mock.calls.at(-1)![0][0].vacation[1].year).toBe(2027);
+    fireEvent.change(screen.getAllByLabelText("Urlaub Jahr")[1], { target: { value: "2028" } });
+    expect(onChange.mock.calls.at(-1)![0][0].vacation[1].year).toBe(2028);
+    fireEvent.change(screen.getAllByLabelText("Urlaub Jahr")[1], { target: { value: "" } }); // bleibt
+    expect(onChange.mock.calls.at(-1)![0][0].vacation[1].year).toBe(2028);
+    await user.click(screen.getAllByTitle("Urlaubsanspruch entfernen")[0]);
+    expect(onChange.mock.calls.at(-1)![0][0].vacation).toEqual([{ year: 2028, days: 30, carry_over: 0 }]);
   });
 });

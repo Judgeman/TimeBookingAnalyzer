@@ -13,6 +13,7 @@ use tauri::{Manager, WindowEvent};
 use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
 use storage::beside_exe;
+use storage::forecasts::ForecastStore;
 use storage::imports::ImportStore;
 use storage::projects::ProjectStore;
 
@@ -74,6 +75,7 @@ pub fn run() {
             let legacy_dir = app.path().app_data_dir().ok().map(|d| d.join("projects"));
             app.manage(ProjectStore::new(beside_exe(&exe, "projects")).with_legacy(legacy_dir));
             app.manage(ImportStore::new(beside_exe(&exe, "Import")));
+            app.manage(ForecastStore::new(beside_exe(&exe, "Prognosen")));
             // Gespeichertes Fenster (bzw. Standardgröße) an den Bildschirm anpassen.
             // Sofort (Windows: Maße stimmen schon) und noch einmal, sobald das
             // Fenster angezeigt wird (GTK liefert vorher unsinnige Maße).

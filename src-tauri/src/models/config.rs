@@ -72,6 +72,19 @@ pub struct TeamMember {
     /// abgerechnet und als „außerhalb des Teams“ markiert).
     #[serde(default)]
     pub assignments: Vec<AssignmentPeriod>,
+    /// Urlaubsanspruch je Kalenderjahr (für den Resturlaub).
+    #[serde(default)]
+    pub vacation: Vec<VacationEntitlement>,
+}
+
+/// Urlaubsanspruch eines Jahres in Tagen, dazu der Übertrag aus dem Vorjahr.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct VacationEntitlement {
+    pub year: i32,
+    pub days: f64,
+    /// Resturlaub aus dem Vorjahr (Tage).
+    #[serde(default)]
+    pub carry_over: f64,
 }
 
 impl TeamMember {
@@ -401,6 +414,20 @@ impl ProjectConfig {
                 &format!("{}: Einsatzzeitraum", member.name),
                 member.assignments.iter().map(|a| (a.from, a.to)),
             );
+            for (i, vacation) in member.vacation.iter().enumerate() {
+                if member.vacation[..i].iter().any(|v| v.year == vacation.year) {
+                    errors.push(format!(
+                        "{}: Urlaubsanspruch {} ist doppelt.",
+                        member.name, vacation.year
+                    ));
+                }
+                if !(0.0..=366.0).contains(&vacation.days) || !vacation.carry_over.is_finite() {
+                    errors.push(format!(
+                        "{}: Urlaubsanspruch {} ist ungültig ({} Tage).",
+                        member.name, vacation.year, vacation.days
+                    ));
+                }
+            }
         }
 
         for (i, guest) in self.guests.iter().enumerate() {
@@ -744,6 +771,32 @@ mod tests {
             amount: 1.0,
         };
         assert_eq!(backwards.range(), None);
+    }
+
+    #[test]
+    fn vacation_entitlements_are_validated() {
+        let mut config: ProjectConfig = serde_json::from_str(EXAMPLE).unwrap();
+        assert!(config.team[0].vacation.is_empty());
+        config.team[0].vacation = serde_json::from_str(
+            r#"[{ "year": 2026, "days": 30, "carry_over": 2.5 }, { "year": 2027, "days": 28 }]"#,
+        )
+        .unwrap();
+        assert_eq!(config.team[0].vacation[1].carry_over, 0.0);
+        assert!(config.validate().is_ok());
+        config.team[0].vacation.push(VacationEntitlement {
+            year: 2026,
+            days: -1.0,
+            carry_over: 0.0,
+        });
+        let err = config.validate().unwrap_err();
+        assert!(
+            err.contains("Erika Mustermann: Urlaubsanspruch 2026 ist doppelt"),
+            "{err}"
+        );
+        assert!(
+            err.contains("Urlaubsanspruch 2026 ist ungültig (-1 Tage)"),
+            "{err}"
+        );
     }
 
     #[test]

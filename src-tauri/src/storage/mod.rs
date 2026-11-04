@@ -1,3 +1,4 @@
+pub mod forecasts;
 pub mod imports;
 pub mod projects;
 

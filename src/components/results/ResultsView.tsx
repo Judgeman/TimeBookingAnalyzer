@@ -323,7 +323,11 @@ export function ResultsView({
             />
           )}
           {tab === "forecast" && (
-            <ForecastView forecast={result.forecast} plannedAbsences={plannedAbsences} />
+            <ForecastView
+              forecast={result.forecast}
+              plannedAbsences={plannedAbsences}
+              accuracy={result.forecast_accuracy}
+            />
           )}
           {tab === "insights" && <InsightsView result={result} />}
         </>

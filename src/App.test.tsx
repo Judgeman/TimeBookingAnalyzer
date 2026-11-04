@@ -40,6 +40,7 @@ function sampleConfig(): ProjectConfig {
     ...m,
     working_hours: m.working_hours ?? [],
     assignments: m.assignments ?? [],
+    vacation: m.vacation ?? [],
   }));
   return config;
 }

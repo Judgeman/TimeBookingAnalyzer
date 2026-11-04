@@ -28,14 +28,37 @@ describe("InsightsView", () => {
     expect(text(tile("Nötig je Restmonat (2)"))).toContain("20.067,50 €Prognose: 23.814,76 € je Monat");
     expect(screen.getByRole("img", { name: "Abweichung des Abrufs vom Richtwert je Monat" })).toBeInTheDocument();
 
-    const max = screen.getByText("Max Mustermann", { selector: "td" }).closest("tr")!;
+    const paceTable = screen.getByText("Pace je Person").nextElementSibling as HTMLElement;
+    const max = within(paceTable).getByText("Max Mustermann", { selector: "td" }).closest("tr")!;
     expect(text(max)).toContain("103,2 %");
     expect(text(max)).toContain("117 %");
     expect(within(max).getByLabelText("steigend")).toBeInTheDocument();
     expect(text(max)).toContain("+91,50 hzuletzt +83,50 h");
     expect(text(max)).toContain("1,1 % · 11 T");
-    expect(text(screen.getByText("Lena Beispiel", { selector: "td" }).closest("tr")!)).toContain("2 M.");
+    expect(text(within(paceTable).getByText("Lena Beispiel", { selector: "td" }).closest("tr")!)).toContain("2 M.");
     expect(screen.getByText("Kennzahlen erklärt")).toBeInTheDocument();
+
+    // Urlaub: Rest = Anspruch + Übertrag − genommen − geplant, Hinweis kurz vor Jahresende
+    const vacation = screen.getByText("Urlaub 2026").nextElementSibling as HTMLElement;
+    const erika = within(vacation).getByText("Erika Mustermann").closest("tr")!;
+    expect(text(erika)).toBe("Erika Mustermann30 T2 T15 T5 T12 T");
+    expect(text(screen.getByText(/Ohne Urlaubsanspruch 2026/))).toBe("Ohne Urlaubsanspruch 2026: Lena Beispiel");
+    expect(text(hints)).toContain("Erika Mustermann: noch 12 Urlaubstage offen und nicht eingeplant – bis 31.12.2026 einplanen.");
+    expect(text(hints)).toContain("Max Mustermann: noch 9 Urlaubstage offen");
+  });
+
+  it("Urlaub ohne Anspruch und überzogen", () => {
+    const r = sampleResult();
+    r.vacation = [];
+    const { unmount } = render(<InsightsView result={r} />);
+    expect(text()).toContain("Kein Urlaubsanspruch hinterlegt");
+    unmount();
+    const over = sampleResult();
+    over.vacation = [{ ...over.vacation[1], planned: 20, remaining: -3 }];
+    render(<InsightsView result={over} />);
+    const row = within(screen.getByText("Urlaub 2026").nextElementSibling as HTMLElement).getByText("-3 T");
+    expect(row).toHaveClass("text-red-700");
+    expect(text()).toContain("Max Mustermann: 3 Urlaubstage mehr genommen bzw. geplant als Anspruch 2026.");
   });
 
   it("ohne Budget: Höchster/niedrigster Abruf statt Budget-Rekorden", () => {

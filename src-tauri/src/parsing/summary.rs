@@ -111,6 +111,7 @@ mod tests {
             rates: vec![],
             working_hours: vec![],
             assignments: vec![],
+            vacation: vec![],
         }
     }
 

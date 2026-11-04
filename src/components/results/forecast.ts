@@ -1,4 +1,4 @@
-import type { BudgetStatus, Forecast, ForecastMonth } from "../../types/results";
+import type { AccuracyMonth, BudgetStatus, Forecast, ForecastMonth } from "../../types/results";
 
 /** Letzter Tag mit Daten = Tag vor dem ersten Prognosetag (ISO). */
 export function dataEndOf(forecast: Forecast): string {
@@ -98,4 +98,39 @@ export function budgetVerdict(budget: BudgetStatus): { over: boolean; text: stri
   if (budget.exceeded) return { over: true, text: "Budget bereits überschritten" };
   if (budget.deviation > 0) return { over: true, text: "Voraussichtliche Überziehung" };
   return { over: false, text: "Budget reicht voraussichtlich" };
+}
+
+/** Treffer: Prognose höchstens 10 % neben dem Ist. */
+export const ACCURACY_HIT = 0.1;
+
+export interface AccuracySummary {
+  /** Monate mit Vergleich (Ist > 0). */
+  count: number;
+  /** Ø absolute Abweichung (MAPE), 0…1. */
+  meanError: number | null;
+  /** Tendenz: Σ(Prognose − Ist) ÷ Σ Ist (positiv = zu hoch). */
+  bias: number | null;
+  /** Monate innerhalb ±10 %. */
+  hits: number;
+}
+
+/** Relative Abweichung Prognose ↔ Ist (`null` ohne Ist). */
+export function deviation(predicted: number, actual: number): number | null {
+  return actual > 0 ? (predicted - actual) / actual : null;
+}
+
+/** Kennzahlen der Prognosegüte – nachgerechnet oder gespeichert. */
+export function accuracySummary(months: AccuracyMonth[], source: "backtest" | "recorded"): AccuracySummary {
+  const pairs = months
+    .map((m) => ({ predicted: source === "backtest" ? m.backtest_net : m.recorded_net, actual: m.actual_net }))
+    .filter((p): p is { predicted: number; actual: number } => p.predicted !== null && p.actual > 0);
+  if (pairs.length === 0) return { count: 0, meanError: null, bias: null, hits: 0 };
+  const errors = pairs.map((p) => Math.abs(p.predicted - p.actual) / p.actual);
+  const actualSum = pairs.reduce((s, p) => s + p.actual, 0);
+  return {
+    count: pairs.length,
+    meanError: errors.reduce((a, b) => a + b, 0) / errors.length,
+    bias: pairs.reduce((s, p) => s + p.predicted - p.actual, 0) / actualSum,
+    hits: errors.filter((e) => e <= ACCURACY_HIT + 1e-9).length,
+  };
 }

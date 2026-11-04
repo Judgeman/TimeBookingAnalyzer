@@ -134,7 +134,40 @@ pub struct AuswertungResult {
     pub guest_bookings: Vec<GuestBooking>,
     /// Prognose der Rechnung und Budget-Abgleich.
     pub forecast: Forecast,
+    /// Prognosegüte je abgeschlossenem Monat.
+    pub forecast_accuracy: Vec<AccuracyMonth>,
+    /// Resturlaub je Person mit Urlaubsanspruch im Stichtag-Jahr.
+    pub vacation: Vec<VacationStatus>,
     pub overview: ParsedExport,
+}
+
+/// Resturlaub = Anspruch + Übertrag − genommen − geplant (Tage).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct VacationStatus {
+    pub person: String,
+    pub year: i32,
+    pub entitlement: f64,
+    pub carry_over: f64,
+    /// Urlaub bis zum Stichtag (ganze/halbe Tage).
+    pub taken: f64,
+    /// Geplante Urlaube nach dem Stand der Daten bis Jahresende (Werktage).
+    pub planned: f64,
+    pub remaining: f64,
+}
+
+/// Prognose für einen abgeschlossenen Monat gegenüber dem tatsächlichen Ergebnis.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct AccuracyMonth {
+    /// "2026-09"
+    pub month: String,
+    /// Tatsächlich abgerechnet (Netto).
+    pub actual_net: f64,
+    /// Nachgerechnete Prognose mit dem Stand am Monatsbeginn (heutige Konfiguration).
+    pub backtest_net: f64,
+    /// Zuletzt vor Monatsbeginn gespeicherte Prognose (falls vorhanden) …
+    pub recorded_net: Option<f64>,
+    /// … und ihr Stand der Daten.
+    pub recorded_on: Option<NaiveDate>,
 }
 
 /// Prognose der Rechnung ab dem Tag nach dem Stand der Daten.

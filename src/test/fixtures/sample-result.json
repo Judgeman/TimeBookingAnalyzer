@@ -8108,6 +8108,98 @@
       "Personen mit „darf buchen“ werden nicht prognostiziert – nur ihre bereits abgerechneten Buchungen zählen."
     ]
   },
+  "forecast_accuracy": [
+    {
+      "month": "2026-01",
+      "actual_net": 44350.0,
+      "backtest_net": 45360.0,
+      "recorded_net": null,
+      "recorded_on": null
+    },
+    {
+      "month": "2026-02",
+      "actual_net": 40790.0,
+      "backtest_net": 42231.26,
+      "recorded_net": null,
+      "recorded_on": null
+    },
+    {
+      "month": "2026-03",
+      "actual_net": 28965.0,
+      "backtest_net": 31571.3,
+      "recorded_net": null,
+      "recorded_on": null
+    },
+    {
+      "month": "2026-04",
+      "actual_net": 29675.0,
+      "backtest_net": 29024.1,
+      "recorded_net": null,
+      "recorded_on": null
+    },
+    {
+      "month": "2026-05",
+      "actual_net": 26315.0,
+      "backtest_net": 26235.22,
+      "recorded_net": null,
+      "recorded_on": null
+    },
+    {
+      "month": "2026-06",
+      "actual_net": 31975.0,
+      "backtest_net": 30627.68,
+      "recorded_net": null,
+      "recorded_on": null
+    },
+    {
+      "month": "2026-07",
+      "actual_net": 28311.25,
+      "backtest_net": 33282.76,
+      "recorded_net": null,
+      "recorded_on": null
+    },
+    {
+      "month": "2026-08",
+      "actual_net": 24557.5,
+      "backtest_net": 30414.81,
+      "recorded_net": null,
+      "recorded_on": null
+    },
+    {
+      "month": "2026-09",
+      "actual_net": 34400.0,
+      "backtest_net": 28795.03,
+      "recorded_net": null,
+      "recorded_on": null
+    },
+    {
+      "month": "2026-10",
+      "actual_net": 30526.25,
+      "backtest_net": 28846.03,
+      "recorded_net": null,
+      "recorded_on": null
+    }
+  ],
+  "vacation": [
+    {
+      "person": "Erika Mustermann",
+      "year": 2026,
+      "entitlement": 30.0,
+      "carry_over": 2.0,
+      "taken": 15.0,
+      "planned": 5.0,
+      "remaining": 12.0
+    },
+    {
+      "person": "Max Mustermann",
+      "year": 2026,
+      "entitlement": 28.0,
+      "carry_over": 0.0,
+      "taken": 11.0,
+      "planned": 8.0,
+      "remaining": 9.0
+    }
+  ],
   "overview": {
     "project_id": "beispiel-lager-app",
     "project_name": "Musterkunde GmbH / Lager-App",

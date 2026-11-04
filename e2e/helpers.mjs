@@ -16,6 +16,9 @@ export const projectsDir = () => join(dirname(env.app), "projects");
 /** Letzte Import-Dateien je Projekt: `Import` neben der Programmdatei. */
 export const importDir = () => join(dirname(env.app), "Import");
 
+/** Gespeicherte Prognosen je Projekt: `Prognosen` neben der Programmdatei. */
+export const forecastDir = () => join(dirname(env.app), "Prognosen");
+
 /** Fensterposition und -größe des letzten Aufrufs: neben der Programmdatei. */
 export const windowStateFile = () => join(dirname(env.app), "window-state.json");
 
@@ -28,6 +31,7 @@ export const legacyDir = () => join(env.dataDir, "de.judgeman.billingtracker", "
  */
 export function resetProjects({ withSample, legacySample = false }) {
   rmSync(importDir(), { recursive: true, force: true });
+  rmSync(forecastDir(), { recursive: true, force: true });
   rmSync(windowStateFile(), { force: true });
   for (const dir of [projectsDir(), legacyDir()]) {
     rmSync(dir, { recursive: true, force: true });

@@ -6,6 +6,7 @@ import { join, sep } from "node:path";
 import { test } from "node:test";
 import {
   env,
+  forecastDir,
   importDir,
   legacyDir,
   projectsDir,
@@ -351,6 +352,63 @@ test("Insights: Rekord-Monate, Pace und Hinweise", () =>
     const bars = await app.execute("return document.querySelectorAll('svg[role=img] g[role=button]').length");
     assert.equal(bars, 10); // Januar–Oktober
   }));
+
+test("Resturlaub: Anspruch im Projekt, Rest und Hinweis in Insights", () =>
+  withApp("resturlaub", {}, async (app) => {
+    await loadSample(app);
+    await app.tab("Insights");
+    await app.waitForText("Urlaub 2026");
+    let text = await app.text();
+    for (const expected of [
+      "Erika Mustermann: noch 12 Urlaubstage offen und nicht eingeplant – bis 31.12.2026 einplanen.",
+      "Ohne Urlaubsanspruch 2026: Lena Beispiel",
+    ]) {
+      assert.ok(text.includes(expected), `fehlt: ${expected}`);
+    }
+    // Erikas Anspruch auf 25 Tage senken → Rest 7
+    await app.click("button", "Projekt bearbeiten");
+    await app.waitForText("Urlaubsanspruch");
+    await app.setValue('input[aria-label="Urlaub Tage"]', "25");
+    await app.click("button", "Speichern");
+    await app.waitForText("Auswertung 01.01.2026");
+    await app.tab("Insights");
+    await app.waitForText("Erika Mustermann: noch 7 Urlaubstage offen");
+  }));
+
+test("Prognosegüte: nachgerechnet, gespeichert und beim nächsten Start verglichen", async () => {
+  const saved = join(forecastDir(), "beispiel-lager-app.json");
+  await withApp("prognoseguete", {}, async (app) => {
+    await loadSample(app);
+    await app.tab("Prognose");
+    await app.waitForText("Prognosegüte");
+    const text = await app.text();
+    for (const expected of ["8,5 %", "im Schnitt 2 % zu hoch", "7 von 10", "+17,6 %", "noch keine"]) {
+      assert.ok(text.includes(expected), `fehlt: ${expected}`);
+    }
+    // vollständiger Export → Prognose mit Stand 31.10. gespeichert
+    await waitUntil(() => existsSync(saved), "Prognose nicht gespeichert");
+    const snapshots = JSON.parse(readFileSync(saved, "utf8"));
+    assert.deepEqual(snapshots.map((s) => s.data_end), ["2026-10-31"]);
+  });
+  // eine frühere Prognose (Stand 31.08.) ergänzen → Vergleich für September/Oktober
+  const snapshots = JSON.parse(readFileSync(saved, "utf8"));
+  snapshots.unshift({
+    data_end: "2026-08-31",
+    recorded_at: "2026-09-01T08:00:00",
+    months: [
+      { month: "2026-09", actual_net: 0, forecast_net: 31000 },
+      { month: "2026-10", actual_net: 0, forecast_net: 31000 },
+    ],
+  });
+  writeFileSync(saved, JSON.stringify(snapshots));
+  await withApp("prognoseguete-neustart", { keepData: true }, async (app) => {
+    await app.waitForText("Auswertung 01.01.");
+    await app.click("button", "Stand des Exports");
+    await app.tab("Prognose");
+    await app.waitForText("Stand 31.08.2026");
+    assert.ok((await app.text()).includes("−9,9 %")); // September: 31.000 statt 34.400
+  });
+});
 
 test("Fehlende Buchungen: Schwelle im Projekt einstellbar", () =>
   withApp("schwelle", {}, async (app) => {

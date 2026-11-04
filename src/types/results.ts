@@ -110,7 +110,35 @@ export interface AuswertungResult {
   guest_bookings: GuestBooking[];
   /** Prognose der Rechnung und Budget-Abgleich. */
   forecast: Forecast;
+  /** Prognosegüte je abgeschlossenem Monat. */
+  forecast_accuracy: AccuracyMonth[];
+  /** Resturlaub je Person mit Urlaubsanspruch im Stichtag-Jahr. */
+  vacation: VacationStatus[];
   overview: ParsedExport;
+}
+
+/** Resturlaub = Anspruch + Übertrag − genommen − geplant (Tage). */
+export interface VacationStatus {
+  person: string;
+  year: number;
+  entitlement: number;
+  carry_over: number;
+  /** Urlaub bis zum Stichtag. */
+  taken: number;
+  /** Geplante Urlaube nach dem Stand der Daten bis Jahresende (Werktage). */
+  planned: number;
+  remaining: number;
+}
+
+/** Prognose eines abgeschlossenen Monats gegenüber dem tatsächlichen Ergebnis. */
+export interface AccuracyMonth {
+  month: string;
+  actual_net: number;
+  /** Nachgerechnet: Prognose mit dem Stand am Ende des Vormonats. */
+  backtest_net: number;
+  /** Zuletzt vor Monatsbeginn gespeicherte Prognose (falls vorhanden). */
+  recorded_net: number | null;
+  recorded_on: IsoDate | null;
 }
 
 /** Prognose ab dem Tag nach dem Stand der Daten (Spiegel von models/results.rs). */

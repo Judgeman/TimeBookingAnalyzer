@@ -1,4 +1,4 @@
-import type { AuswertungResult, BudgetStatus, PeriodData } from "../../types/results";
+import type { AuswertungResult, BudgetStatus, PeriodData, VacationStatus } from "../../types/results";
 import { activeBudgetIndex, dataEndOf, monthEnd } from "./forecast";
 
 /**
@@ -18,6 +18,9 @@ export const THRESHOLDS = {
   sickRate: 0.05,
   /** Nicht abrechenbarer Anteil (Ablenkung) über 15 %. */
   distraction: 0.15,
+  /** Mindestens 5 offene Urlaubstage in den letzten 3 Monaten des Jahres. */
+  vacationOpenDays: 5,
+  vacationMonthsLeft: 3,
 };
 
 /** Zahl der Monate für „zuletzt“. */
@@ -241,6 +244,32 @@ export function insights(pace: TeamPace | null, persons: PersonPace[]): Insight[
       list.push({
         level: "info",
         text: `${p.name}: ${p.missingDays} Tag(e) mit fehlender Buchung – nachbuchen lassen.`,
+      });
+    }
+  }
+  return list;
+}
+
+const days = (v: number) => new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 }).format(v);
+
+/** Hinweise zum Resturlaub: überzogen bzw. viel offen kurz vor Jahresende. */
+export function vacationInsights(vacation: VacationStatus[], dataEnd: string): Insight[] {
+  const monthsLeft = 12 - Number(dataEnd.slice(5, 7));
+  const list: Insight[] = [];
+  for (const v of vacation) {
+    if (v.remaining < 0) {
+      list.push({
+        level: "warning",
+        text: `${v.person}: ${days(-v.remaining)} Urlaubstage mehr genommen bzw. geplant als Anspruch ${v.year}.`,
+      });
+    } else if (
+      Number(dataEnd.slice(0, 4)) === v.year &&
+      monthsLeft <= THRESHOLDS.vacationMonthsLeft &&
+      v.remaining >= THRESHOLDS.vacationOpenDays
+    ) {
+      list.push({
+        level: "warning",
+        text: `${v.person}: noch ${days(v.remaining)} Urlaubstage offen und nicht eingeplant – bis 31.12.${v.year} einplanen.`,
       });
     }
   }

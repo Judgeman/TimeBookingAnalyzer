@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import { sampleResult } from "../../test/fixture";
 import type { BudgetStatus, Forecast } from "../../types/results";
 import {
+  accuracySummary,
   activeBudgetIndex,
   budgetVerdict,
   cumulativeSeries,
   currentMonth,
   dataEndOf,
+  deviation,
   monthEnd,
 } from "./forecast";
 
@@ -87,5 +89,22 @@ describe("Prognose – Hilfsfunktionen", () => {
       over: false,
       text: "Budget reicht voraussichtlich",
     });
+  });
+});
+
+describe("Prognosegüte – Kennzahlen", () => {
+  it("Ø Abweichung, Tendenz und Treffer (Werte unabhängig aus dem Fixture nachgerechnet)", () => {
+    const months = sampleResult().forecast_accuracy;
+    const backtest = accuracySummary(months, "backtest");
+    expect(backtest.count).toBe(10);
+    expect(backtest.meanError).toBeCloseTo(0.0847, 4);
+    expect(backtest.bias).toBeCloseTo(0.0204, 4);
+    expect(backtest.hits).toBe(7);
+    expect(accuracySummary(months, "recorded")).toEqual({ count: 0, meanError: null, bias: null, hits: 0 });
+    const recorded = months.map((m, i) => ({ ...m, recorded_net: i === 9 ? 27_000 : null }));
+    expect(accuracySummary(recorded, "recorded")).toMatchObject({ count: 1, hits: 0 });
+    expect(accuracySummary(recorded, "recorded").bias).toBeCloseTo((27_000 - 30_526.25) / 30_526.25, 6);
+    expect(deviation(110, 100)).toBeCloseTo(0.1, 6);
+    expect(deviation(5, 0)).toBeNull();
   });
 });

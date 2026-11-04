@@ -25,7 +25,8 @@ Arbeitszeit von 6 h/Tag.
 
 Für die Prognose: Budget 360.000 € für Januar–Dezember 2026 (Richtwert 30.000 €/Monat;
 laut Prognose um 7.494,52 € überzogen, aufgebraucht am 17.12.) und geplante Abwesenheiten
-(Erika Urlaub 23.–27.11., Max ½ Tag am 13.11. und Urlaub 21.–31.12.).
+(Erika Urlaub 23.–27.11., Max ½ Tag am 13.11. und Urlaub 21.–31.12.). Urlaubsanspruch 2026:
+Erika 30 Tage + 2 Übertrag (Rest 12), Max 28 Tage (Rest 9); Lena ohne Anspruch.
 
 Zum Ausprobieren in der App: `beispiel-projekt.json` in den Projektordner kopieren
 und danach die `.xlsx` in das Fenster ziehen.

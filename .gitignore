@@ -30,3 +30,4 @@ e2e/artifacts
 # Projekt- und Importordner der App (echte Konfigurationen/Exporte – nie committen)
 projects/
 Import/
+Prognosen/

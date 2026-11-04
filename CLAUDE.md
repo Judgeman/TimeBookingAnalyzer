@@ -26,7 +26,7 @@ src/                        # React Frontend
     ProjectSelector.tsx     # Projekt-Auswahl (Sidebar)
     ProjectEditor.tsx       # Projekt-Konfiguration bearbeiten
     editor/
-      TeamEditor.tsx        # Personen, Stundensätze, abweichende Arbeitszeit, Einsatzzeitraum
+      TeamEditor.tsx        # Personen, Stundensätze, abw. Arbeitszeit, Einsatzzeitraum, Urlaubsanspruch
       GuestEditor.tsx       # Rolle „darf buchen“: Name + Stundensätze
       PlanningEditor.tsx    # Budget-Zeiträume (Monate + Betrag), geplante Abwesenheiten
       PeriodListEditor.tsx  # Zeiträume (Von/Bis/Wert)
@@ -84,6 +84,7 @@ src-tauri/
     storage/
       projects.rs           # ProjectStore: <Ordner der Exe>/projects/<id>.json, Übernahme alter Projekte
       imports.rs            # ImportStore: letzte Export-Datei je Projekt (<Ordner der Exe>/Import/<id>/)
+      forecasts.rs          # ForecastStore: gespeicherte Prognosen (<Ordner der Exe>/Prognosen/<id>.json)
     calculation/
       mod.rs                # evaluate(): Tageswerte → Jahr/Monat/KW/Monat×KW, Hinweise
       gearb.rs              # Arbeitszeit-Berechnung, Urlaub/Krank-Erkennung
@@ -91,7 +92,8 @@ src-tauri/
       soll.rs               # Soll-Stunden, h/Tag je Person, ½-/ganze Tage
       holidays.rs           # Feiertage aller Bundesländer (Osterformel)
       invoice.rs            # Rechnung je Monat (Cent-genau), USt., Brutto
-      forecast.rs           # Prognose: Faktoren je Person, Tagesprognose, Budget-Status
+      forecast.rs           # Prognose: Faktoren je Person, Tagesprognose, Budget-Status, Nachrechnung
+      vacation.rs           # Resturlaub je Person (Anspruch + Übertrag − genommen − geplant)
       location.rs           # Stunden/Anteile/Tage je Arbeitsort (Spalte „Ort“)
       tests.rs              # Szenario-Test mit handgerechneten Werten
   examples/
@@ -163,7 +165,8 @@ Jedes Projekt wird als JSON-Datei gespeichert:
     {
       "name": "Lena Beispiel",
       "rates": [{ "from": "2026-01-01", "to": null, "rate": 80 }],
-      "assignments": [{ "from": "2026-01-01", "to": "2026-02-28" }]
+      "assignments": [{ "from": "2026-01-01", "to": "2026-02-28" }],
+      "vacation": [{ "year": 2026, "days": 30, "carry_over": 2 }]
     }
   ],
   "guests": [
@@ -323,6 +326,20 @@ plus_krank = plus - sick_h_norm
   Tagen, erwartet = Ist + Prognose, Abweichung = erwartet − Budget, `exhausted_on` = erster
   Prognosetag, an dem Ist + kumulierte Prognose das Budget erreicht. Geplante Abwesenheiten
   (`planned_absences`) je Teammitglied, je Person ohne Überschneidung.
+- **Prognosegüte**: (1) nachgerechnet (`forecast::backtest`): je abgeschlossenem Monat M
+  des Jahres eine Auswertung mit Stichtag = Stand = Ende M−1 und Prognose bis Ende M
+  (heutige Konfiguration, Januar mit Faktoren des Vorjahres) → `backtest_net` vs. Ist (Rechnung
+  netto). (2) gespeichert (`storage/forecasts.rs`): der Command `parse_export` legt bei jeder
+  Auswertung eines vollständigen Exports (Stand der Daten = Stand des Exports) eine
+  Momentaufnahme (laufender + folgende Monate: Ist + Prognose) unter `Prognosen/<id>.json`
+  ab (gleicher Stand ersetzt, max. 120); je Monat zählt die letzte vor Monatsbeginn
+  (`recorded_net`, `recorded_on`). Fehler dabei → Hinweis, nie Abbruch. UI: Ø Abweichung
+  (MAPE), Tendenz (Σ(Prognose − Ist) ÷ Σ Ist), Treffer ±10 %.
+- **Resturlaub** (`vacation.rs`, `vacation` am Teammitglied: Jahr, Tage, Übertrag): im
+  Stichtag-Jahr Rest = Anspruch + Übertrag − genommen (`vac_days` bis Stichtag) − geplant
+  (geplante Abwesenheiten Art Urlaub nach dem Stand der Daten bis 31.12., Werktage, ½ Tag
+  = 0,5). Nur Personen mit Anspruch für das Jahr. Hinweis in Insights bei Rest < 0 oder
+  ≥ 5 Tagen in den letzten 3 Monaten.
 - **Insights** (`insights.ts`, im Frontend aus PeriodData/Prognose): nur **abgeschlossene**
   Monate (Monatsende ≤ Stand der Daten). Rekord-Monate des Teams (Krank-/Urlaubstage,
   Über-/Minusstunden, fehlende Buchungen; Budget: abgerechnet − Richtwert min/max).
@@ -447,6 +464,8 @@ interface AuswertungResult {
   guest_bookings: GuestBooking[]; // deren Projektbuchungen (rule: string | null, invoiced, net)
   forecast: Forecast;             // { from, to, reference_*, persons (Faktoren, Prognose h/€),
                                   //   months (Ist/Prognose je Monat), budgets (BudgetStatus), notes }
+  forecast_accuracy: AccuracyMonth[]; // { month, actual_net, backtest_net, recorded_net?, recorded_on? }
+  vacation: VacationStatus[];     // { person, year, entitlement, carry_over, taken, planned, remaining }
   overview: ParsedExport;         // Rohdaten-Übersicht (Tab „Import“)
 }
 
@@ -531,7 +550,8 @@ interface PeriodData {
    nach `Import/<id>/<Original-Dateiname>` neben der Exe (Dateiname + Änderungsdatum bleiben →
    „Stand“ des Exports), dazu `import.json` (Originalpfad, Zeitpunkt); ältere Kopie wird
    ersetzt. Beim Start/Projektwechsel wird die Kopie automatisch ausgewertet; Projekt ohne
-   gemerkte Datei → leere Drop-Zone. Projekt löschen entfernt auch `Import/<id>/`.
+   gemerkte Datei → leere Drop-Zone. Projekt löschen entfernt auch `Import/<id>/` und
+   `Prognosen/<id>.json` (gespeicherte Prognosen, s. Prognosegüte).
    **Fenster**: Position/Größe/maximiert über `tauri-plugin-window-state` in
    `window-state.json` neben der Exe (absoluter Dateiname ersetzt `app_config_dir`).
    Gespeichert wird 500 ms nach dem letzten Verschieben/Ändern der Größe (und beim

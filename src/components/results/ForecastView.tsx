@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import type { PlannedAbsence } from "../../types/config";
-import type { BudgetStatus, Forecast } from "../../types/results";
+import type { AccuracyMonth, BudgetStatus, Forecast } from "../../types/results";
 import {
   formatDate,
   formatEuro,
@@ -11,11 +11,14 @@ import {
 } from "../../lib/format";
 import { BudgetChart } from "./BudgetChart";
 import {
+  ACCURACY_HIT,
+  accuracySummary,
   activeBudgetIndex,
   budgetVerdict,
   cumulativeSeries,
   currentMonth,
   dataEndOf,
+  deviation,
 } from "./forecast";
 import { styles } from "./styles";
 
@@ -23,6 +26,8 @@ interface Props {
   forecast: Forecast;
   /** Geplante Abwesenheiten aus der Projektkonfiguration (Anzeige). */
   plannedAbsences?: PlannedAbsence[];
+  /** Prognosegüte je abgeschlossenem Monat. */
+  accuracy?: AccuracyMonth[];
 }
 
 const monthRange = (from: string, to: string) =>
@@ -30,7 +35,7 @@ const monthRange = (from: string, to: string) =>
 const signed = (value: number) => `${value > 0 ? "+" : value < 0 ? "−" : ""}${formatEuro(Math.abs(value))}`;
 
 /** Prognose der Rechnung bis Jahresende bzw. Budget-Ende, Budget-Abgleich, Faktoren. */
-export function ForecastView({ forecast, plannedAbsences = [] }: Props) {
+export function ForecastView({ forecast, plannedAbsences = [], accuracy = [] }: Props) {
   const [budgetIndex, setBudgetIndex] = useState(() => activeBudgetIndex(forecast));
   const budget: BudgetStatus | null = forecast.budgets[budgetIndex] ?? null;
   const dataEnd = dataEndOf(forecast);
@@ -176,6 +181,8 @@ export function ForecastView({ forecast, plannedAbsences = [] }: Props) {
           </ul>
         </section>
       )}
+
+      {accuracy.length > 0 && <AccuracySection months={accuracy} />}
 
       {forecast.notes.length > 0 && (
         <ul className="space-y-1 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -326,5 +333,84 @@ function Tile({
       <dd className="mt-1 text-xl font-semibold">{children}</dd>
       {note && <dd className={`mt-0.5 text-xs ${strong ? "text-slate-300" : "text-slate-500"}`}>{note}</dd>}
     </div>
+  );
+}
+
+const signedPercent = (v: number | null) =>
+  v === null ? "–" : `${v > 0 ? "+" : v < 0 ? "−" : "±"}${formatPercent(Math.abs(v) * 100)}`;
+
+/** Prognosegüte: nachgerechnete und gespeicherte Prognosen gegenüber dem Ist. */
+function AccuracySection({ months }: { months: AccuracyMonth[] }) {
+  const backtest = accuracySummary(months, "backtest");
+  const recorded = accuracySummary(months, "recorded");
+  const tendency = (bias: number | null) =>
+    bias === null ? "–" : `im Schnitt ${formatPercent(Math.abs(bias) * 100)} ${bias > 0 ? "zu hoch" : "zu niedrig"}`;
+  return (
+    <section className="space-y-3">
+      <h3 className={styles.heading}>Prognosegüte</h3>
+      <dl className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Tile label="Ø Abweichung (nachgerechnet)" note={`${backtest.count} abgeschlossene Monate`}>
+          {backtest.meanError === null ? "–" : formatPercent(backtest.meanError * 100)}
+        </Tile>
+        <Tile label="Tendenz">{tendency(backtest.bias)}</Tile>
+        <Tile label={`Treffer (± ${formatPercent(ACCURACY_HIT * 100)})`} note="Monate nah am Ist">
+          {backtest.count ? `${backtest.hits} von ${backtest.count}` : "–"}
+        </Tile>
+        <Tile
+          label="Gespeicherte Prognosen"
+          note={recorded.count ? tendency(recorded.bias) : "Vergleich ab dem ersten abgeschlossenen Monat nach dem Speichern"}
+        >
+          {recorded.meanError === null ? "noch keine" : `Ø ${formatPercent(recorded.meanError * 100)}`}
+        </Tile>
+      </dl>
+      <div className={styles.tableWrap}>
+        <table className="w-full text-sm">
+          <thead className={styles.thead}>
+            <tr>
+              <th className={styles.th}>Monat</th>
+              <th className={styles.thNum}>Abgerechnet</th>
+              <th className={styles.thNum}>Prognose zu Monatsbeginn</th>
+              <th className={styles.thNum}>Abweichung</th>
+              <th className={styles.thNum}>Gespeicherte Prognose</th>
+              <th className={styles.thNum}>Abweichung</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {months.map((m) => {
+              const own = deviation(m.backtest_net, m.actual_net);
+              const saved = m.recorded_net === null ? null : deviation(m.recorded_net, m.actual_net);
+              const tone = (d: number | null) =>
+                d !== null && Math.abs(d) > ACCURACY_HIT + 1e-9 ? "font-semibold text-slate-900" : "";
+              return (
+                <tr key={m.month}>
+                  <td className={styles.td}>{formatMonth(m.month)}</td>
+                  <td className={styles.tdNum}>{formatEuro(m.actual_net)}</td>
+                  <td className={styles.tdNum}>{formatEuro(m.backtest_net)}</td>
+                  <td className={`${styles.tdNum} ${tone(own)}`}>{signedPercent(own)}</td>
+                  <td className={styles.tdNum}>
+                    {m.recorded_net === null ? (
+                      <span className="text-slate-400">–</span>
+                    ) : (
+                      <>
+                        {formatEuro(m.recorded_net)}
+                        <span className="block text-xs text-slate-500">Stand {formatDate(m.recorded_on)}</span>
+                      </>
+                    )}
+                  </td>
+                  <td className={`${styles.tdNum} ${tone(saved)}`}>{signedPercent(saved)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-slate-500">
+        <strong>Nachgerechnet</strong>: Prognose mit dem Stand am Ende des Vormonats und der heutigen
+        Konfiguration (geplante Abwesenheiten, Sätze). Große Abweichungen in Urlaubsmonaten zeigen,
+        dass Urlaube nicht als geplante Abwesenheit eingetragen waren. <strong>Gespeichert</strong>:
+        die App legt bei jeder Auswertung eines vollständigen Exports die Prognose im Ordner
+        „Prognosen“ neben der Exe ab; verglichen wird die letzte vor Monatsbeginn.
+      </p>
+    </section>
   );
 }

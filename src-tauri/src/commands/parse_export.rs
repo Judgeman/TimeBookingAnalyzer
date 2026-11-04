@@ -9,6 +9,7 @@ use crate::calculation;
 use crate::models::config::ProjectConfig;
 use crate::models::results::AuswertungResult;
 use crate::parsing::{export::read_export, export_date, summary::summarize};
+use crate::storage::forecasts::{ForecastStore, Snapshot, apply_recorded};
 use crate::storage::projects::ProjectStore;
 
 /// Liest den Export mit dem Spalten-Mapping des Projekts ein und wertet ihn aus.
@@ -21,14 +22,34 @@ pub async fn parse_export(
     project_id: String,
     cutoff_date: Option<NaiveDate>,
     store: State<'_, ProjectStore>,
+    forecasts: State<'_, ForecastStore>,
 ) -> Result<AuswertungResult, String> {
     let config = store.get(&project_id)?;
     // calamine liest synchron – nicht auf dem Async-Runtime-Thread blockieren.
-    tauri::async_runtime::spawn_blocking(move || {
+    let mut result = tauri::async_runtime::spawn_blocking(move || {
         parse_export_file(Path::new(&file_path), &config, cutoff_date)
     })
     .await
-    .map_err(|e| format!("Einlesen abgebrochen: {e}"))?
+    .map_err(|e| format!("Einlesen abgebrochen: {e}"))??;
+    track_forecast(&forecasts, &project_id, &mut result);
+    Ok(result)
+}
+
+/// Prognosegüte: Prognose eines vollständigen Exports (Stand der Daten =
+/// Stand des Exports) speichern und gespeicherte Prognosen den Monaten zuordnen.
+/// Fehler beim Speichern verhindern die Auswertung nicht – sie werden Hinweise.
+pub fn track_forecast(store: &ForecastStore, project_id: &str, result: &mut AuswertungResult) {
+    let data_end = result.forecast.from.pred_opt();
+    if result.export_date.is_some()
+        && result.export_date == data_end
+        && let Err(e) = store.record(project_id, Snapshot::of(&result.forecast))
+    {
+        result.warnings.push(e);
+    }
+    match store.load(project_id) {
+        Ok(snapshots) => apply_recorded(&mut result.forecast_accuracy, &snapshots),
+        Err(e) => result.warnings.push(e),
+    }
 }
 
 pub fn parse_export_file(
@@ -57,6 +78,8 @@ pub fn parse_export_file(
         export.map(|(d, _)| d),
     );
     let forecast = calculation::forecast::build(config, &outcome.entries, &evaluation);
+    let forecast_accuracy = calculation::forecast::backtest(config, &outcome.entries, &evaluation);
+    let vacation = calculation::vacation::vacation_status(config, &evaluation);
     let overview = summarize(config, file_name.clone(), export.map(|(d, _)| d), outcome);
 
     Ok(AuswertungResult {
@@ -82,6 +105,8 @@ pub fn parse_export_file(
         guests: config.guests.iter().map(|g| g.name.clone()).collect(),
         guest_bookings: evaluation.guest_bookings,
         forecast,
+        forecast_accuracy,
+        vacation,
         overview,
     })
 }
@@ -143,6 +168,75 @@ mod tests {
         assert_eq!(b.export_date_source, Some(ExportDateSource::FileName));
         assert_eq!((b.file_name, b.cutoff_date), (a.file_name, a.cutoff_date));
         assert_eq!(b.invoice.total, a.invoice.total);
+    }
+
+    #[test]
+    fn saves_forecasts_of_full_exports_and_compares_them_later() {
+        use crate::storage::forecasts::{ForecastStore, Snapshot, SnapshotMonth};
+        let json = std::fs::read_to_string(sample("beispiel-projekt.json")).unwrap();
+        let config: ProjectConfig = serde_json::from_str(&json).unwrap();
+        let file = sample("Beispiel-Export_2026-10-31.xlsx");
+        let d = |m, day| NaiveDate::from_ymd_opt(2026, m, day).unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        let store = ForecastStore::new(tmp.path().join("Prognosen"));
+
+        // Stichtag vor dem Stand des Exports → keine echte Prognose, nicht gespeichert
+        let mut early = parse_export_file(&file, &config, Some(d(9, 30))).unwrap();
+        track_forecast(&store, "p", &mut early);
+        assert!(store.load("p").unwrap().is_empty());
+
+        // vollständiger Export → gespeichert (Stand 31.10.)
+        let mut full = parse_export_file(&file, &config, None).unwrap();
+        track_forecast(&store, "p", &mut full);
+        let saved = store.load("p").unwrap();
+        assert_eq!(saved.len(), 1);
+        assert_eq!(saved[0].data_end, d(10, 31));
+        assert_eq!(saved[0].months[0].month, "2026-11");
+
+        // früher gespeicherte Prognose (Stand 31.08.) wird September/Oktober zugeordnet
+        store
+            .record(
+                "p",
+                Snapshot {
+                    data_end: d(8, 31),
+                    recorded_at: d(9, 1).and_hms_opt(8, 0, 0).unwrap(),
+                    months: ["2026-09", "2026-10"]
+                        .iter()
+                        .map(|m| SnapshotMonth {
+                            month: m.to_string(),
+                            actual_net: 0.0,
+                            forecast_net: 31_000.0,
+                        })
+                        .collect(),
+                },
+            )
+            .unwrap();
+        let mut later = parse_export_file(&file, &config, None).unwrap();
+        track_forecast(&store, "p", &mut later);
+        let recorded: Vec<(&str, Option<f64>, Option<NaiveDate>)> = later
+            .forecast_accuracy
+            .iter()
+            .skip(7)
+            .map(|m| (m.month.as_str(), m.recorded_net, m.recorded_on))
+            .collect();
+        assert_eq!(
+            recorded,
+            vec![
+                ("2026-08", None, None),
+                ("2026-09", Some(31_000.0), Some(d(8, 31))),
+                ("2026-10", Some(31_000.0), Some(d(8, 31))),
+            ]
+        );
+
+        // kaputte Datei → Hinweis statt Fehler
+        std::fs::write(tmp.path().join("Prognosen").join("p.json"), "{").unwrap();
+        let mut broken = parse_export_file(&file, &config, Some(d(9, 30))).unwrap();
+        track_forecast(&store, "p", &mut broken);
+        assert!(
+            broken.warnings.iter().any(|w| w.contains("fehlerhaft")),
+            "{:?}",
+            broken.warnings
+        );
     }
 
     /// Hält die fiktiven Beispieldaten in `sample-data/` und den Parser synchron.
@@ -276,6 +370,30 @@ mod tests {
             (319_865.0, 47_629.52, 7_494.52)
         );
         assert_eq!(budget.exhausted_on, NaiveDate::from_ymd_opt(2026, 12, 17));
+
+        // Resturlaub: Erika 30 + 2 − 15 genommen − 5 geplant, Max 28 − 11 − 8 geplant
+        let vacation: Vec<(&str, f64, f64, f64)> = auswertung
+            .vacation
+            .iter()
+            .map(|v| (v.person.as_str(), v.taken, v.planned, v.remaining))
+            .collect();
+        assert_eq!(
+            vacation,
+            vec![
+                ("Erika Mustermann", 15.0, 5.0, 12.0),
+                ("Max Mustermann", 11.0, 8.0, 9.0)
+            ]
+        );
+        // Prognosegüte (unabhängig nachgerechnet): Prognose zu Monatsbeginn je Monat
+        let accuracy: Vec<(&str, f64)> = auswertung
+            .forecast_accuracy
+            .iter()
+            .map(|m| (m.month.as_str(), m.backtest_net))
+            .collect();
+        assert_eq!(accuracy.len(), 10);
+        assert_eq!(accuracy[6], ("2026-07", 33_282.76)); // Urlaub nicht eingeplant
+        assert_eq!(accuracy[9], ("2026-10", 28_846.03));
+        assert_eq!(auswertung.forecast_accuracy[9].actual_net, 30_526.25);
 
         let erika = &auswertung.persons[0].periods.ytd;
         assert_eq!(erika.soll_b, 1636.0);

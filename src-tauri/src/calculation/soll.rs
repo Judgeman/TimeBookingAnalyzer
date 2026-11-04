@@ -112,6 +112,7 @@ mod tests {
                 hours_per_day: 6.0,
             }],
             assignments: vec![],
+            vacation: vec![],
         };
         let project = periods();
         assert_eq!(hours_per_day_for(&member, &project, d(8, 31)), Some(7.5));

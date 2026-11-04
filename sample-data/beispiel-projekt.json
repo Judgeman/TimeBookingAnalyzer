@@ -16,6 +16,13 @@
           "to": null,
           "rate": 105
         }
+      ],
+      "vacation": [
+        {
+          "year": 2026,
+          "days": 30,
+          "carry_over": 2
+        }
       ]
     },
     {
@@ -37,6 +44,13 @@
           "from": "2026-09-01",
           "to": null,
           "hours_per_day": 6.0
+        }
+      ],
+      "vacation": [
+        {
+          "year": 2026,
+          "days": 28,
+          "carry_over": 0
         }
       ]
     },

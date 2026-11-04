@@ -56,6 +56,15 @@ export interface TeamMember {
   working_hours: WorkingHoursPeriod[];
   /** Einsatzzeiträume im Projekt; leer = immer im Projekt. */
   assignments: AssignmentPeriod[];
+  /** Urlaubsanspruch je Kalenderjahr. */
+  vacation: VacationEntitlement[];
+}
+
+/** Urlaubsanspruch eines Jahres (Tage) und Übertrag aus dem Vorjahr. */
+export interface VacationEntitlement {
+  year: number;
+  days: number;
+  carry_over: number;
 }
 
 /**

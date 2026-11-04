@@ -4,6 +4,7 @@ use tauri::State;
 
 use crate::models::config::ProjectConfig;
 use crate::models::results::{LastImport, ProjectFolder, ProjectSummary};
+use crate::storage::forecasts::ForecastStore;
 use crate::storage::imports::ImportStore;
 use crate::storage::projects::ProjectStore;
 
@@ -29,15 +30,17 @@ pub async fn save_project(
     store.save(config)
 }
 
-/// Löscht das Projekt samt gemerkter Import-Datei.
+/// Löscht das Projekt samt gemerkter Import-Datei und gespeicherter Prognosen.
 #[tauri::command]
 pub async fn delete_project(
     id: String,
     store: State<'_, ProjectStore>,
     imports: State<'_, ImportStore>,
+    forecasts: State<'_, ForecastStore>,
 ) -> Result<(), String> {
     store.delete(&id)?;
-    imports.forget(&id)
+    imports.forget(&id)?;
+    forecasts.forget(&id)
 }
 
 /// Projektordner dieser Instanz (neben der Programmdatei).

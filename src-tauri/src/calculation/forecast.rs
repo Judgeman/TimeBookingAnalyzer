@@ -20,7 +20,7 @@ use super::{
 use crate::models::config::{PlannedAbsence, ProjectConfig};
 use crate::models::entry::TimeEntry;
 use crate::models::results::{
-    BudgetStatus, Forecast, ForecastMonth, ForecastPerson, ForecastReference,
+    AccuracyMonth, BudgetStatus, Forecast, ForecastMonth, ForecastPerson, ForecastReference,
 };
 
 /// Höchstens so viele Jahre über das Stichtag-Jahr hinaus prognostizieren bzw.
@@ -28,6 +28,55 @@ use crate::models::results::{
 const MAX_YEARS: i32 = 3;
 
 pub fn build(config: &ProjectConfig, entries: &[TimeEntry], ev: &Evaluation) -> Forecast {
+    build_until(config, entries, ev, None)
+}
+
+/// Prognosegüte (nachgerechnet): für jeden abgeschlossenen Monat des Jahres die
+/// Prognose, die mit dem Stand am Ende des Vormonats entstanden wäre (heutige
+/// Konfiguration), gegenüber dem tatsächlich abgerechneten Betrag.
+pub fn backtest(
+    config: &ProjectConfig,
+    entries: &[TimeEntry],
+    ev: &Evaluation,
+) -> Vec<AccuracyMonth> {
+    let data_end = ev.missing_checked_until;
+    let year_start = ymd(ev.cutoff.year(), 1, 1);
+    month_starts(year_start, data_end)
+        .filter(|start| month_end(*start) <= data_end)
+        .map(|start| {
+            let before = start.pred_opt().expect("Vormonat");
+            let past = evaluate(config, entries, before, Some(before));
+            let forecast = build_until(config, entries, &past, Some(month_end(start)));
+            let key = super::month_key(start);
+            let predicted = forecast
+                .months
+                .iter()
+                .find(|m| m.month == key)
+                .map_or(0.0, |m| m.actual_net + m.forecast_net);
+            let actual = ev
+                .invoice
+                .months
+                .iter()
+                .find(|m| m.month == key)
+                .map_or(0.0, |m| m.net);
+            AccuracyMonth {
+                month: key,
+                actual_net: actual,
+                backtest_net: round2(predicted),
+                recorded_net: None,
+                recorded_on: None,
+            }
+        })
+        .collect()
+}
+
+/// Wie [`build`], prognostiziert aber mindestens bis `min_to`.
+fn build_until(
+    config: &ProjectConfig,
+    entries: &[TimeEntry],
+    ev: &Evaluation,
+    min_to: Option<NaiveDate>,
+) -> Forecast {
     let data_end = ev.missing_checked_until;
     let from = data_end.succ_opt().unwrap_or(data_end);
     let year = ev.cutoff.year();
@@ -38,10 +87,10 @@ pub fn build(config: &ProjectConfig, entries: &[TimeEntry], ev: &Evaluation) -> 
         .iter()
         .filter_map(|b| b.range().map(|range| (b, range)))
         .collect();
-    let wanted_to = budgets
-        .iter()
-        .map(|(_, (_, to))| *to)
-        .fold(ymd(year, 12, 31), NaiveDate::max);
+    let wanted_to = budgets.iter().map(|(_, (_, to))| *to).fold(
+        ymd(year, 12, 31).max(min_to.unwrap_or(ymd(year, 1, 1))),
+        NaiveDate::max,
+    );
     let limit = ymd(year + MAX_YEARS, 12, 31);
     let to = if wanted_to > limit {
         notes.push(format!(
@@ -297,6 +346,15 @@ fn month_starts(from: NaiveDate, to: NaiveDate) -> impl Iterator<Item = NaiveDat
         .take_while(move |m| *m <= to)
 }
 
+/// Letzter Tag des Monats von `start`.
+fn month_end(start: NaiveDate) -> NaiveDate {
+    start
+        .with_day(1)
+        .and_then(|first| first.checked_add_months(Months::new(1)))
+        .and_then(|next| next.pred_opt())
+        .expect("Monatsende")
+}
+
 fn ymd(year: i32, month: u32, day: u32) -> NaiveDate {
     NaiveDate::from_ymd_opt(year, month, day).expect("gültiges Datum")
 }
@@ -345,6 +403,7 @@ mod tests {
                 }],
                 working_hours: vec![],
                 assignments: vec![],
+                vacation: vec![],
             }],
             guests: vec![],
             working_hours: vec![WorkingHoursPeriod {
@@ -534,6 +593,31 @@ mod tests {
             notes.contains("„darf buchen“ werden nicht prognostiziert"),
             "{notes}"
         );
+    }
+
+    #[test]
+    fn backtest_compares_the_forecast_at_month_start_with_the_actual_month() {
+        let config = config();
+        let entries = entries();
+        // Stand 28.02.: Januar und Februar abgeschlossen (Buchungen bis 13.02.)
+        let ev = evaluate(&config, &entries, d(2, 28), Some(d(2, 28)));
+        let months = backtest(&config, &entries, &ev);
+        let rows: Vec<(&str, f64, f64)> = months
+            .iter()
+            .map(|m| (m.month.as_str(), m.actual_net, m.backtest_net))
+            .collect();
+        assert_eq!(
+            rows,
+            vec![
+                // Januar: Stand 31.12.2025, keine Vorjahresdaten → Faktoren 0:
+                // 21 Werktage × 8 h × 100 €
+                ("2026-01", 10_800.0, 16_800.0),
+                // Februar: Faktoren aus Januar (0,9 × 0,75); 20 Werktage × 8 h
+                // − 44 h geplant abwesend = 116 h × 0,675 = 78,3 h × 100 €
+                ("2026-02", 8_000.0, 7_830.0),
+            ]
+        );
+        assert!(months.iter().all(|m| m.recorded_net.is_none()));
     }
 
     #[test]

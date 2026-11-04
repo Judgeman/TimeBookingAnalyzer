@@ -7,6 +7,7 @@ import {
   personPace,
   teamPace,
   THRESHOLDS,
+  vacationInsights,
   type PersonPace,
 } from "./insights";
 
@@ -98,5 +99,21 @@ describe("Insights – Kennzahlen", () => {
     ]);
     expect(insights(null, [{ ...base, utilization: null, overtime: 0, sickRate: null, distraction: null }])).toEqual([]);
     expect(THRESHOLDS.paceHigh).toBeGreaterThan(1);
+  });
+});
+
+describe("Insights – Resturlaub", () => {
+  const status = (remaining: number) => ({
+    person: "Erika Mustermann", year: 2026, entitlement: 30, carry_over: 0, taken: 10, planned: 0, remaining,
+  });
+  it("meldet offenen Urlaub nur kurz vor Jahresende und überzogenen immer", () => {
+    expect(vacationInsights([status(12)], "2026-10-31")).toHaveLength(1);
+    expect(vacationInsights([status(12)], "2026-08-31")).toEqual([]); // noch 4 Monate
+    expect(vacationInsights([status(4.5)], "2026-11-30")).toEqual([]); // unter 5 Tagen
+    expect(vacationInsights([status(12)], "2027-01-31")).toEqual([]); // anderes Jahr
+    expect(vacationInsights([status(-1.5)], "2026-03-31")[0]).toEqual({
+      level: "warning",
+      text: "Erika Mustermann: 1,5 Urlaubstage mehr genommen bzw. geplant als Anspruch 2026.",
+    });
   });
 });

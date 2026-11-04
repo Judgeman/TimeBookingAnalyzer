@@ -12,6 +12,7 @@ pub mod holidays;
 pub mod invoice;
 pub mod location;
 pub mod soll;
+pub mod vacation;
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::ops::AddAssign;

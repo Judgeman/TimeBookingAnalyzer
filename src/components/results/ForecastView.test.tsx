@@ -82,3 +82,34 @@ describe("ForecastView", () => {
     expect(screen.queryByText("Januar 2026")).not.toBeInTheDocument();
   });
 });
+
+describe("ForecastView – Prognosegüte", () => {
+  it("zeigt nachgerechnete und gespeicherte Prognosen gegenüber dem Ist", () => {
+    const r = sampleResult();
+    const accuracy = r.forecast_accuracy.map((m) =>
+      m.month === "2026-10" ? { ...m, recorded_net: 31_000, recorded_on: "2026-09-30" } : m,
+    );
+    render(<ForecastView forecast={r.forecast} accuracy={accuracy} />);
+    expect(screen.getByText("Prognosegüte")).toBeInTheDocument();
+    expect(text()).toContain("8,5 %10 abgeschlossene Monate");
+    expect(text()).toContain("im Schnitt 2 % zu hoch");
+    expect(text()).toContain("7 von 10");
+    const section = screen.getByText("Prognosegüte").closest("section")!;
+    const july = within(section).getByText("Juli 2026", { selector: "td" }).closest("tr")!;
+    expect(july.textContent!.replace(/\u00a0/g, " ")).toContain("28.311,25 €33.282,76 €+17,6 %");
+    expect(within(july).getByText("+17,6 %")).toHaveClass("font-semibold");
+    const october = within(section).getByText("Oktober 2026", { selector: "td" }).closest("tr")!;
+    expect(october.textContent!.replace(/\u00a0/g, " ")).toContain("31.000,00 €Stand 30.09.2026+1,6 %");
+    expect(text()).toContain("Ø 1,6 %");
+  });
+
+  it("ohne gespeicherte Prognosen ein Hinweis; ohne Monate kein Abschnitt", () => {
+    const r = sampleResult();
+    const { unmount } = render(<ForecastView forecast={r.forecast} accuracy={r.forecast_accuracy} />);
+    expect(text()).toContain("noch keine");
+    expect(text()).toContain("Vergleich ab dem ersten abgeschlossenen Monat nach dem Speichern");
+    unmount();
+    render(<ForecastView forecast={r.forecast} />);
+    expect(screen.queryByText("Prognosegüte")).not.toBeInTheDocument();
+  });
+});

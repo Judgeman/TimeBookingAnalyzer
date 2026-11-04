@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { AuswertungResult, PeriodData } from "../../types/results";
 import { formatEuro, formatHours, formatMonth, formatNumber, formatPercent } from "../../lib/format";
 import { DeviationChart } from "./DeviationChart";
+import { dataEndOf } from "./forecast";
 import {
   completedMonths,
   extremeMonth,
@@ -10,6 +11,7 @@ import {
   RECENT_MONTHS,
   teamPace,
   THRESHOLDS,
+  vacationInsights,
   type Extreme,
 } from "./insights";
 import { styles } from "./styles";
@@ -39,7 +41,10 @@ export function InsightsView({ result }: Props) {
   const months = completedMonths(result);
   const pace = teamPace(result);
   const persons = personPace(result);
-  const hints = insights(pace, persons);
+  const hints = [
+    ...insights(pace, persons),
+    ...vacationInsights(result.vacation, dataEndOf(result.forecast)),
+  ];
 
   if (months.length === 0) {
     return (
@@ -203,6 +208,8 @@ export function InsightsView({ result }: Props) {
         </div>
       </section>
 
+      <VacationSection result={result} />
+
       <details className="text-sm text-slate-600">
         <summary className="cursor-pointer font-medium text-slate-700">Kennzahlen erklärt</summary>
         <ul className="mt-2 list-disc space-y-1 pl-5">
@@ -211,6 +218,7 @@ export function InsightsView({ result }: Props) {
           <li><strong>Abrechnungsquote</strong>: abrechenbare Stunden ÷ Soll netto; über 100 % = mehr abgerechnet als vertraglich verfügbar (Überstunden). Hinweis, wenn die letzten {RECENT_MONTHS} Monate {pct(THRESHOLDS.utilizationDrop)}-Punkte unter dem Jahr liegen.</li>
           <li><strong>€ je gearbeitete Stunde</strong>: abgerechnet ÷ gearbeitet – sinkt, wenn viel nicht abrechenbare Arbeit anfällt.</li>
           <li><strong>Überstunden</strong>: gearbeitet − Soll netto. Hinweis über +{THRESHOLDS.overtimeHigh} h bzw. unter {THRESHOLDS.overtimeLow} h.</li>
+          <li><strong>Resturlaub</strong>: Anspruch + Übertrag − genommen (bis Stichtag) − geplant (geplante Urlaube nach dem Stand der Daten). Hinweis, wenn in den letzten {THRESHOLDS.vacationMonthsLeft} Monaten noch mindestens {THRESHOLDS.vacationOpenDays} Tage offen sind.</li>
           <li><strong>Krankenquote</strong>: krank ÷ Soll brutto (Hinweis über {pct(THRESHOLDS.sickRate)}); nicht abrechenbarer Anteil aus der Prognose (Hinweis über {pct(THRESHOLDS.distraction)}).</li>
         </ul>
       </details>
@@ -255,5 +263,58 @@ function Tile({ label, note, children }: { label: string; note?: string; childre
       <dd className="mt-1 text-xl font-semibold">{children}</dd>
       {note && <dd className="mt-0.5 text-xs text-slate-500">{note}</dd>}
     </div>
+  );
+}
+
+/** Resturlaub je Person (nur mit hinterlegtem Anspruch). */
+function VacationSection({ result }: { result: AuswertungResult }) {
+  const year = result.cutoff_date.slice(0, 4);
+  const without = result.persons
+    .map((p) => p.name)
+    .filter((name) => !result.vacation.some((v) => v.person === name));
+  return (
+    <section>
+      <h3 className={styles.heading}>Urlaub {year}</h3>
+      {result.vacation.length === 0 ? (
+        <p className="rounded-md bg-slate-100 px-4 py-3 text-sm text-slate-600">
+          Kein Urlaubsanspruch hinterlegt – unter „Projekt bearbeiten“ → Team je Person den
+          Anspruch eintragen, um den Resturlaub zu sehen.
+        </p>
+      ) : (
+        <>
+          <div className={styles.tableWrap}>
+            <table className="w-full text-sm">
+              <thead className={styles.thead}>
+                <tr>
+                  <th className={styles.th}>Person</th>
+                  <th className={styles.thNum}>Anspruch</th>
+                  <th className={styles.thNum}>Übertrag</th>
+                  <th className={styles.thNum}>genommen</th>
+                  <th className={styles.thNum}>geplant</th>
+                  <th className={styles.thNum}>Rest</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {result.vacation.map((v) => (
+                  <tr key={v.person}>
+                    <td className={styles.td}>{v.person}</td>
+                    <td className={styles.tdNum}>{formatNumber(v.entitlement)} T</td>
+                    <td className={styles.tdNum}>{formatNumber(v.carry_over)} T</td>
+                    <td className={styles.tdNum}>{formatNumber(v.taken)} T</td>
+                    <td className={styles.tdNum}>{v.planned ? `${formatNumber(v.planned)} T` : "–"}</td>
+                    <td className={`${styles.tdNum} font-semibold ${v.remaining < 0 ? "text-red-700" : "text-slate-900"}`}>
+                      {formatNumber(v.remaining)} T
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {without.length > 0 && (
+            <p className="mt-2 text-xs text-slate-500">Ohne Urlaubsanspruch {year}: {without.join(", ")}</p>
+          )}
+        </>
+      )}
+    </section>
   );
 }
