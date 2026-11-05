@@ -915,38 +915,42 @@ fn guests_may_book_on_the_project_without_time_tracking() {
 
 #[test]
 fn billable_column_decides_and_deviations_are_listed() {
-    // Billable-Spalte O: Werte passend zu den Regeln, außer zwei Abweichungen
-    // und einer Buchung ohne Wert.
+    // Billable-Spalte O ohne eigene Werte (nur WAHR/FALSCH): Werte passend zu
+    // den Regeln, außer zwei Abweichungen und einem unbekannten Wert.
     let mut config = config();
     config.export_format.billable = Some(BillableColumn {
         column: 14,
-        yes: "WAHR".into(),
-        no: "FALSCH".into(),
+        yes: String::new(),
+        no: String::new(),
     });
     let mut entries = entries();
     for entry in &mut entries {
-        entry.billable =
-            Some(entry.element == P100 && entry.kost2art.to_lowercase().contains("(billable)"));
+        let billable =
+            entry.element == P100 && entry.kost2art.to_lowercase().contains("(billable)");
+        entry.billable = Some(if billable { "WAHR" } else { "FALSCH" }.to_string());
     }
-    let set = |entries: &mut Vec<TimeEntry>, name: &str, date: NaiveDate, kost2art: &str, value| {
-        let entry = entries
-            .iter_mut()
-            .find(|e| {
-                e.name.trim().eq_ignore_ascii_case(name) && e.date == date && e.kost2art == kost2art
-            })
-            .unwrap();
-        entry.billable = value;
-    };
-    set(&mut entries, ERIKA, d(2026, 1, 6), DELIVERY, Some(false)); // Regel: abgerechnet
-    set(&mut entries, ERIKA, d(2026, 1, 13), "Sales", Some(true)); // Regel: nicht abgerechnet
-    set(&mut entries, ERIKA, d(2026, 1, 7), "Internal", Some(true)); // anderes Element → egal
+    let set =
+        |entries: &mut Vec<TimeEntry>, name: &str, date: NaiveDate, kost2art: &str, value: &str| {
+            let entry = entries
+                .iter_mut()
+                .find(|e| {
+                    e.name.trim().eq_ignore_ascii_case(name)
+                        && e.date == date
+                        && e.kost2art == kost2art
+                })
+                .unwrap();
+            entry.billable = Some(value.to_string());
+        };
+    set(&mut entries, ERIKA, d(2026, 1, 6), DELIVERY, "FALSCH"); // Regel: abgerechnet
+    set(&mut entries, ERIKA, d(2026, 1, 13), "Sales", "wahr"); // Regel: nicht abgerechnet
+    set(&mut entries, ERIKA, d(2026, 1, 7), "Internal", "WAHR"); // anderes Element → egal
     set(
         &mut entries,
         "Max Mustermann",
         d(2026, 1, 5),
         DELIVERY,
-        None,
-    ); // ohne Wert → Regel
+        "ja",
+    ); // unbekannt → nicht billable
     let result = evaluate(&config, &entries, d(2026, 1, 16), Some(d(2026, 1, 16)));
     let baseline = run();
 
@@ -959,7 +963,16 @@ fn billable_column_decides_and_deviations_are_listed() {
     assert_eq!(erika.bill_h, before.bill_h); // −6 h + 6 h
     assert_eq!(erika.bill_eur, before.bill_eur - 600.0 + 660.0);
     assert_eq!(erika.nonbill_h, before.nonbill_h); // +6 h − 6 h
-    assert_eq!(result.invoice.total.net, baseline.invoice.total.net + 60.0);
+    // Max 05.01.: „ja“ ist unbekannt → nicht billable (8 h × 90 € entfallen)
+    let (max, max_before) = (
+        &result.persons[1].periods.ytd,
+        &baseline.persons[1].periods.ytd,
+    );
+    assert_eq!(max.bill_eur, max_before.bill_eur - 720.0);
+    assert_eq!(
+        result.invoice.total.net,
+        baseline.invoice.total.net + 60.0 - 720.0
+    );
     let export_line = result.invoice.months[0]
         .lines
         .iter()
@@ -975,7 +988,7 @@ fn billable_column_decides_and_deviations_are_listed() {
         (ERIKA, 6.0, Some(110.0), 660.0)
     );
 
-    type Row<'a> = (&'a str, NaiveDate, bool, Option<&'a str>, f64, f64);
+    type Row<'a> = (&'a str, NaiveDate, &'a str, bool, Option<&'a str>, f64);
     let mismatches: Vec<Row> = result
         .billable_mismatches
         .iter()
@@ -983,9 +996,9 @@ fn billable_column_decides_and_deviations_are_listed() {
             (
                 m.person.as_str(),
                 m.date,
+                m.value.as_str(),
                 m.billable,
                 m.rule.as_deref(),
-                m.hours,
                 m.net,
             )
         })
@@ -993,18 +1006,40 @@ fn billable_column_decides_and_deviations_are_listed() {
     assert_eq!(
         mismatches,
         vec![
-            (ERIKA, d(2026, 1, 6), false, Some("Delivery"), 6.0, 600.0),
-            (ERIKA, d(2026, 1, 13), true, None, 6.0, 660.0),
+            (
+                "Max Mustermann",
+                d(2026, 1, 5),
+                "ja",
+                false,
+                Some("Delivery"),
+                720.0
+            ),
+            (
+                ERIKA,
+                d(2026, 1, 6),
+                "FALSCH",
+                false,
+                Some("Delivery"),
+                600.0
+            ),
+            (ERIKA, d(2026, 1, 13), "wahr", true, None, 660.0),
         ]
     );
     assert!(
         result.warnings.contains(
-            &"1 Buchung(en) aufs Projekt ohne gültigen Wert in der Billable-Spalte O (erwartet „WAHR“ oder „FALSCH“, erste am 05.01.2026) – dort entscheidet die Abrechnungsregel."
+            &"1 Buchung(en) aufs Projekt mit unbekanntem Wert in der Billable-Spalte O – gefunden: „ja“; erwartet WAHR oder FALSCH (erste am 05.01.2026). Diese Buchungen gelten als nicht billable – Spalte und Werte im Export-Format prüfen."
                 .to_string()
         ),
         "{:?}",
         result.warnings
     );
+
+    // eigener Wert „ja“ → billable wie die Regel, keine Abweichung, kein Hinweis
+    config.export_format.billable.as_mut().unwrap().yes = "Ja".into();
+    let own = evaluate(&config, &entries, d(2026, 1, 16), Some(d(2026, 1, 16)));
+    assert_eq!(own.billable_mismatches.len(), 2);
+    assert!(!own.warnings.iter().any(|w| w.contains("Billable-Spalte")));
+    assert_eq!(own.invoice.total.net, baseline.invoice.total.net + 60.0);
     // ohne Spalte: wie bisher, keine Abweichungen
     assert!(baseline.billable_mismatches.is_empty());
 }

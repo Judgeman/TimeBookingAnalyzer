@@ -319,26 +319,59 @@ impl Default for ExportFormat {
     }
 }
 
-/// Billable-Spalte des Exports und ihre Werte (ohne Groß-/Kleinschreibung;
-/// echte Excel-Wahrheitswerte gelten immer).
+/// Billable-Spalte des Exports. Wahrheitswerte (WAHR/FALSCH bzw. TRUE/FALSE,
+/// als Excel-Wahrheitswert oder Text) werden automatisch erkannt; eigene
+/// Textwerte (z. B. „ja“/„nein“) sind optional. Ohne Groß-/Kleinschreibung.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BillableColumn {
     /// 0-basierter Spaltenindex (0 = Spalte A).
     pub column: usize,
-    /// Wert für „billable“, z. B. „WAHR“.
-    #[serde(default = "default_billable_yes")]
+    /// Eigener Textwert für „billable“ (leer = nur Wahrheitswerte).
+    #[serde(default)]
     pub yes: String,
-    /// Wert für „nicht billable“, z. B. „FALSCH“.
-    #[serde(default = "default_billable_no")]
+    /// Eigener Textwert für „nicht billable“ (leer = nur Wahrheitswerte).
+    #[serde(default)]
     pub no: String,
 }
 
-fn default_billable_yes() -> String {
-    "WAHR".to_string()
+impl BillableColumn {
+    /// Bedeutung eines Zellwerts: `Some(true)` = billable, `Some(false)` =
+    /// nicht billable, `None` = leer/unbekannt. Eigene Werte zuerst, dann
+    /// Wahrheitswerte (WAHR/TRUE, FALSCH/FALSE); ohne Groß-/Kleinschreibung.
+    pub fn meaning(&self, value: &str) -> Option<bool> {
+        let value = normalized_billable(value);
+        let (yes, no) = (
+            normalized_billable(&self.yes),
+            normalized_billable(&self.no),
+        );
+        match value.as_str() {
+            "" => None,
+            v if !yes.is_empty() && v == yes => Some(true),
+            v if !no.is_empty() && v == no => Some(false),
+            "wahr" => Some(true),
+            "falsch" => Some(false),
+            _ => None,
+        }
+    }
+
+    /// Erwartete Werte für Hinweise, z. B. „WAHR/FALSCH oder „ja“/„nein““.
+    pub fn expected(&self) -> String {
+        let (yes, no) = (self.yes.trim(), self.no.trim());
+        match (yes.is_empty(), no.is_empty()) {
+            (true, true) => "WAHR oder FALSCH".to_string(),
+            (false, true) => format!("WAHR, FALSCH oder „{yes}“"),
+            (true, false) => format!("WAHR, FALSCH oder „{no}“"),
+            (false, false) => format!("WAHR, FALSCH, „{yes}“ oder „{no}“"),
+        }
+    }
 }
 
-fn default_billable_no() -> String {
-    "FALSCH".to_string()
+fn normalized_billable(value: &str) -> String {
+    match value.trim().to_lowercase().as_str() {
+        "true" => "wahr".to_string(),
+        "false" => "falsch".to_string(),
+        other => other.to_string(),
+    }
 }
 
 fn default_sheet_name() -> String {
@@ -416,15 +449,20 @@ impl ProjectConfig {
             errors.push("Tabellenblatt-Name darf nicht leer sein.".to_string());
         }
         if let Some(billable) = &self.export_format.billable {
-            let (yes, no) = (billable.yes.trim(), billable.no.trim());
-            if yes.is_empty() || no.is_empty() {
-                errors.push(
-                    "Billable-Spalte: Werte für „billable“ und „nicht billable“ angeben."
-                        .to_string(),
-                );
-            } else if yes.to_lowercase() == no.to_lowercase() {
+            let (yes, no) = (
+                normalized_billable(&billable.yes),
+                normalized_billable(&billable.no),
+            );
+            if !yes.is_empty() && (yes == no || yes == "falsch") {
                 errors.push(format!(
-                    "Billable-Spalte: „{yes}“ kann nicht zugleich „billable“ und „nicht billable“ bedeuten."
+                    "Billable-Spalte: „{}“ kann nicht „billable“ bedeuten.",
+                    billable.yes.trim()
+                ));
+            }
+            if !no.is_empty() && no == "wahr" {
+                errors.push(format!(
+                    "Billable-Spalte: „{}“ kann nicht „nicht billable“ bedeuten.",
+                    billable.no.trim()
                 ));
             }
         }
@@ -619,37 +657,73 @@ mod tests {
     use super::*;
 
     #[test]
-    fn billable_column_is_optional_and_needs_two_different_values() {
+    fn billable_column_recognizes_booleans_and_optional_own_values() {
         assert_eq!(ExportFormat::default().billable, None);
         let format: ExportFormat =
             serde_json::from_str(r#"{ "billable": { "column": 14 } }"#).unwrap();
+        let column = format.billable.clone().unwrap();
         assert_eq!(
-            format.billable,
-            Some(BillableColumn {
-                column: 14,
-                yes: "WAHR".into(),
-                no: "FALSCH".into()
-            })
+            (column.column, column.yes.as_str(), column.no.as_str()),
+            (14, "", "")
         );
+        // Wahrheitswerte immer (Excel-Wahrheitswert wird als WAHR/FALSCH gelesen)
+        for (value, meaning) in [
+            ("WAHR", Some(true)),
+            (" true ", Some(true)),
+            ("falsch", Some(false)),
+            ("FALSE", Some(false)),
+            ("", None),
+            ("ja", None),
+        ] {
+            assert_eq!(column.meaning(value), meaning, "{value}");
+        }
+        assert_eq!(column.expected(), "WAHR oder FALSCH");
+        // eigene Textwerte (auch mit Umlauten und Zahlen) zusätzlich
+        let own = BillableColumn {
+            column: 3,
+            yes: "Ja".into(),
+            no: "NÖ".into(),
+        };
+        assert_eq!(
+            (
+                own.meaning("ja"),
+                own.meaning("nö"),
+                own.meaning("WAHR"),
+                own.meaning("x")
+            ),
+            (Some(true), Some(false), Some(true), None)
+        );
+        assert_eq!(own.expected(), "WAHR, FALSCH, „Ja“ oder „NÖ“");
+        let numbers = BillableColumn {
+            column: 3,
+            yes: "1".into(),
+            no: String::new(),
+        };
+        assert_eq!(
+            (numbers.meaning("1"), numbers.meaning("0")),
+            (Some(true), None)
+        );
+        assert_eq!(numbers.expected(), "WAHR, FALSCH oder „1“");
+        let only_no = BillableColumn {
+            column: 3,
+            yes: String::new(),
+            no: "-".into(),
+        };
+        assert_eq!(only_no.expected(), "WAHR, FALSCH oder „-“");
+
+        // Validierung: eigene Werte optional, aber widerspruchsfrei
         let mut config: ProjectConfig = serde_json::from_str(EXAMPLE).unwrap();
         config.export_format.billable = format.billable;
         config.validate().unwrap();
-        let column = config.export_format.billable.as_mut().unwrap();
-        column.no = " ".into();
-        assert!(
-            config
-                .validate()
-                .unwrap_err()
-                .contains("Werte für „billable“")
-        );
-        let column = config.export_format.billable.as_mut().unwrap();
-        column.no = "wahr".into();
-        assert!(
-            config
-                .validate()
-                .unwrap_err()
-                .contains("„WAHR“ kann nicht zugleich")
-        );
+        for (yes, no, error) in [
+            ("ja", "JA", "„ja“ kann nicht „billable“ bedeuten"),
+            ("FALSE", "", "„FALSE“ kann nicht „billable“ bedeuten"),
+            ("", "wahr", "„wahr“ kann nicht „nicht billable“ bedeuten"),
+        ] {
+            let column = config.export_format.billable.as_mut().unwrap();
+            (column.yes, column.no) = (yes.into(), no.into());
+            assert!(config.validate().unwrap_err().contains(error), "{yes}/{no}");
+        }
     }
 
     #[test]

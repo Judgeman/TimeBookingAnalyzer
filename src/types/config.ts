@@ -136,13 +136,13 @@ export interface ExportFormat {
   billable?: BillableColumn | null;
 }
 
-/** Billable-Spalte und ihre Werte (ohne Groß-/Kleinschreibung; Excel-Wahrheitswerte gelten immer). */
+/** Billable-Spalte: Wahrheitswerte automatisch, eigene Textwerte optional (ohne Groß-/Kleinschreibung). */
 export interface BillableColumn {
   /** 0-basierter Spaltenindex (0 = Spalte A). */
   column: number;
-  /** Wert für „billable“, z. B. „WAHR“. */
+  /** Eigener Textwert für „billable“ (leer = nur Wahrheitswerte WAHR/TRUE). */
   yes: string;
-  /** Wert für „nicht billable“, z. B. „FALSCH“. */
+  /** Eigener Textwert für „nicht billable“ (leer = nur Wahrheitswerte FALSCH/FALSE). */
   no: string;
 }
 

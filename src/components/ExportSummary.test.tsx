@@ -21,11 +21,11 @@ describe("ExportSummary (Import)", () => {
 
   it("zeigt die Billable-Spalte in der Vorschau, wenn sie gesetzt ist", () => {
     const overview = sampleResult().overview;
-    overview.preview = overview.preview.slice(0, 3).map((entry, i) => ({ ...entry, billable: [true, false, null][i] }));
+    overview.preview = overview.preview.slice(0, 3).map((entry, i) => ({ ...entry, billable: ["WAHR", "FALSCH", ""][i] }));
     render(<ExportSummary result={overview} elementFilter="P100 Lager-App" />);
     expect(screen.getByRole("columnheader", { name: "Billable" })).toBeInTheDocument();
     const rows = screen.getAllByRole("row").filter((r) => r.closest("tbody") && r.querySelectorAll("td").length === 8);
-    expect(rows.map((r) => r.querySelectorAll("td")[7].textContent)).toEqual(["ja", "nein", "–"]);
+    expect(rows.map((r) => r.querySelectorAll("td")[7].textContent)).toEqual(["WAHR", "FALSCH", "(leer)"]);
   });
 
   it("warnt bei fehlenden Teammitgliedern, Element-Treffern und übersprungenen Zeilen", () => {

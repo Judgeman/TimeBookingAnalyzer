@@ -268,14 +268,15 @@ mod tests {
                 .all(|e| e.billable.is_none())
         );
 
+        // ohne eigene Werte: Excel-Wahrheitswerte und Karls Text „WAHR“ automatisch
         config.export_format.billable = Some(BillableColumn {
             column: 14,
-            yes: "WAHR".into(),
-            no: "FALSCH".into(),
+            yes: String::new(),
+            no: String::new(),
         });
         let with = parse_export_file(&file, &config, None).unwrap();
         assert!(with.warnings.is_empty(), "{:?}", with.warnings);
-        assert!(with.overview.preview.iter().all(|e| e.billable.is_some()));
+        assert_eq!(with.overview.preview[0].billable.as_deref(), Some("WAHR"));
         let mismatches: Vec<(&str, String, bool, Option<&str>, f64)> = with
             .billable_mismatches
             .iter()
@@ -314,6 +315,26 @@ mod tests {
             (karl.rule.as_deref(), karl.invoiced, karl.net),
             (Some("Billable laut Export"), true, 360.0)
         );
+
+        // eigene Werte „JA“/„NEIN“: Wahrheitswerte gelten trotzdem → unverändert
+        let column = config.export_format.billable.as_mut().unwrap();
+        (column.yes, column.no) = ("JA".into(), "NEIN".into());
+        let own = parse_export_file(&file, &config, None).unwrap();
+        assert_eq!(own.invoice.total.net, with.invoice.total.net);
+        assert_eq!(own.billable_mismatches, with.billable_mismatches);
+
+        // falsche Spalte (H = Tätigkeit): alles unbekannt → nichts billable, Hinweis
+        let column = config.export_format.billable.as_mut().unwrap();
+        (column.column, column.yes, column.no) = (7, String::new(), String::new());
+        let wrong = parse_export_file(&file, &config, None).unwrap();
+        assert_eq!(wrong.invoice.total.net, 0.0);
+        let warning = wrong
+            .warnings
+            .iter()
+            .find(|w| w.contains("unbekanntem Wert in der Billable-Spalte H"))
+            .unwrap();
+        assert!(warning.contains("gelten als nicht billable"), "{warning}");
+        assert!(warning.contains(", …;"), "{warning}"); // mehr als 5 verschiedene Werte
     }
 
     #[test]

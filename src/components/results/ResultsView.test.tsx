@@ -32,7 +32,7 @@ describe("ResultsView", () => {
     result.billable_mismatches = [
       {
         person: "Karl Beispiel", date: "2026-02-10", element: "P100 Lager-App", kost2art: "Management",
-        hours: 3, billable: true, rule: null, net: 360,
+        hours: 3, value: "WAHR", billable: true, rule: null, net: 360,
       },
     ];
     render(<ResultsView result={result} elementFilter="P100 Lager-App" busy={false} onCutoffChange={() => {}} />);

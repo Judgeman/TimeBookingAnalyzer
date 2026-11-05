@@ -331,7 +331,10 @@ pub struct BillableMismatch {
     pub element: String,
     pub kost2art: String,
     pub hours: f64,
-    /// Wert der Billable-Spalte (gilt).
+    /// Inhalt der Billable-Spalte (wie in Excel angezeigt).
+    pub value: String,
+    /// Bedeutung (gilt): nur der Wert „billable“ ist billable – „nicht
+    /// billable“, leere und unbekannte Werte nicht.
     pub billable: bool,
     /// Regel laut Kost2Art (`None` = keine passende Regel).
     pub rule: Option<String>,

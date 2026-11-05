@@ -133,7 +133,9 @@ export function BillableMismatches({ mismatches }: Props) {
                   {m.element} · <span className="text-amber-800">{m.kost2art || "–"}</span>
                 </td>
                 <td className="px-4 py-1.5 text-right tabular-nums">{formatHours(m.hours)}</td>
-                <td className="px-4 py-1.5">{m.billable ? "billable" : "nicht billable"}</td>
+                <td className="px-4 py-1.5">
+                  {m.value || "(leer)"} <span className="text-amber-800">→ {m.billable ? "billable" : "nicht billable"}</span>
+                </td>
                 <td className="px-4 py-1.5">{m.rule ?? <span className="text-amber-800">keine passende Regel</span>}</td>
                 <td className="px-4 py-1.5 text-right whitespace-nowrap">
                   {m.billable ? (

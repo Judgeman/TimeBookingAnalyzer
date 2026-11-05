@@ -19,8 +19,8 @@ export interface TimeEntry {
   element: string;
   kost2art: string;
   location: string;
-  /** Wert der Billable-Spalte (null = keine Spalte bzw. leer/unbekannt). */
-  billable: boolean | null;
+  /** Inhalt der Billable-Spalte wie in Excel angezeigt (null = Spalte nicht gesetzt). */
+  billable: string | null;
 }
 
 /** Wo die Projekte dieser Instanz liegen (neben der Programmdatei). */
@@ -222,7 +222,9 @@ export interface BillableMismatch {
   element: string;
   kost2art: string;
   hours: number;
-  /** Wert der Billable-Spalte (gilt). */
+  /** Inhalt der Billable-Spalte (wie in Excel angezeigt). */
+  value: string;
+  /** Bedeutung (gilt): leere und unbekannte Werte sind nicht billable. */
   billable: boolean;
   /** Regel laut Kost2Art (null = keine passende Regel). */
   rule: string | null;

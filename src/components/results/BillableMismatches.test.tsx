@@ -10,11 +10,11 @@ const plain = (text: string | null) => text!.replace(/\s/g, " ");
 const mismatches: BillableMismatch[] = [
   {
     person: "Karl Beispiel", date: "2026-02-10", element: "P100 Lager-App", kost2art: "Management",
-    hours: 3, billable: true, rule: null, net: 360,
+    hours: 3, value: "WAHR", billable: true, rule: null, net: 360,
   },
   {
     person: "Erika Mustermann", date: "2026-09-12", element: "P100 Lager-App", kost2art: "Delivery (billable)",
-    hours: 4, billable: false, rule: "Delivery", net: 420,
+    hours: 4, value: "", billable: false, rule: "Delivery", net: 420,
   },
 ];
 
@@ -30,8 +30,8 @@ describe("BillableMismatches", () => {
     await user.click(summary);
     const rows = within(screen.getByRole("table")).getAllByRole("row").slice(1).map((r) => plain(r.textContent));
     expect(rows).toEqual([
-      "Di, 10.02.2026Karl BeispielP100 Lager-App · Management3,00billablekeine passende Regel+360,00 € abgerechnet",
-      "Sa, 12.09.2026Erika MustermannP100 Lager-App · Delivery (billable)4,00nicht billableDelivery−420,00 € nicht abgerechnet",
+      "Di, 10.02.2026Karl BeispielP100 Lager-App · Management3,00WAHR → billablekeine passende Regel+360,00 € abgerechnet",
+      "Sa, 12.09.2026Erika MustermannP100 Lager-App · Delivery (billable)4,00(leer) → nicht billableDelivery−420,00 € nicht abgerechnet",
     ]);
   });
 

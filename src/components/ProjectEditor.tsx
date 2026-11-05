@@ -315,6 +315,12 @@ export function ProjectEditor({ initial, onSave, onCancel, onDelete }: Props) {
           (billable ohne passende Regel → „Billable laut Export“ zum vollen Satz). Satz-Anteil, Mult
           und USt. kommen weiter aus der Regel; Abweichungen zu den Regeln werden angezeigt.
         </p>
+        <p className={`mb-2 ${ui.hint}`}>
+          <strong className="font-medium">Wahrheitswerte werden automatisch erkannt:</strong> WAHR/FALSCH
+          bzw. TRUE/FALSE (als Excel-Wahrheitswert oder Text). Eigene Werte nur angeben, wenn die
+          Spalte anderen Text enthält (z. B. „ja“/„nein“). Leere und unbekannte Werte gelten als nicht
+          billable – mit Hinweis und den gefundenen Werten.
+        </p>
         <div className="grid grid-cols-3 gap-3 lg:w-2/3">
           <Field label="Spalte">
             <select
@@ -326,8 +332,8 @@ export function ProjectEditor({ initial, onSave, onCancel, onDelete }: Props) {
                     e.target.value === ""
                       ? null
                       : {
-                          yes: format.billable?.yes ?? "WAHR",
-                          no: format.billable?.no ?? "FALSCH",
+                          yes: format.billable?.yes ?? "",
+                          no: format.billable?.no ?? "",
                           column: Number(e.target.value),
                         },
                 })
@@ -344,19 +350,19 @@ export function ProjectEditor({ initial, onSave, onCancel, onDelete }: Props) {
           </Field>
           {format.billable && (
             <>
-              <Field label="Wert „billable“">
+              <Field label="Eigener Wert „billable“ (optional)">
                 <input
-                  required
                   aria-label="Wert billable"
+                  placeholder="z. B. ja"
                   value={format.billable.yes}
                   onChange={(e) => setFormat({ billable: { ...format.billable!, yes: e.target.value } })}
                   className={ui.input}
                 />
               </Field>
-              <Field label="Wert „nicht billable“">
+              <Field label="Eigener Wert „nicht billable“ (optional)">
                 <input
-                  required
                   aria-label="Wert nicht billable"
+                  placeholder="z. B. nein"
                   value={format.billable.no}
                   onChange={(e) => setFormat({ billable: { ...format.billable!, no: e.target.value } })}
                   className={ui.input}

@@ -5,7 +5,8 @@ use std::path::Path;
 use calamine::{Data, Range, Reader, open_workbook_auto};
 
 use super::cells::{
-    cell_billable, cell_date, cell_hours, cell_mult, cell_text, column_letter, describe, is_blank,
+    cell_billable_text, cell_date, cell_hours, cell_mult, cell_text, column_letter, describe,
+    is_blank,
 };
 use crate::models::config::ExportFormat;
 use crate::models::entry::TimeEntry;
@@ -150,7 +151,7 @@ pub fn parse_range(
             billable: format
                 .billable
                 .as_ref()
-                .and_then(|b| cell_billable(cell(b.column), b)),
+                .map(|b| cell_billable_text(cell(b.column))),
         });
     }
 

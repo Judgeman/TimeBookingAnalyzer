@@ -123,7 +123,7 @@ export function ExportSummary({ result, elementFilter }: Props) {
                   <td className={td}>{entry.kost2art}</td>
                   <td className={td}>{entry.location}</td>
                   {withBillable && (
-                    <td className={td}>{entry.billable === null ? "–" : entry.billable ? "ja" : "nein"}</td>
+                    <td className={td}>{entry.billable || <span className="text-slate-400">(leer)</span>}</td>
                   )}
                 </tr>
               ))}

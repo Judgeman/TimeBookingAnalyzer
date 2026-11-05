@@ -223,13 +223,14 @@ test("Billable-Spalte: entscheidet über die Abrechnung, Abweichungen werden gel
     await loadSample(app);
     assert.ok(!(await app.text()).includes("Billable-Spalte weicht"));
 
-    // Export-Format: Billable-Spalte O mit den Standardwerten WAHR/FALSCH
+    // Export-Format: Billable-Spalte O, Wahrheitswerte automatisch (ohne eigene Werte)
     await app.click("button", "Projekt bearbeiten");
     await app.waitForText("Billable-Spalte (optional)");
+    await app.waitForText("Wahrheitswerte werden automatisch erkannt:");
     await app.execute(`const s = document.querySelector('select[aria-label="Billable-Spalte"]');
       Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value").set.call(s, "14");
       s.dispatchEvent(new Event("change", { bubbles: true }));`);
-    await app.waitForText("Wert „nicht billable“");
+    await app.waitForText("Eigener Wert „nicht billable“ (optional)");
     await app.click("button", "Speichern");
     await app.waitForText(
       "⚑ Billable-Spalte weicht bei 2 Buchungen von den Abrechnungsregeln ab (es gilt die Spalte): " +
@@ -238,7 +239,7 @@ test("Billable-Spalte: entscheidet über die Abrechnung, Abweichungen werden gel
     const saved = readdirSync(projectsDir())
       .filter((f) => f.endsWith(".json"))
       .map((f) => JSON.parse(readFileSync(join(projectsDir(), f), "utf8")))[0];
-    assert.deepEqual(saved.export_format.billable, { column: 14, yes: "WAHR", no: "FALSCH" });
+    assert.deepEqual(saved.export_format.billable, { column: 14, yes: "", no: "" });
 
     // Rechnung nach der Spalte: + 3 h × 120 € (Karl) − 4 h × 105 € (Erika, 12.09.)
     await app.tab("Rechnung");
@@ -247,6 +248,18 @@ test("Billable-Spalte: entscheidet über die Abrechnung, Abweichungen werden gel
     await app.tab("Import");
     await app.waitForText("Erste 25 von 892 Buchungen");
     assert.ok(await app.execute(`return [...document.querySelectorAll("th")].some((th) => th.textContent === "Billable")`));
+
+    // falsche Spalte (H = Tätigkeit): nichts ist billable, deutlicher Hinweis
+    await app.click("button", "Projekt bearbeiten");
+    await app.waitForText("Billable-Spalte (optional)");
+    await app.execute(`const s = document.querySelector('select[aria-label="Billable-Spalte"]');
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value").set.call(s, "7");
+      s.dispatchEvent(new Event("change", { bubbles: true }));`);
+    await app.click("button", "Speichern");
+    await app.waitForText("mit unbekanntem Wert in der Billable-Spalte H – gefunden:");
+    assert.ok((await app.text()).includes("Diese Buchungen gelten als nicht billable"));
+    await app.tab("Rechnung");
+    await app.waitForText("Bis zum Stichtag gibt es keine abrechenbaren Stunden");
   }));
 
 test("Darf buchen: Buchungen ohne Zeiterfassung, abgerechnet nach Kost2Art", () =>

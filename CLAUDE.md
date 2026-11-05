@@ -226,11 +226,12 @@ Jedes Projekt wird als JSON-Datei gespeichert:
       "sick": "(Sick)",
       "vacation": "(Vacation)"
     },
-    "billable": { "column": 14, "yes": "WAHR", "no": "FALSCH" }
+    "billable": { "column": 14, "yes": "", "no": "" }
   }
 }
 ```
-`export_format.billable` ist optional (`null`/fehlend = Billable-Spalte nicht verwenden).
+`export_format.billable` ist optional (`null`/fehlend = Billable-Spalte nicht verwenden);
+`yes`/`no` = optionale eigene Textwerte (leer = nur Wahrheitswerte).
 
 ---
 
@@ -246,7 +247,7 @@ struct TimeEntry {
     element: String,
     kost2art: String,
     location: String,
-    billable: Option<bool>,  // Billable-Spalte (falls gesetzt), None = leer/unbekannt
+    billable: Option<String>, // Billable-Spalte wie angezeigt (Wahrheitswert → „WAHR“/„FALSCH“), None = nicht gesetzt
 }
 ```
 
@@ -263,17 +264,19 @@ Jede Nicht-Abwesenheits-Buchung wird der **ersten passenden** Regel aus
 Standardregeln (`default_billing_rules`, gelten auch wenn das Feld fehlt) = Spezifikation:
 Delivery → billable h + €; übrige „(billable)“ → nur €; ohne Mult.
 
-**Billable-Spalte** (optional, `export_format.billable`: Spalte + Werte, Standard
-„WAHR“/„FALSCH“, ohne Groß-/Kleinschreibung; echte Excel-Wahrheitswerte gelten immer):
-bei Buchungen **aufs Projekt** entscheidet die Spalte, ob abgerechnet wird
-(`Biller::decide`). Spalte = Regel (`invoice`) → wie bisher. WAHR ohne abrechnende Regel →
-Regel „Billable laut Export“ (billable h + €, 100 %, ohne Mult, USt. des Projekts); FALSCH
-bei abrechnender Regel → nicht abgerechnet (nicht in `bill_h`/`bill_eur`). Jede solche
-Abweichung steht in `billable_mismatches` (Person, Tag, Spalte, Regel, Netto zusätzlich
-bzw. laut Regel entfallen). Leerer/unbekannter Wert → Regel entscheidet, Hinweis mit
-Anzahl. Gilt für Team (auch außerhalb des Einsatzes, ohne Zeiterfassung) und „darf
-buchen“. UI: Editor „Billable-Spalte (optional)“, Hinweis mit Filtern, Spalte in der
-Import-Vorschau.
+**Billable-Spalte** (optional, `export_format.billable`): Zellwert wird als Text gelesen
+(Excel-Wahrheitswert → „WAHR“/„FALSCH“); Bedeutung (`BillableColumn::meaning`, ohne
+Groß-/Kleinschreibung): eigene Werte `yes`/`no` (optional), sonst automatisch WAHR/TRUE →
+billable, FALSCH/FALSE → nicht billable. **Streng:** leere und unbekannte Werte gelten als
+nicht billable (Hinweis mit Anzahl und gefundenen Werten, max. 5). Bei Buchungen **aufs
+Projekt** entscheidet die Spalte (`Biller::decide`): Spalte = Regel (`invoice`) → wie
+bisher; billable ohne abrechnende Regel → Regel „Billable laut Export“ (billable h + €,
+100 %, ohne Mult, USt. des Projekts); nicht billable bei abrechnender Regel → nicht
+abgerechnet (nicht in `bill_h`/`bill_eur`). Jede Abweichung steht in `billable_mismatches`
+(Person, Tag, Zellwert, Bedeutung, Regel, Netto zusätzlich bzw. laut Regel entfallen).
+Gilt für Team (auch außerhalb des Einsatzes, ohne Zeiterfassung) und „darf buchen“.
+UI: Editor „Billable-Spalte (optional)“ mit Hinweis zur automatischen Erkennung,
+Abweichungs-Hinweis mit Filtern, Zellwert in der Import-Vorschau.
 
 ```rust
 fn counts_as_work(mult: f64) -> bool {

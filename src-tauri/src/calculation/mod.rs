@@ -14,7 +14,7 @@ pub mod location;
 pub mod soll;
 pub mod vacation;
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::ops::AddAssign;
 
 use chrono::{Datelike, NaiveDate, Weekday};
@@ -479,17 +479,35 @@ struct BillableChecks {
     mismatches: Vec<BillableMismatch>,
     unknown: usize,
     first_unknown: Option<NaiveDate>,
+    /// Gefundene unbekannte Werte (für den Hinweis).
+    unknown_values: BTreeSet<String>,
 }
 
 impl BillableChecks {
     fn warning(&self, column: &BillableColumn) -> Option<String> {
+        const SHOWN: usize = 5;
         let first = self.first_unknown?;
+        let mut found: Vec<String> = self
+            .unknown_values
+            .iter()
+            .take(SHOWN)
+            .map(|v| {
+                if v.is_empty() {
+                    "(leer)".to_string()
+                } else {
+                    format!("„{v}“")
+                }
+            })
+            .collect();
+        if self.unknown_values.len() > SHOWN {
+            found.push("…".to_string());
+        }
         Some(format!(
-            "{} Buchung(en) aufs Projekt ohne gültigen Wert in der Billable-Spalte {} (erwartet „{}“ oder „{}“, erste am {}) – dort entscheidet die Abrechnungsregel.",
+            "{} Buchung(en) aufs Projekt mit unbekanntem Wert in der Billable-Spalte {} – gefunden: {}; erwartet {} (erste am {}). Diese Buchungen gelten als nicht billable – Spalte und Werte im Export-Format prüfen.",
             self.unknown,
             column_letter(column.column),
-            column.yes.trim(),
-            column.no.trim(),
+            found.join(", "),
+            column.expected(),
             fmt_date(first)
         ))
     }
@@ -504,15 +522,20 @@ impl<'a> Biller<'a, '_> {
     fn decide(&mut self, entry: &TimeEntry) -> (Option<(usize, &'a BillingRule)>, bool) {
         let config = self.config;
         let rule = billing::matching_rule(&config.billing_rules, entry, &config.element_filter);
-        if config.export_format.billable.is_none() || !is_project_booking(config, entry) {
+        let (Some(column), Some(value)) = (&config.export_format.billable, &entry.billable) else {
+            return (rule, false);
+        };
+        if !is_project_booking(config, entry) {
             return (rule, false);
         }
-        let Some(billable) = entry.billable else {
+        // Nur der Wert „billable“ ist billable; leere/unbekannte Werte nicht (mit Hinweis).
+        let billable = column.meaning(value).unwrap_or_else(|| {
             self.checks.unknown += 1;
             let first = self.checks.first_unknown.get_or_insert(entry.date);
             *first = (*first).min(entry.date);
-            return (rule, false);
-        };
+            self.checks.unknown_values.insert(value.trim().to_string());
+            false
+        });
         let by_rule = rule.filter(|(_, r)| r.invoice);
         if billable == by_rule.is_some() {
             return (rule, false);
@@ -535,6 +558,7 @@ impl<'a> Biller<'a, '_> {
             element: entry.element.clone(),
             kost2art: entry.kost2art.clone(),
             hours: round2(entry.hours),
+            value: value.clone(),
             billable,
             rule: rule.map(|(_, r)| r.name.clone()),
             net: round2(net),
