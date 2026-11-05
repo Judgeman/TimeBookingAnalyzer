@@ -129,6 +129,29 @@ describe("ProjectEditor – Export-Format, Arbeitszeit, USt.", () => {
     expect(saved.vat_percent).toBe(7);
     expect(saved.working_hours[1]).toEqual({ from: "2026-07-01", to: "2026-12-31", hours_per_day: 7.5 });
   });
+
+  it("Billable-Spalte: optional, Werte einstellbar (Standard WAHR/FALSCH)", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<ProjectEditor initial={sampleConfig()} onSave={onSave} onCancel={() => {}} />);
+    const column = screen.getByLabelText<HTMLSelectElement>("Billable-Spalte");
+    expect(column.value).toBe("");
+    expect(screen.queryByLabelText("Wert billable")).not.toBeInTheDocument();
+
+    await user.selectOptions(column, "14"); // Spalte O
+    const yes = screen.getByLabelText<HTMLInputElement>("Wert billable");
+    expect([yes.value, screen.getByLabelText<HTMLInputElement>("Wert nicht billable").value]).toEqual(["WAHR", "FALSCH"]);
+    await user.clear(yes);
+    await user.type(yes, "ja");
+    await user.selectOptions(column, "15"); // Spalte wechseln behält die Werte
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    expect((onSave.mock.calls[0][0] as ProjectConfig).export_format.billable).toEqual({ column: 15, yes: "ja", no: "FALSCH" });
+
+    await user.selectOptions(column, "");
+    expect(screen.queryByLabelText("Wert billable")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    expect((onSave.mock.calls[1][0] as ProjectConfig).export_format.billable).toBeNull();
+  });
 });
 
 describe("ProjectEditor – exakte Werte", () => {

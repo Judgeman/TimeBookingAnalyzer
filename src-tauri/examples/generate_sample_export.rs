@@ -369,6 +369,25 @@ fn rows_for_day(date: NaiveDate, rows: &mut Vec<Row>) {
     }
 }
 
+/// Billable-Spalte: Buchungen aufs Projekt mit „(billable)“ in der Kost2Art.
+/// Zwei bewusste Abweichungen von den Abrechnungsregeln (zum Ausprobieren der
+/// Billable-Spalte): Karls Lenkungskreis am 10.02. ist billable (als Text
+/// „WAHR“), Erikas Samstag am 12.09. nicht.
+enum Billable {
+    Bool(bool),
+    Text(&'static str),
+}
+
+fn billable(row: &Row) -> Billable {
+    match (row.user, row.date.month(), row.date.day()) {
+        (KARL, 2, 10) => Billable::Text("WAHR"),
+        (ERIKA, 9, 12) => Billable::Bool(false),
+        _ => Billable::Bool(
+            row.element == "P100 Lager-App" && row.kost2art.to_lowercase().contains("(billable)"),
+        ),
+    }
+}
+
 fn kost2_and_project(element: &str) -> (&'static str, &'static str) {
     match element {
         "P100 Lager-App" => ("5.100.01.01", "Lager-App"),
@@ -442,6 +461,7 @@ fn main() -> Result<(), XlsxError> {
         "Kost2Art",
         "Description",
         "Location",
+        "Billable",
     ];
     for (col, title) in header.iter().enumerate() {
         ws.write_string_with_format(0, col as u16, *title, &header_fmt)?;
@@ -480,6 +500,10 @@ fn main() -> Result<(), XlsxError> {
         text(ws, r, 11, row.kost2art)?;
         text(ws, r, 12, row.task)?;
         text(ws, r, 13, row.location)?;
+        match billable(row) {
+            Billable::Bool(value) => ws.write_boolean(r, 14, value)?,
+            Billable::Text(value) => ws.write_string(r, 14, value)?,
+        };
     }
 
     workbook.save(&out)?;

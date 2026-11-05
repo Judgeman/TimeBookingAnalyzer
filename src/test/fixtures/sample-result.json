@@ -7967,6 +7967,7 @@
       "net": 0.0
     }
   ],
+  "billable_mismatches": [],
   "forecast": {
     "from": "2026-11-01",
     "to": "2026-12-31",
@@ -8286,7 +8287,8 @@
         "mult": 1.0,
         "element": "P100 Lager-App",
         "kost2art": "Delivery (billable)",
-        "location": "Home Office"
+        "location": "Home Office",
+        "billable": null
       },
       {
         "name": "Erika Mustermann",
@@ -8295,7 +8297,8 @@
         "mult": 1.0,
         "element": "P100 Lager-App",
         "kost2art": "Sales",
-        "location": "Home Office"
+        "location": "Home Office",
+        "billable": null
       },
       {
         "name": "Max Mustermann",
@@ -8304,7 +8307,8 @@
         "mult": 1.0,
         "element": "P100 Lager-App",
         "kost2art": "Delivery (billable)",
-        "location": "Home Office"
+        "location": "Home Office",
+        "billable": null
       },
       {
         "name": "Lena Beispiel",
@@ -8313,7 +8317,8 @@
         "mult": 1.0,
         "element": "P100 Lager-App",
         "kost2art": "Delivery (billable)",
-        "location": "Home Office"
+        "location": "Home Office",
+        "billable": null
       },
       {
         "name": "Erika Mustermann",
@@ -8322,7 +8327,8 @@
         "mult": 1.0,
         "element": "P100 Lager-App",
         "kost2art": "Delivery (billable)",
-        "location": "Büro"
+        "location": "Büro",
+        "billable": null
       },
       {
         "name": "Max Mustermann",
@@ -8331,7 +8337,8 @@
         "mult": 0.5,
         "element": "P100 Lager-App",
         "kost2art": "Travel (billable)",
-        "location": "Kunde vor Ort"
+        "location": "Kunde vor Ort",
+        "billable": null
       },
       {
         "name": "Max Mustermann",
@@ -8340,7 +8347,8 @@
         "mult": 1.0,
         "element": "P100 Lager-App",
         "kost2art": "Delivery (billable)",
-        "location": "Kunde vor Ort"
+        "location": "Kunde vor Ort",
+        "billable": null
       },
       {
         "name": "Jonas Beispiel",
@@ -8349,7 +8357,8 @@
         "mult": 1.0,
         "element": "P200 Intranet",
         "kost2art": "Delivery (billable)",
-        "location": "Büro"
+        "location": "Büro",
+        "billable": null
       },
       {
         "name": "Lena Beispiel",
@@ -8358,7 +8367,8 @@
         "mult": 1.0,
         "element": "P100 Lager-App",
         "kost2art": "Delivery (billable)",
-        "location": "Home Office"
+        "location": "Home Office",
+        "billable": null
       },
       {
         "name": "Erika Mustermann",
@@ -8367,7 +8377,8 @@
         "mult": 1.0,
         "element": "P100 Lager-App",
         "kost2art": "Delivery (billable)",
-        "location": "Büro"
+        "location": "Büro",
+        "billable": null
       },
       {
         "name": "Max Mustermann",
@@ -8376,7 +8387,8 @@
         "mult": 1.0,
         "element": "P100 Lager-App",
         "kost2art": "Delivery (billable)",
-        "location": "Home Office"
+        "location": "Home Office",
+        "billable": null
       },
       {
         "name": "Jonas Beispiel",
@@ -8385,7 +8397,8 @@
         "mult": 1.0,
         "element": "P200 Intranet",
         "kost2art": "Delivery (billable)",
-        "location": "Büro"
+        "location": "Büro",
+        "billable": null
       },
       {
         "name": "Lena Beispiel",
@@ -8394,7 +8407,8 @@
         "mult": 1.0,
         "element": "P100 Lager-App",
         "kost2art": "Delivery (billable)",
-        "location": "Home Office"
+        "location": "Home Office",
+        "billable": null
       },
       {
         "name": "Erika Mustermann",
@@ -8403,7 +8417,8 @@
         "mult": 1.0,
         "element": "P100 Lager-App",
         "kost2art": "Delivery (billable)",
-        "location": "Büro"
+        "location": "Büro",
+        "billable": null
       },
       {
         "name": "Max Mustermann",
@@ -8412,7 +8427,8 @@
         "mult": 1.0,
         "element": "P100 Lager-App",
         "kost2art": "Delivery (billable)",
-        "location": "Home Office"
+        "location": "Home Office",
+        "billable": null
       },
       {
         "name": "Jonas Beispiel",
@@ -8421,7 +8437,8 @@
         "mult": 1.0,
         "element": "P200 Intranet",
         "kost2art": "Delivery (billable)",
-        "location": "Büro"
+        "location": "Büro",
+        "billable": null
       },
       {
         "name": "Lena Beispiel",
@@ -8430,7 +8447,8 @@
         "mult": 1.0,
         "element": "P100 Lager-App",
         "kost2art": "Delivery (billable)",
-        "location": "Home Office"
+        "location": "Home Office",
+        "billable": null
       },
       {
         "name": "Erika Mustermann",
@@ -8439,7 +8457,8 @@
         "mult": 1.0,
         "element": "P100 Lager-App",
         "kost2art": "Delivery (billable)",
-        "location": "Büro"
+        "location": "Büro",
+        "billable": null
       },
       {
         "name": "Max Mustermann",
@@ -8448,7 +8467,8 @@
         "mult": 1.0,
         "element": "P100 Lager-App",
         "kost2art": "Delivery (billable)",
-        "location": "Home Office"
+        "location": "Home Office",
+        "billable": null
       },
       {
         "name": "Max Mustermann",
@@ -8457,7 +8477,8 @@
         "mult": 1.0,
         "element": "Z900 Intern",
         "kost2art": "Internal",
-        "location": "Büro"
+        "location": "Büro",
+        "billable": null
       },
       {
         "name": "Jonas Beispiel",
@@ -8466,7 +8487,8 @@
         "mult": 1.0,
         "element": "P200 Intranet",
         "kost2art": "Delivery (billable)",
-        "location": "Büro"
+        "location": "Büro",
+        "billable": null
       },
       {
         "name": "Lena Beispiel",
@@ -8475,7 +8497,8 @@
         "mult": 1.0,
         "element": "P100 Lager-App",
         "kost2art": "Delivery (billable)",
-        "location": "Home Office"
+        "location": "Home Office",
+        "billable": null
       },
       {
         "name": "Erika Mustermann",
@@ -8484,7 +8507,8 @@
         "mult": 1.0,
         "element": "P100 Lager-App",
         "kost2art": "Delivery (billable)",
-        "location": "Home Office"
+        "location": "Home Office",
+        "billable": null
       },
       {
         "name": "Erika Mustermann",
@@ -8493,7 +8517,8 @@
         "mult": 1.0,
         "element": "P100 Lager-App",
         "kost2art": "Sales",
-        "location": "Home Office"
+        "location": "Home Office",
+        "billable": null
       },
       {
         "name": "Max Mustermann",
@@ -8502,7 +8527,8 @@
         "mult": 1.0,
         "element": "P100 Lager-App",
         "kost2art": "Delivery (billable)",
-        "location": "Home Office"
+        "location": "Home Office",
+        "billable": null
       }
     ]
   }

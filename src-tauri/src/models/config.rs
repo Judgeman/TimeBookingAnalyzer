@@ -302,6 +302,10 @@ pub struct ExportFormat {
     pub columns: ColumnMapping,
     #[serde(default)]
     pub special_elements: SpecialElements,
+    /// Optionale Billable-Spalte: Ist sie gesetzt, entscheidet sie, ob eine
+    /// Buchung aufs Projekt abgerechnet wird (Abweichungen zu den Regeln → Hinweis).
+    #[serde(default)]
+    pub billable: Option<BillableColumn>,
 }
 
 impl Default for ExportFormat {
@@ -310,8 +314,31 @@ impl Default for ExportFormat {
             sheet_name: default_sheet_name(),
             columns: ColumnMapping::default(),
             special_elements: SpecialElements::default(),
+            billable: None,
         }
     }
+}
+
+/// Billable-Spalte des Exports und ihre Werte (ohne Groß-/Kleinschreibung;
+/// echte Excel-Wahrheitswerte gelten immer).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BillableColumn {
+    /// 0-basierter Spaltenindex (0 = Spalte A).
+    pub column: usize,
+    /// Wert für „billable“, z. B. „WAHR“.
+    #[serde(default = "default_billable_yes")]
+    pub yes: String,
+    /// Wert für „nicht billable“, z. B. „FALSCH“.
+    #[serde(default = "default_billable_no")]
+    pub no: String,
+}
+
+fn default_billable_yes() -> String {
+    "WAHR".to_string()
+}
+
+fn default_billable_no() -> String {
+    "FALSCH".to_string()
 }
 
 fn default_sheet_name() -> String {
@@ -387,6 +414,19 @@ impl ProjectConfig {
         }
         if self.export_format.sheet_name.trim().is_empty() {
             errors.push("Tabellenblatt-Name darf nicht leer sein.".to_string());
+        }
+        if let Some(billable) = &self.export_format.billable {
+            let (yes, no) = (billable.yes.trim(), billable.no.trim());
+            if yes.is_empty() || no.is_empty() {
+                errors.push(
+                    "Billable-Spalte: Werte für „billable“ und „nicht billable“ angeben."
+                        .to_string(),
+                );
+            } else if yes.to_lowercase() == no.to_lowercase() {
+                errors.push(format!(
+                    "Billable-Spalte: „{yes}“ kann nicht zugleich „billable“ und „nicht billable“ bedeuten."
+                ));
+            }
         }
         if !is_known_region(&self.holidays.region) {
             errors.push(format!(
@@ -577,6 +617,40 @@ fn check_periods(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn billable_column_is_optional_and_needs_two_different_values() {
+        assert_eq!(ExportFormat::default().billable, None);
+        let format: ExportFormat =
+            serde_json::from_str(r#"{ "billable": { "column": 14 } }"#).unwrap();
+        assert_eq!(
+            format.billable,
+            Some(BillableColumn {
+                column: 14,
+                yes: "WAHR".into(),
+                no: "FALSCH".into()
+            })
+        );
+        let mut config: ProjectConfig = serde_json::from_str(EXAMPLE).unwrap();
+        config.export_format.billable = format.billable;
+        config.validate().unwrap();
+        let column = config.export_format.billable.as_mut().unwrap();
+        column.no = " ".into();
+        assert!(
+            config
+                .validate()
+                .unwrap_err()
+                .contains("Werte für „billable“")
+        );
+        let column = config.export_format.billable.as_mut().unwrap();
+        column.no = "wahr".into();
+        assert!(
+            config
+                .validate()
+                .unwrap_err()
+                .contains("„WAHR“ kann nicht zugleich")
+        );
+    }
 
     #[test]
     fn without_time_tracking_takes_over_the_former_option() {

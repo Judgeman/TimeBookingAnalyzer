@@ -218,6 +218,37 @@ test("Ohne Zeiterfassung: abgerechnet und in der Prognose, aber keine Zeitkontro
     assert.match(max, /Auslastung \d+(,\d)? %ohne Zeiterfassung/);
   }));
 
+test("Billable-Spalte: entscheidet über die Abrechnung, Abweichungen werden gelistet", () =>
+  withApp("billable-spalte", {}, async (app) => {
+    await loadSample(app);
+    assert.ok(!(await app.text()).includes("Billable-Spalte weicht"));
+
+    // Export-Format: Billable-Spalte O mit den Standardwerten WAHR/FALSCH
+    await app.click("button", "Projekt bearbeiten");
+    await app.waitForText("Billable-Spalte (optional)");
+    await app.execute(`const s = document.querySelector('select[aria-label="Billable-Spalte"]');
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value").set.call(s, "14");
+      s.dispatchEvent(new Event("change", { bubbles: true }));`);
+    await app.waitForText("Wert „nicht billable“");
+    await app.click("button", "Speichern");
+    await app.waitForText(
+      "⚑ Billable-Spalte weicht bei 2 Buchungen von den Abrechnungsregeln ab (es gilt die Spalte): " +
+        "3,00 h zusätzlich abgerechnet (+360,00 € netto) · 4,00 h nicht abgerechnet (−420,00 € laut Regel)",
+    );
+    const saved = readdirSync(projectsDir())
+      .filter((f) => f.endsWith(".json"))
+      .map((f) => JSON.parse(readFileSync(join(projectsDir(), f), "utf8")))[0];
+    assert.deepEqual(saved.export_format.billable, { column: 14, yes: "WAHR", no: "FALSCH" });
+
+    // Rechnung nach der Spalte: + 3 h × 120 € (Karl) − 4 h × 105 € (Erika, 12.09.)
+    await app.tab("Rechnung");
+    await app.waitForText("319.805,00 €");
+    // Import: Billable-Spalte in der Vorschau
+    await app.tab("Import");
+    await app.waitForText("Erste 25 von 892 Buchungen");
+    assert.ok(await app.execute(`return [...document.querySelectorAll("th")].some((th) => th.textContent === "Billable")`));
+  }));
+
 test("Darf buchen: Buchungen ohne Zeiterfassung, abgerechnet nach Kost2Art", () =>
   withApp("darf-buchen", {}, async (app) => {
     await loadSample(app);

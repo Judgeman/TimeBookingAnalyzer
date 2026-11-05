@@ -132,6 +132,18 @@ export interface ExportFormat {
   sheet_name: string;
   columns: ColumnMapping;
   special_elements: SpecialElements;
+  /** Optionale Billable-Spalte: entscheidet, ob eine Buchung aufs Projekt abgerechnet wird. */
+  billable?: BillableColumn | null;
+}
+
+/** Billable-Spalte und ihre Werte (ohne Groß-/Kleinschreibung; Excel-Wahrheitswerte gelten immer). */
+export interface BillableColumn {
+  /** 0-basierter Spaltenindex (0 = Spalte A). */
+  column: number;
+  /** Wert für „billable“, z. B. „WAHR“. */
+  yes: string;
+  /** Wert für „nicht billable“, z. B. „FALSCH“. */
+  no: string;
 }
 
 /** 0-basierte Spaltenindizes (0 = Spalte A). */

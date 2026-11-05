@@ -43,6 +43,7 @@ src/                        # React Frontend
       InvoiceView.tsx       # Rechnung: Netto pro Person/Monat, USt., Brutto
       OutsideBookings.tsx   # roter Hinweis: Projektbuchungen außerhalb des Teams
       GuestBookings.tsx     # neutraler Hinweis: Buchungen der Rolle „darf buchen“
+      BillableMismatches.tsx # Hinweis: Billable-Spalte ≠ Abrechnungsregel (filterbar)
       ForecastView.tsx      # Prognose: laufender Monat, Budget-Status, Monate, Faktoren je Person
       BudgetChart.tsx       # SVG-Linien kumuliert: Ist, Prognose (gestrichelt), Richtwert, Budget
       forecast.ts           # Hilfen: kumulierte Kurven, aktives Budget, Stand der Daten
@@ -100,7 +101,8 @@ src-tauri/
   examples/
     generate_sample_export.rs  # erzeugt sample-data/Beispiel-Export_2026-10-31.xlsx
 
-sample-data/                # Fiktive Testdaten (Export + passende Projektkonfiguration)
+sample-data/                # Fiktive Testdaten (Export + passende Projektkonfiguration);
+                            # Export mit Billable-Spalte O (2 Abweichungen, im Projekt nicht gesetzt)
 e2e/                        # E2E-Tests der Desktop-App (tauri-driver, node:test), s. e2e/README.md
 .github/workflows/ci.yml    # CI: Rust (fmt/clippy/Tests/Abdeckung), Frontend, E2E
 ```
@@ -223,10 +225,12 @@ Jedes Projekt wird als JSON-Datei gespeichert:
     "special_elements": {
       "sick": "(Sick)",
       "vacation": "(Vacation)"
-    }
+    },
+    "billable": { "column": 14, "yes": "WAHR", "no": "FALSCH" }
   }
 }
 ```
+`export_format.billable` ist optional (`null`/fehlend = Billable-Spalte nicht verwenden).
 
 ---
 
@@ -242,6 +246,7 @@ struct TimeEntry {
     element: String,
     kost2art: String,
     location: String,
+    billable: Option<bool>,  // Billable-Spalte (falls gesetzt), None = leer/unbekannt
 }
 ```
 
@@ -257,6 +262,18 @@ Jede Nicht-Abwesenheits-Buchung wird der **ersten passenden** Regel aus
 
 Standardregeln (`default_billing_rules`, gelten auch wenn das Feld fehlt) = Spezifikation:
 Delivery → billable h + €; übrige „(billable)“ → nur €; ohne Mult.
+
+**Billable-Spalte** (optional, `export_format.billable`: Spalte + Werte, Standard
+„WAHR“/„FALSCH“, ohne Groß-/Kleinschreibung; echte Excel-Wahrheitswerte gelten immer):
+bei Buchungen **aufs Projekt** entscheidet die Spalte, ob abgerechnet wird
+(`Biller::decide`). Spalte = Regel (`invoice`) → wie bisher. WAHR ohne abrechnende Regel →
+Regel „Billable laut Export“ (billable h + €, 100 %, ohne Mult, USt. des Projekts); FALSCH
+bei abrechnender Regel → nicht abgerechnet (nicht in `bill_h`/`bill_eur`). Jede solche
+Abweichung steht in `billable_mismatches` (Person, Tag, Spalte, Regel, Netto zusätzlich
+bzw. laut Regel entfallen). Leerer/unbekannter Wert → Regel entscheidet, Hinweis mit
+Anzahl. Gilt für Team (auch außerhalb des Einsatzes, ohne Zeiterfassung) und „darf
+buchen“. UI: Editor „Billable-Spalte (optional)“, Hinweis mit Filtern, Spalte in der
+Import-Vorschau.
 
 ```rust
 fn counts_as_work(mult: f64) -> bool {
@@ -497,6 +514,7 @@ interface AuswertungResult {
   guests: string[];               // Rolle „darf buchen“ (Konfiguration)
   untracked: string[];            // Teammitglieder ohne Zeiterfassung (nicht in persons)
   guest_bookings: GuestBooking[]; // deren Projektbuchungen (rule: string | null, invoiced, net)
+  billable_mismatches: BillableMismatch[]; // Billable-Spalte ≠ Regel (es gilt die Spalte)
   forecast: Forecast;             // { from, to, reference_*, persons (Faktoren, Prognose h/€),
                                   //   months (Ist/Prognose je Monat), budgets (BudgetStatus), notes }
   forecast_accuracy: AccuracyMonth[]; // { month, actual_net, backtest_net, recorded_net?, recorded_on? }

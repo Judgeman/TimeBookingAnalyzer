@@ -22,6 +22,23 @@ describe("ResultsView", () => {
     return { user, onCutoffChange };
   }
 
+  it("zeigt Abweichungen der Billable-Spalte nur, wenn es welche gibt", () => {
+    const { unmount } = render(
+      <ResultsView result={sampleResult()} elementFilter="P100 Lager-App" busy={false} onCutoffChange={() => {}} />,
+    );
+    expect(screen.queryByText(/Billable-Spalte weicht/)).not.toBeInTheDocument();
+    unmount();
+    const result = sampleResult();
+    result.billable_mismatches = [
+      {
+        person: "Karl Beispiel", date: "2026-02-10", element: "P100 Lager-App", kost2art: "Management",
+        hours: 3, billable: true, rule: null, net: 360,
+      },
+    ];
+    render(<ResultsView result={result} elementFilter="P100 Lager-App" busy={false} onCutoffChange={() => {}} />);
+    expect(text()).toContain("⚑ Billable-Spalte weicht bei 1 Buchung von den Abrechnungsregeln ab");
+  });
+
   it("zeigt Kopf, fehlende und hervorgehobene Buchungen", () => {
     setup();
     expect(screen.getByText("Auswertung 01.01.2026 – 31.10.2026")).toBeInTheDocument();

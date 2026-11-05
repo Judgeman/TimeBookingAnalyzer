@@ -19,6 +19,8 @@ export interface TimeEntry {
   element: string;
   kost2art: string;
   location: string;
+  /** Wert der Billable-Spalte (null = keine Spalte bzw. leer/unbekannt). */
+  billable: boolean | null;
 }
 
 /** Wo die Projekte dieser Instanz liegen (neben der Programmdatei). */
@@ -112,6 +114,8 @@ export interface AuswertungResult {
   untracked: string[];
   /** Ihre Buchungen aufs Projekt im Auswertungszeitraum. */
   guest_bookings: GuestBooking[];
+  /** Buchungen aufs Projekt, bei denen die Billable-Spalte von den Regeln abweicht (es gilt die Spalte). */
+  billable_mismatches: BillableMismatch[];
   /** Prognose der Rechnung und Budget-Abgleich. */
   forecast: Forecast;
   /** Prognosegüte je abgeschlossenem Monat. */
@@ -209,6 +213,21 @@ export interface BudgetStatus {
   exhausted_on: IsoDate | null;
   /** Ist liegt bereits über dem Budget. */
   exceeded: boolean;
+}
+
+/** Abweichung der Billable-Spalte von der Abrechnungsregel – abgerechnet wird nach der Spalte. */
+export interface BillableMismatch {
+  person: string;
+  date: IsoDate;
+  element: string;
+  kost2art: string;
+  hours: number;
+  /** Wert der Billable-Spalte (gilt). */
+  billable: boolean;
+  /** Regel laut Kost2Art (null = keine passende Regel). */
+  rule: string | null;
+  /** billable: zusätzlich abgerechnet (netto); sonst: laut Regel, aber nicht abgerechnet. */
+  net: number;
 }
 
 export interface CurrentMissing {

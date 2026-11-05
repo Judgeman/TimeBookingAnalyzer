@@ -113,6 +113,7 @@ pub fn parse_export_file(
             .map(|m| m.name.clone())
             .collect(),
         guest_bookings: evaluation.guest_bookings,
+        billable_mismatches: evaluation.billable_mismatches,
         forecast,
         forecast_accuracy,
         vacation,
@@ -249,6 +250,72 @@ mod tests {
     }
 
     /// Hält die fiktiven Beispieldaten in `sample-data/` und den Parser synchron.
+    /// Beispiel-Export mit Billable-Spalte O: Karls Lenkungskreis (3 h, keine
+    /// Regel) ist billable, Erikas Samstag 12.09. (4 h Delivery) nicht.
+    #[test]
+    fn sample_export_with_billable_column() {
+        use crate::models::config::BillableColumn;
+        let json = std::fs::read_to_string(sample("beispiel-projekt.json")).unwrap();
+        let mut config: ProjectConfig = serde_json::from_str(&json).unwrap();
+        let file = sample("Beispiel-Export_2026-10-31.xlsx");
+        let without = parse_export_file(&file, &config, None).unwrap();
+        assert!(without.billable_mismatches.is_empty());
+        assert!(
+            without
+                .overview
+                .preview
+                .iter()
+                .all(|e| e.billable.is_none())
+        );
+
+        config.export_format.billable = Some(BillableColumn {
+            column: 14,
+            yes: "WAHR".into(),
+            no: "FALSCH".into(),
+        });
+        let with = parse_export_file(&file, &config, None).unwrap();
+        assert!(with.warnings.is_empty(), "{:?}", with.warnings);
+        assert!(with.overview.preview.iter().all(|e| e.billable.is_some()));
+        let mismatches: Vec<(&str, String, bool, Option<&str>, f64)> = with
+            .billable_mismatches
+            .iter()
+            .map(|m| {
+                (
+                    m.person.as_str(),
+                    m.date.to_string(),
+                    m.billable,
+                    m.rule.as_deref(),
+                    m.net,
+                )
+            })
+            .collect();
+        assert_eq!(
+            mismatches,
+            vec![
+                // 3 h × 120 € (Karl, „darf buchen“)
+                ("Karl Beispiel", "2026-02-10".into(), true, None, 360.0),
+                // 4 h × 105 € (Erika ab Juli) entfallen
+                (
+                    "Erika Mustermann",
+                    "2026-09-12".into(),
+                    false,
+                    Some("Delivery"),
+                    420.0
+                ),
+            ]
+        );
+        assert_eq!(with.invoice.total.net, 319_865.0 + 360.0 - 420.0);
+        let karl = with
+            .guest_bookings
+            .iter()
+            .find(|b| b.date.to_string() == "2026-02-10")
+            .unwrap();
+        assert_eq!(
+            (karl.rule.as_deref(), karl.invoiced, karl.net),
+            (Some("Billable laut Export"), true, 360.0)
+        );
+    }
+
     #[test]
     fn parses_bundled_sample_export() {
         let json = std::fs::read_to_string(sample("beispiel-projekt.json")).unwrap();

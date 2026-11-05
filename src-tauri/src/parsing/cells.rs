@@ -7,6 +7,8 @@
 use calamine::{Data, ExcelDateTime, ExcelDateTimeType};
 use chrono::{Datelike, NaiveDate};
 
+use crate::models::config::BillableColumn;
+
 /// Größte gültige Excel-Seriennummer (9999-12-31).
 const MAX_EXCEL_SERIAL: f64 = 2_958_466.0;
 
@@ -33,6 +35,24 @@ pub fn cell_text(cell: Option<&Data>) -> String {
             Some(d) if dt.is_datetime() => d.date().to_string(),
             _ => dt.as_f64().to_string(),
         },
+    }
+}
+
+/// Wert der Billable-Spalte: echte Wahrheitswerte oder die eingestellten Texte
+/// (ohne Groß-/Kleinschreibung); leer oder unbekannt = `None`.
+pub fn cell_billable(cell: Option<&Data>, column: &BillableColumn) -> Option<bool> {
+    if let Some(Data::Bool(value)) = cell {
+        return Some(*value);
+    }
+    let text = cell_text(cell).to_lowercase();
+    if text.is_empty() {
+        None
+    } else if text == column.yes.trim().to_lowercase() {
+        Some(true)
+    } else if text == column.no.trim().to_lowercase() {
+        Some(false)
+    } else {
+        None
     }
 }
 
@@ -208,6 +228,41 @@ mod tests {
 
     fn date(y: i32, m: u32, d: u32) -> NaiveDate {
         NaiveDate::from_ymd_opt(y, m, d).unwrap()
+    }
+
+    #[test]
+    fn billable_values_as_booleans_or_configured_text() {
+        let column = BillableColumn {
+            column: 14,
+            yes: "WAHR".into(),
+            no: "FALSCH".into(),
+        };
+        assert_eq!(cell_billable(Some(&Data::Bool(true)), &column), Some(true));
+        assert_eq!(
+            cell_billable(Some(&Data::Bool(false)), &column),
+            Some(false)
+        );
+        assert_eq!(cell_billable(Some(&s("WAHR")), &column), Some(true));
+        assert_eq!(cell_billable(Some(&s(" falsch ")), &column), Some(false));
+        assert_eq!(cell_billable(Some(&s("vielleicht")), &column), None);
+        assert_eq!(cell_billable(Some(&Data::Empty), &column), None);
+        assert_eq!(cell_billable(None, &column), None);
+        // eigene Werte, auch mit Umlauten und Zahlen
+        let custom = BillableColumn {
+            column: 3,
+            yes: "Ja".into(),
+            no: "NÖ".into(),
+        };
+        assert_eq!(cell_billable(Some(&s("ja")), &custom), Some(true));
+        assert_eq!(cell_billable(Some(&s("nö")), &custom), Some(false));
+        assert_eq!(cell_billable(Some(&s("WAHR")), &custom), None);
+        let numbers = BillableColumn {
+            column: 3,
+            yes: "1".into(),
+            no: "0".into(),
+        };
+        assert_eq!(cell_billable(Some(&Data::Float(1.0)), &numbers), Some(true));
+        assert_eq!(cell_billable(Some(&Data::Int(0)), &numbers), Some(false));
     }
 
     #[test]

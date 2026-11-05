@@ -102,6 +102,7 @@ mod tests {
             element: element.into(),
             kost2art: "Delivery (billable)".into(),
             location: String::new(),
+            billable: None,
         }
     }
 

@@ -15,6 +15,17 @@ describe("ExportSummary (Import)", () => {
     expect(karl).not.toHaveClass("text-slate-400");
     expect(karl).toHaveTextContent("darf buchen");
     expect(screen.getByText(/Erste 25 von 892 Buchungen/)).toBeInTheDocument();
+    // ohne Billable-Spalte im Export-Format keine Spalte in der Vorschau
+    expect(screen.queryByRole("columnheader", { name: "Billable" })).not.toBeInTheDocument();
+  });
+
+  it("zeigt die Billable-Spalte in der Vorschau, wenn sie gesetzt ist", () => {
+    const overview = sampleResult().overview;
+    overview.preview = overview.preview.slice(0, 3).map((entry, i) => ({ ...entry, billable: [true, false, null][i] }));
+    render(<ExportSummary result={overview} elementFilter="P100 Lager-App" />);
+    expect(screen.getByRole("columnheader", { name: "Billable" })).toBeInTheDocument();
+    const rows = screen.getAllByRole("row").filter((r) => r.closest("tbody") && r.querySelectorAll("td").length === 8);
+    expect(rows.map((r) => r.querySelectorAll("td")[7].textContent)).toEqual(["ja", "nein", "–"]);
   });
 
   it("warnt bei fehlenden Teammitgliedern, Element-Treffern und übersprungenen Zeilen", () => {

@@ -13,4 +13,7 @@ pub struct TimeEntry {
     pub element: String,
     pub kost2art: String,
     pub location: String,
+    /// Wert der Billable-Spalte (falls im Export-Format gesetzt): `None` =
+    /// keine Spalte bzw. leerer/unbekannter Wert.
+    pub billable: Option<bool>,
 }

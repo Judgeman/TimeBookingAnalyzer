@@ -9,6 +9,8 @@ interface Props {
 
 /** Übersicht über den eingelesenen Export – Grundlage für die spätere Auswertung. */
 export function ExportSummary({ result, elementFilter }: Props) {
+  // Billable-Spalte nur zeigen, wenn sie im Export-Format gesetzt ist
+  const withBillable = result.preview.some((entry) => entry.billable !== null);
   return (
     <div className="space-y-6">
       <dl className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -107,6 +109,7 @@ export function ExportSummary({ result, elementFilter }: Props) {
                 <th className={th}>Element</th>
                 <th className={th}>Kost2Art</th>
                 <th className={th}>Ort</th>
+                {withBillable && <th className={th}>Billable</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -119,6 +122,9 @@ export function ExportSummary({ result, elementFilter }: Props) {
                   <td className={td}>{entry.element}</td>
                   <td className={td}>{entry.kost2art}</td>
                   <td className={td}>{entry.location}</td>
+                  {withBillable && (
+                    <td className={td}>{entry.billable === null ? "–" : entry.billable ? "ja" : "nein"}</td>
+                  )}
                 </tr>
               ))}
             </tbody>

@@ -138,6 +138,9 @@ pub struct AuswertungResult {
     pub untracked: Vec<String>,
     /// Ihre Buchungen aufs Projekt im Auswertungszeitraum.
     pub guest_bookings: Vec<GuestBooking>,
+    /// Buchungen aufs Projekt, bei denen die Billable-Spalte von den
+    /// Abrechnungsregeln abweicht (es gilt die Spalte).
+    pub billable_mismatches: Vec<BillableMismatch>,
     /// Prognose der Rechnung und Budget-Abgleich.
     pub forecast: Forecast,
     /// Prognosegüte je abgeschlossenem Monat.
@@ -316,6 +319,24 @@ pub struct GuestBooking {
     /// Abgerechnete Stunden (nach Regel, z. B. × Mult).
     pub billed_hours: f64,
     /// Nettobetrag (0, wenn nicht abgerechnet oder ohne Stundensatz).
+    pub net: f64,
+}
+
+/// Buchung aufs Projekt, bei der die Billable-Spalte von der Abrechnungsregel
+/// (Kost2Art) abweicht – abgerechnet wird nach der Spalte.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct BillableMismatch {
+    pub person: String,
+    pub date: NaiveDate,
+    pub element: String,
+    pub kost2art: String,
+    pub hours: f64,
+    /// Wert der Billable-Spalte (gilt).
+    pub billable: bool,
+    /// Regel laut Kost2Art (`None` = keine passende Regel).
+    pub rule: Option<String>,
+    /// `billable`: zusätzlich abgerechnet (netto); sonst: laut Regel, aber
+    /// nicht abgerechnet.
     pub net: f64,
 }
 

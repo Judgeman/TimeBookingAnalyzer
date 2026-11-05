@@ -26,6 +26,7 @@ import {
 } from "../../lib/format";
 import { ExportSummary } from "../ExportSummary";
 import { AccountView } from "./AccountView";
+import { BillableMismatches } from "./BillableMismatches";
 import { colorMapFor } from "./chartColors";
 import { ForecastView } from "./ForecastView";
 import { GuestBookings } from "./GuestBookings";
@@ -226,6 +227,8 @@ export function ResultsView({
       )}
 
       {result.flagged.length > 0 && <FlaggedList flagged={result.flagged} />}
+
+      {result.billable_mismatches.length > 0 && <BillableMismatches mismatches={result.billable_mismatches} />}
 
       {result.guest_bookings.length > 0 && (
         <GuestBookings bookings={result.guest_bookings} untracked={result.untracked} />

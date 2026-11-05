@@ -46,6 +46,7 @@ mod tests {
             element: element.into(),
             kost2art: String::new(),
             location: String::new(),
+            billable: None,
         }
     }
 

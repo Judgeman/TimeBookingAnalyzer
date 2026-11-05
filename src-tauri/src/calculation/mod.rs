@@ -19,12 +19,15 @@ use std::ops::AddAssign;
 
 use chrono::{Datelike, NaiveDate, Weekday};
 
-use crate::models::config::{BillingRule, ProjectConfig, RatePeriod, TeamMember};
+use crate::models::config::{
+    BillableColumn, BillingRule, MatchMode, ProjectConfig, RatePeriod, TeamMember,
+};
 use crate::models::entry::TimeEntry;
 use crate::models::results::{
-    AbsenceKind, CurrentMissing, FlaggedBooking, GuestBooking, InvoiceSummary, MissingBooking,
-    OutsideBooking, OutsideReason, PeriodBreakdown, PeriodData, PersonResult,
+    AbsenceKind, BillableMismatch, CurrentMissing, FlaggedBooking, GuestBooking, InvoiceSummary,
+    MissingBooking, OutsideBooking, OutsideReason, PeriodBreakdown, PeriodData, PersonResult,
 };
+use crate::parsing::cells::column_letter;
 use gearb::Absence;
 use holidays::Holiday;
 use invoice::{InvoiceBuilder, InvoiceItem};
@@ -42,6 +45,7 @@ pub struct Evaluation {
     pub missing_checked_until: NaiveDate,
     pub outside: Vec<OutsideBooking>,
     pub guest_bookings: Vec<GuestBooking>,
+    pub billable_mismatches: Vec<BillableMismatch>,
     // Für die Prognose (`forecast::build`):
     cutoff: NaiveDate,
     export_date: Option<NaiveDate>,
@@ -169,6 +173,19 @@ pub fn evaluate(
     }
 
     let mut invoice = InvoiceBuilder::new(config.vat_percent, cutoff);
+    // Billable-Spalte WAHR ohne abrechnende Regel: voller Satz, ohne Mult.
+    let export_rule = BillingRule {
+        name: "Billable laut Export".to_string(),
+        kost2art: String::new(),
+        match_mode: MatchMode::Contains,
+        element: String::new(),
+        billable_hours: true,
+        invoice: true,
+        apply_mult: false,
+        rate_percent: 100.0,
+        vat_percent: None,
+    };
+    let mut checks = BillableChecks::default();
     let mut team = BreakdownAcc::default();
     let mut persons = Vec::with_capacity(config.team.len());
     let mut flagged = Vec::new();
@@ -184,6 +201,8 @@ pub fn evaluate(
             index,
             invoice: &mut invoice,
             missing_rate: &mut missing_rate,
+            export_rule: &export_rule,
+            checks: &mut checks,
         };
 
         if member.untracked {
@@ -253,8 +272,7 @@ pub fn evaluate(
                         continue;
                     }
                     let mut item = outside_booking(entry, OutsideReason::OutsideAssignment);
-                    if let Some((rule_index, rule)) =
-                        billing::matching_rule(&config.billing_rules, entry, filter)
+                    if let (Some((rule_index, rule)), _) = biller.decide(entry)
                         && let Some((billed, net)) =
                             biller.bill_day(&mut day, entry, rule_index, rule, true)
                     {
@@ -277,7 +295,7 @@ pub fn evaluate(
                                 .entry(location_key(&entry.location).0)
                                 .or_default() += worked;
                         }
-                        let rule = billing::matching_rule(&config.billing_rules, entry, filter);
+                        let rule = biller.decide(entry).0;
                         let in_bill_h = rule.is_some_and(|(_, r)| r.billable_hours);
                         if !in_bill_h && gearb::counts_as_work(entry.mult) {
                             day.nonbill_h += entry.hours;
@@ -373,11 +391,16 @@ pub fn evaluate(
             index: config.team.len() + g,
             invoice: &mut invoice,
             missing_rate: &mut guest_missing_rate[g],
+            export_rule: &export_rule,
+            checks: &mut checks,
         };
         guest_bookings.push(guest_booking(&mut biller, entry).0);
     }
     for (guest, missing_rate) in config.guests.iter().zip(&guest_missing_rate) {
         warnings.extend(missing_rate.warning(&guest.name));
+    }
+    if let Some(column) = &config.export_format.billable {
+        warnings.extend(checks.warning(column));
     }
     // nach Datum; am selben Tag Teammitglieder (ohne Zeiterfassung) vor „darf buchen“
     guest_bookings.sort_by_key(|b| b.date);
@@ -397,6 +420,12 @@ pub fn evaluate(
             outside
         },
         guest_bookings,
+        billable_mismatches: {
+            checks
+                .mismatches
+                .sort_by(|a, b| a.date.cmp(&b.date).then_with(|| a.person.cmp(&b.person)));
+            checks.mismatches
+        },
         cutoff,
         export_date,
         reference_to,
@@ -439,9 +468,80 @@ struct Biller<'a, 'b> {
     index: usize,
     invoice: &'b mut InvoiceBuilder,
     missing_rate: &'b mut Missing,
+    /// Regel „Billable laut Export“ (Billable-Spalte WAHR ohne abrechnende Regel).
+    export_rule: &'a BillingRule,
+    checks: &'b mut BillableChecks,
 }
 
-impl Biller<'_, '_> {
+/// Abweichungen der Billable-Spalte von den Regeln und unbekannte Werte.
+#[derive(Default)]
+struct BillableChecks {
+    mismatches: Vec<BillableMismatch>,
+    unknown: usize,
+    first_unknown: Option<NaiveDate>,
+}
+
+impl BillableChecks {
+    fn warning(&self, column: &BillableColumn) -> Option<String> {
+        let first = self.first_unknown?;
+        Some(format!(
+            "{} Buchung(en) aufs Projekt ohne gültigen Wert in der Billable-Spalte {} (erwartet „{}“ oder „{}“, erste am {}) – dort entscheidet die Abrechnungsregel.",
+            self.unknown,
+            column_letter(column.column),
+            column.yes.trim(),
+            column.no.trim(),
+            fmt_date(first)
+        ))
+    }
+}
+
+impl<'a> Biller<'a, '_> {
+    /// Regel, nach der eine Buchung abgerechnet wird: die erste passende
+    /// Regel – ist die Billable-Spalte gesetzt, entscheidet bei Buchungen aufs
+    /// Projekt die Spalte (WAHR ohne abrechnende Regel → „Billable laut
+    /// Export“, FALSCH → nicht abgerechnet; Abweichung wird vermerkt).
+    /// Liefert dazu, ob die Spalte die Regel übersteuert hat.
+    fn decide(&mut self, entry: &TimeEntry) -> (Option<(usize, &'a BillingRule)>, bool) {
+        let config = self.config;
+        let rule = billing::matching_rule(&config.billing_rules, entry, &config.element_filter);
+        if config.export_format.billable.is_none() || !is_project_booking(config, entry) {
+            return (rule, false);
+        }
+        let Some(billable) = entry.billable else {
+            self.checks.unknown += 1;
+            let first = self.checks.first_unknown.get_or_insert(entry.date);
+            *first = (*first).min(entry.date);
+            return (rule, false);
+        };
+        let by_rule = rule.filter(|(_, r)| r.invoice);
+        if billable == by_rule.is_some() {
+            return (rule, false);
+        }
+        let rate = billing::rate_for(self.rates, entry.date).unwrap_or(0.0);
+        let (effective, net) = match by_rule {
+            // FALSCH: was die Regel abgerechnet hätte
+            Some((_, r)) => (
+                None,
+                billing::billed_hours(entry, r) * rate * r.rate_percent / 100.0,
+            ),
+            None => (
+                Some((config.billing_rules.len(), self.export_rule)),
+                entry.hours * rate,
+            ),
+        };
+        self.checks.mismatches.push(BillableMismatch {
+            person: self.person.to_string(),
+            date: entry.date,
+            element: entry.element.clone(),
+            kost2art: entry.kost2art.clone(),
+            hours: round2(entry.hours),
+            billable,
+            rule: rule.map(|(_, r)| r.name.clone()),
+            net: round2(net),
+        });
+        (effective, true)
+    }
+
     /// Rechnungsposition für eine Buchung. Liefert (abgerechnete Stunden,
     /// Netto), wenn die Regel in Rechnung gestellt wird.
     fn invoice(
@@ -515,15 +615,18 @@ fn is_project_booking(config: &ProjectConfig, entry: &TimeEntry) -> bool {
 /// Zeiterfassung): nach Regel (Kost2Art) abgerechnet. Dazu die abgerechneten
 /// Stunden zum vollen Satz (für die Auslastung in der Prognose).
 fn guest_booking(biller: &mut Biller, entry: &TimeEntry) -> (GuestBooking, f64) {
-    let config = biller.config;
-    let rule = billing::matching_rule(&config.billing_rules, entry, &config.element_filter);
+    let (rule, overridden) = biller.decide(entry);
     let mut booking = GuestBooking {
         person: biller.person.to_string(),
         date: entry.date,
         element: entry.element.clone(),
         kost2art: entry.kost2art.clone(),
         hours: round2(entry.hours),
-        rule: rule.map(|(_, r)| r.name.clone()),
+        rule: match rule {
+            Some((_, r)) => Some(r.name.clone()),
+            None if overridden => Some("Nicht billable laut Export".to_string()),
+            None => None,
+        },
         invoiced: false,
         billed_hours: 0.0,
         net: 0.0,
