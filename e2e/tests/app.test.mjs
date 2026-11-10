@@ -434,6 +434,47 @@ test("Prognose: Budget-Überziehung, Diagramm, Budget im Projekt ändern", () =>
     assert.ok(!text.includes("aufgebraucht am"));
   }));
 
+test("Budget-Zeitraum endet vor dem Stand der Daten: kein Absturz", () =>
+  withApp("budget-beendet", {}, async (app) => {
+    await loadSample(app);
+    // Beauftragung Januar–Juni (300.000 €) und Juli–Dezember (200.000 €):
+    // die erste ist beim Stand 31.10. schon beendet
+    await app.click("button", "Projekt bearbeiten");
+    await app.waitForText("Planung (Budget & Prognose)");
+    await app.click("button", "+ Budget-Zeitraum");
+    await app.execute(`const set = (el, value) => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, value);
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      };
+      const all = (label) => [...document.querySelectorAll('input[aria-label="' + label + '"]')];
+      set(all("Budget bis")[0], "2026-06");
+      set(all("Budget netto")[0], "300000");
+      set(all("Budget von")[1], "2026-07");
+      set(all("Budget bis")[1], "2026-12");
+      set(all("Budget netto")[1], "200000");`);
+    await app.click("button", "Speichern");
+    await app.waitForText("Auswertung 01.01.2026");
+    const saved = readdirSync(projectsDir())
+      .filter((f) => f.endsWith(".json"))
+      .map((f) => JSON.parse(readFileSync(join(projectsDir(), f), "utf8")))[0];
+    assert.deepEqual(saved.budgets, [
+      { from: "2026-01", to: "2026-06", amount: 300000 },
+      { from: "2026-07", to: "2026-12", amount: 200000 },
+    ]);
+    await app.tab("Prognose");
+    // neu ausgewertet: beide Beauftragungen wählbar
+    await app.waitForText("2026-07 – 2026-12");
+    const budgets = await app.execute(`return [...document.querySelectorAll('[aria-label="Budget-Zeitraum"] button')]
+      .map((b) => b.textContent)`);
+    assert.deepEqual(budgets, ["2026-01 – 2026-06", "2026-07 – 2026-12"]);
+    // die beendete Beauftragung anzeigen: Ist 202.070 € von 300.000 €
+    await app.click("button", "2026-01 – 2026-06");
+    await app.waitForText("97.930,00 € Rest zum Ende Juni 2026");
+    await app.tab("Insights");
+    await app.waitForText("Pace des Teams");
+    assert.ok((await app.text()).includes("Bezogen auf das aktuelle Budget Juli 2026 – Dezember 2026"));
+  }));
+
 test("Insights: Rekord-Monate, Pace und Hinweise", () =>
   withApp("insights", {}, async (app) => {
     await loadSample(app);

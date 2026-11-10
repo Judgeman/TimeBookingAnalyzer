@@ -275,7 +275,8 @@ fn build_until(
             let actual_net: f64 = in_period.iter().map(|m| m.actual_net).sum();
             let forecast_net: f64 = in_period.iter().map(|m| m.forecast_net).sum();
             let exceeded = actual_net > budget.amount;
-            let exhausted_on = if exceeded {
+            // Budget schon vor dem ersten Prognosetag beendet → keine Prognose mehr darin
+            let exhausted_on = if exceeded || from.max(start) > end {
                 None
             } else {
                 let mut total = actual_net;

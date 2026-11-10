@@ -32,6 +32,7 @@ src/                        # React Frontend
       PeriodListEditor.tsx  # Zeiträume (Von/Bis/Wert)
       RulesEditor.tsx       # Abrechnungsregeln (Reihenfolge = Priorität)
     ExportSummary.tsx       # Übersicht über den eingelesenen Export (Tab „Import“)
+    ErrorBoundary.tsx       # Anzeigefehler → Meldung statt leerem Fenster (um die Auswertung)
     results/
       ResultsView.tsx       # Kopf (Zeitraum, Stichtag, Hinweise) + Tabs
       YearView.tsx          # Jahr: Kennzahlen × Personen
@@ -73,8 +74,10 @@ src-tauri/
     lib.rs                  # Tauri-Builder, Plugins (dialog, window-state), State, Commands
     window.rs               # Fenster an den Bildschirm anpassen (fit: reine Rechnung + Anwenden)
     commands/
-      parse_export.rs       # Export einlesen (+ später auswerten)
+      parse_export.rs       # Export einlesen + auswerten (evaluate_export ohne Dateizugriff)
       config.rs             # Projekte laden/speichern
+      guard.rs              # interne Fehler (Panics) → Fehlermeldung mit Code-Stelle
+      robustness_tests.rs   # Stresstest: Zufalls-Exporte/-Konfigurationen dürfen nie abstürzen
     models/
       config.rs             # Projektkonfiguration (Rust-Structs) + Validierung
       entry.rs              # TimeEntry (eine Export-Zeile)
@@ -146,6 +149,16 @@ npm version 1.0.0 --no-git-tag-version   # package.json + package-lock.json
   nachgebildetem Tauri-Backend. Mindestabdeckung 90 % Zeilen/Anweisungen, 85 % Zweige/Funktionen.
 - **E2E**: `e2e/` – echte App über `tauri-driver`, als Kopie in einem temporären Ordner
   (Projekte daneben) mit isoliertem Datenverzeichnis.
+- **Robustheit**: `commands/robustness_tests.rs` wertet reproduzierbar zufällige Exporte und
+  gültige Konfigurationen aus (extreme Jahre, negative/riesige Werte, beendete Budgets, …) –
+  kein Absturz erlaubt. Mehr Fälle: `ROBUSTNESS_CASES=5000 cargo test random_exports`;
+  `ROBUSTNESS_DUMP=<Ordner>` legt die Ergebnisse als JSON ab (z. B. um sie testweise in allen
+  Tabs zu rendern).
+- **Fehlerbehandlung**: Release-Build ohne `panic = "abort"`; `parse_export` läuft in
+  `commands::guard::guarded` – ein interner Fehler wird zur Meldung („Interner Fehler bei …
+  [Datei:Zeile]“) statt das Programm zu beenden (sonst Absturz auch bei jedem Start, weil die
+  letzte Import-Datei automatisch ausgewertet wird). Im Frontend fängt `ErrorBoundary`
+  Anzeigefehler ab.
 - Neue Funktionen immer mit Tests in allen betroffenen Ebenen ergänzen.
 
 ---

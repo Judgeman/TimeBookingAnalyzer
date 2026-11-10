@@ -5,10 +5,12 @@ use std::path::Path;
 use chrono::NaiveDate;
 use tauri::State;
 
+use super::guard::guarded;
 use crate::calculation;
 use crate::models::config::ProjectConfig;
-use crate::models::results::AuswertungResult;
-use crate::parsing::{export::read_export, export_date, summary::summarize};
+use crate::models::results::{AuswertungResult, ExportDateSource};
+use crate::parsing::export::{ParseOutcome, read_export};
+use crate::parsing::{export_date, summary::summarize};
 use crate::storage::forecasts::{ForecastStore, Snapshot, apply_recorded};
 use crate::storage::projects::ProjectStore;
 
@@ -26,12 +28,20 @@ pub async fn parse_export(
 ) -> Result<AuswertungResult, String> {
     let config = store.get(&project_id)?;
     // calamine liest synchron – nicht auf dem Async-Runtime-Thread blockieren.
+    // Interne Fehler werden zur Meldung, statt das Programm zu beenden.
     let mut result = tauri::async_runtime::spawn_blocking(move || {
-        parse_export_file(Path::new(&file_path), &config, cutoff_date)
+        guarded("der Auswertung", || {
+            parse_export_file(Path::new(&file_path), &config, cutoff_date)
+        })
     })
     .await
     .map_err(|e| format!("Einlesen abgebrochen: {e}"))??;
-    track_forecast(&forecasts, &project_id, &mut result);
+    if let Err(e) = guarded("der gespeicherten Prognose", || {
+        track_forecast(&forecasts, &project_id, &mut result);
+        Ok(())
+    }) {
+        result.warnings.push(e);
+    }
     Ok(result)
 }
 
@@ -62,8 +72,17 @@ pub fn parse_export_file(
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default();
-    let export = export_date(path);
+    evaluate_export(config, outcome, file_name, export_date(path), cutoff)
+}
 
+/// Auswertung eines eingelesenen Exports (ohne Dateizugriff).
+pub fn evaluate_export(
+    config: &ProjectConfig,
+    outcome: ParseOutcome,
+    file_name: String,
+    export: Option<(NaiveDate, ExportDateSource)>,
+    cutoff: Option<NaiveDate>,
+) -> Result<AuswertungResult, String> {
     let last_entry = outcome.entries.iter().map(|e| e.date).max();
     let default_cutoff = export
         .map(|(date, _)| date)
@@ -250,6 +269,41 @@ mod tests {
     }
 
     /// Hält die fiktiven Beispieldaten in `sample-data/` und den Parser synchron.
+    /// Regression: Ein Budget-Zeitraum, der vor dem Stand der Daten endet
+    /// (frühere Beauftragung), ließ die Prognose abstürzen.
+    #[test]
+    fn budget_that_ended_before_the_data_does_not_crash() {
+        use crate::models::config::BudgetPeriod;
+        let json = std::fs::read_to_string(sample("beispiel-projekt.json")).unwrap();
+        let mut config: ProjectConfig = serde_json::from_str(&json).unwrap();
+        config.budgets = vec![
+            BudgetPeriod {
+                from: "2026-01".into(),
+                to: "2026-06".into(),
+                amount: 300_000.0,
+            },
+            BudgetPeriod {
+                from: "2026-07".into(),
+                to: "2026-12".into(),
+                amount: 200_000.0,
+            },
+        ];
+        config.validate().unwrap();
+        let result =
+            parse_export_file(&sample("Beispiel-Export_2026-10-31.xlsx"), &config, None).unwrap();
+        let ended = &result.forecast.budgets[0];
+        // Januar–Juni: 44.350 + 40.790 + 28.965 + 29.675 + 26.315 + 31.975
+        assert_eq!(
+            (ended.actual_net, ended.forecast_net, ended.exhausted_on),
+            (202_070.0, 0.0, None)
+        );
+        assert_eq!(ended.deviation, 202_070.0 - 300_000.0);
+        assert!(!ended.exceeded);
+        let current = &result.forecast.budgets[1];
+        assert_eq!(current.actual_net, 319_865.0 - 202_070.0);
+        assert!(current.forecast_net > 0.0);
+    }
+
     /// Beispiel-Export mit Billable-Spalte O: Karls Lenkungskreis (3 h, keine
     /// Regel) ist billable, Erikas Samstag 12.09. (4 h Delivery) nicht.
     #[test]

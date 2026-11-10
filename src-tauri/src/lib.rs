@@ -65,6 +65,7 @@ fn save_window_state_on_change(app: &tauri::App) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    commands::guard::install_panic_hook();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(window_state_plugin())

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { DropZone } from "./components/DropZone";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ProjectEditor } from "./components/ProjectEditor";
 import { ProjectSelector } from "./components/ProjectSelector";
 import { ResultsView } from "./components/results/ResultsView";
@@ -279,13 +280,16 @@ export default function App() {
                 onError={setError}
               />
               {result && activeProject && (
-                <ResultsView
-                  result={result}
-                  elementFilter={activeProject.element_filter}
-                  plannedAbsences={activeProject.planned_absences}
-                  busy={busy}
-                  onCutoffChange={setCutoff}
-                />
+                // neues Ergebnis → Fehleranzeige zurücksetzen
+                <ErrorBoundary key={`${result.project_id}|${result.file_name}|${result.cutoff_date}`} what="Die Auswertung">
+                  <ResultsView
+                    result={result}
+                    elementFilter={activeProject.element_filter}
+                    plannedAbsences={activeProject.planned_absences}
+                    busy={busy}
+                    onCutoffChange={setCutoff}
+                  />
+                </ErrorBoundary>
               )}
             </>
           )}
