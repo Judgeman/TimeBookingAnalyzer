@@ -133,9 +133,12 @@ describe("App (Integration mit nachgebildetem Backend)", () => {
     expect(await screen.findByText("Auswertung 01.01.2026 – 01.11.2026")).toBeInTheDocument();
     expect(localStorage.getItem("billing-tracker.active-project")).toBe("beispiel-lager-app");
 
+    // gewählter Tab bleibt beim Wechsel des Stichtags erhalten
+    await user.click(screen.getByRole("tab", { name: "Prognose" }));
     await user.click(screen.getByRole("button", { name: "Stand des Exports" }));
     expect(await screen.findByText("Auswertung 01.01.2026 – 31.10.2026")).toBeInTheDocument();
     expect(calls("parse_export").at(-1)![1]).toMatchObject({ cutoffDate: "2026-10-31" });
+    expect(screen.getByRole("tab", { name: "Prognose" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("speichert Änderungen am Projekt und wertet erneut aus", async () => {

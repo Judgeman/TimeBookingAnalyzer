@@ -280,8 +280,8 @@ export default function App() {
                 onError={setError}
               />
               {result && activeProject && (
-                // neues Ergebnis → Fehleranzeige zurücksetzen
-                <ErrorBoundary key={`${result.project_id}|${result.file_name}|${result.cutoff_date}`} what="Die Auswertung">
+                // neues Ergebnis → Fehleranzeige zurücksetzen (ohne Neuaufbau: Tab bleibt)
+                <ErrorBoundary resetKey={result} what="Die Auswertung">
                   <ResultsView
                     result={result}
                     elementFilter={activeProject.element_filter}

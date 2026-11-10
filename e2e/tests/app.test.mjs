@@ -605,6 +605,7 @@ test("Prognosegüte: nachgerechnet, gespeichert und beim nächsten Start verglic
   await withApp("prognoseguete-neustart", { keepData: true }, async (app) => {
     await app.waitForText("Auswertung 01.01.");
     await app.click("button", "Stand des Exports");
+    await app.waitForText("Auswertung 01.01.2026 – 31.10.2026");
     await app.tab("Prognose");
     await app.waitForText("Stand 31.08.2026");
     assert.ok((await app.text()).includes("−9,9 %")); // September: 31.000 statt 34.400

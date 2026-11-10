@@ -4,6 +4,9 @@ interface Props {
   children: ReactNode;
   /** Was nicht angezeigt werden konnte, z. B. „Die Auswertung“. */
   what: string;
+  /** Ändert sich der Wert (z. B. neues Ergebnis), wird ein Fehler zurückgesetzt –
+   *  ohne die Inhalte neu aufzubauen (gewählter Tab bleibt). */
+  resetKey?: unknown;
 }
 
 interface State {
@@ -19,6 +22,10 @@ export class ErrorBoundary extends Component<Props, State> {
 
   static getDerivedStateFromError(error: Error): State {
     return { error };
+  }
+
+  componentDidUpdate(previous: Props) {
+    if (this.state.error && previous.resetKey !== this.props.resetKey) this.setState({ error: null });
   }
 
   render() {

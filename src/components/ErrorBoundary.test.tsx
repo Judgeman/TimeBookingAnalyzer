@@ -31,4 +31,28 @@ describe("ErrorBoundary", () => {
     expect(screen.getByText("Auswertung da")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
+
+  it("neues Ergebnis (resetKey) setzt den Fehler zurück", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    broken = true;
+    const { rerender } = render(
+      <ErrorBoundary what="Die Auswertung" resetKey="a">
+        <Results />
+      </ErrorBoundary>,
+    );
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    broken = false;
+    rerender(
+      <ErrorBoundary what="Die Auswertung" resetKey="a">
+        <Results />
+      </ErrorBoundary>,
+    );
+    expect(screen.getByRole("alert")).toBeInTheDocument(); // gleicher Schlüssel → bleibt
+    rerender(
+      <ErrorBoundary what="Die Auswertung" resetKey="b">
+        <Results />
+      </ErrorBoundary>,
+    );
+    expect(screen.getByText("Auswertung da")).toBeInTheDocument();
+  });
 });
