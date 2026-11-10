@@ -19,6 +19,7 @@ import {
   currentMonth,
   dataEndOf,
   deviation,
+  monthEnd,
 } from "./forecast";
 import { styles } from "./styles";
 
@@ -115,7 +116,7 @@ export function ForecastView({ forecast, plannedAbsences = [], accuracy = [] }: 
           />
         </div>
 
-        <MonthTable months={months} budget={budget} dataEnd={dataEnd} />
+        <MonthTable months={months} budget={budget} dataEnd={dataEnd} forecastFrom={forecast.from} />
       </section>
 
       <section>
@@ -225,6 +226,11 @@ export function ForecastView({ forecast, plannedAbsences = [], accuracy = [] }: 
             Auslastung = abgerechnet (zum vollen Satz) ÷ (Soll − Urlaub) im Einsatz; je Werktag (h/Tag −
             geplante Abwesenheit) × Auslastung × Stundensatz.
           </li>
+          <li>
+            Summe je Monat = abgerechnet (bis zum Stand der Daten) + Prognose (ab dem Tag danach) – kein
+            Tag zählt doppelt. Liegen abgerechnete Buchungen nach dem Stand des Exports, beginnt die
+            Prognose erst nach der letzten davon (mit Hinweis).
+          </li>
           <li>Richtwert = Budget ÷ Anzahl Monate; Abweichung = Abgerechnet + Prognose − Budget.</li>
         </ul>
       </details>
@@ -278,10 +284,13 @@ function MonthTable({
   months,
   budget,
   dataEnd,
+  forecastFrom,
 }: {
   months: Forecast["months"];
   budget: BudgetStatus | null;
   dataEnd: string;
+  /** Erster Prognosetag (Tag nach dem Stand der Daten). */
+  forecastFrom: string;
 }) {
   let cumulative = 0;
   let target = 0;
@@ -310,9 +319,18 @@ function MonthTable({
             target += budget?.monthly_target ?? 0;
             const diff = cumulative - target;
             const future = `${m.month}-01` > dataEnd;
+            // Monat mit dem Stand der Daten: abgerechnet bis dahin, Prognose ab dem Tag danach
+            const transition = m.month === dataEnd.slice(0, 7) && dataEnd < monthEnd(m.month);
             return (
               <tr key={m.month} className={future ? "text-slate-600" : ""}>
-                <td className={styles.td}>{formatMonth(m.month)}</td>
+                <td className={styles.td}>
+                  {formatMonth(m.month)}
+                  {transition && (
+                    <span className="block text-xs text-slate-500">
+                      abgerechnet bis {formatDate(dataEnd)} · Prognose ab {formatDate(forecastFrom)}
+                    </span>
+                  )}
+                </td>
                 <td className={styles.tdNum}>{m.actual_net ? formatEuro(m.actual_net) : "–"}</td>
                 <td className={styles.tdNum}>{m.forecast_net ? formatEuro(m.forecast_net) : "–"}</td>
                 <td className={`${styles.tdNum} font-semibold text-slate-900`}>{formatEuro(sum)}</td>

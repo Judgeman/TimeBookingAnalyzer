@@ -49,6 +49,8 @@ pub struct Evaluation {
     // Für die Prognose (`forecast::build`):
     cutoff: NaiveDate,
     export_date: Option<NaiveDate>,
+    /// Letzter Tag mit abgerechneter Buchung (bis Stichtag).
+    last_invoiced: Option<NaiveDate>,
     /// Letzter Tag des Referenzzeitraums der Faktoren (ab 1. Januar); `None` = keiner.
     reference_to: Option<NaiveDate>,
     /// Summen je Teammitglied im Referenzzeitraum.
@@ -186,6 +188,8 @@ pub fn evaluate(
         vat_percent: None,
     };
     let mut checks = BillableChecks::default();
+    // letzter Tag mit abgerechneter Buchung (Prognose beginnt frühestens danach)
+    let mut last_invoiced: Option<NaiveDate> = None;
     let mut team = BreakdownAcc::default();
     let mut persons = Vec::with_capacity(config.team.len());
     let mut flagged = Vec::new();
@@ -203,6 +207,7 @@ pub fn evaluate(
             missing_rate: &mut missing_rate,
             export_rule: &export_rule,
             checks: &mut checks,
+            last_invoiced: &mut last_invoiced,
         };
 
         if member.untracked {
@@ -393,6 +398,7 @@ pub fn evaluate(
             missing_rate: &mut guest_missing_rate[g],
             export_rule: &export_rule,
             checks: &mut checks,
+            last_invoiced: &mut last_invoiced,
         };
         guest_bookings.push(guest_booking(&mut biller, entry).0);
     }
@@ -401,6 +407,17 @@ pub fn evaluate(
     }
     if let Some(column) = &config.export_format.billable {
         warnings.extend(checks.warning(column));
+    }
+    // Abgerechnete Buchungen nach dem Stand des Exports: Stand vermutlich zu früh
+    // erkannt (Dateiname/Änderungsdatum) oder im Voraus gebucht.
+    if let (Some(export), Some(last)) = (export_date, last_invoiced)
+        && last > export
+    {
+        warnings.push(format!(
+            "Der Export enthält abgerechnete Buchungen nach dem Stand des Exports ({}) – bis {}. Stimmt der Stand (Datum im Dateinamen bzw. Änderungsdatum der Datei)? Die Prognose beginnt erst nach der letzten abgerechneten Buchung.",
+            fmt_date(export),
+            fmt_date(last)
+        ));
     }
     // nach Datum; am selben Tag Teammitglieder (ohne Zeiterfassung) vor „darf buchen“
     guest_bookings.sort_by_key(|b| b.date);
@@ -428,6 +445,7 @@ pub fn evaluate(
         },
         cutoff,
         export_date,
+        last_invoiced,
         reference_to,
         references,
     }
@@ -471,6 +489,7 @@ struct Biller<'a, 'b> {
     /// Regel „Billable laut Export“ (Billable-Spalte WAHR ohne abrechnende Regel).
     export_rule: &'a BillingRule,
     checks: &'b mut BillableChecks,
+    last_invoiced: &'b mut Option<NaiveDate>,
 }
 
 /// Abweichungen der Billable-Spalte von den Regeln und unbekannte Werte.
@@ -599,6 +618,7 @@ impl<'a> Biller<'a, '_> {
             hours: billed,
             outside,
         });
+        *self.last_invoiced = Some(self.last_invoiced.map_or(entry.date, |d| d.max(entry.date)));
         Some((billed, net))
     }
 

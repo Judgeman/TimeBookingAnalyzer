@@ -1,7 +1,8 @@
 // E2E-Tests der Desktop-App mit den fiktiven Beispieldaten (sample-data/).
 // Start: npm run build:e2e && npm run test:e2e   (Details: e2e/README.md)
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, sep } from "node:path";
 import { test } from "node:test";
 import {
@@ -432,6 +433,32 @@ test("Prognose: Budget-Überziehung, Diagramm, Budget im Projekt ändern", () =>
     await app.waitForText("Budget reicht voraussichtlich: 32.506,03 € Rest zum Ende Dezember 2026");
     text = await app.text();
     assert.ok(!text.includes("aufgebraucht am"));
+  }));
+
+test("Stand des Exports zu früh: Prognose zählt abgerechnete Tage nicht doppelt", () =>
+  withApp("stand-zu-frueh", {}, async (app) => {
+    await app.waitForText("Musterkunde GmbH / Lager-App");
+    // gleicher Export, Dateiname mit zu frühem Datum (Buchungen reichen bis 30.10.)
+    const dir = mkdtempSync(join(tmpdir(), "export-"));
+    const file = join(dir, "Beispiel-Export_2026-09-30.xlsx");
+    copyFileSync(env.sample, file);
+    await app.dropFile(file);
+    await app.waitForText("Auswertung 01.01.");
+    await app.execute(`const input = [...document.querySelectorAll('input[type="date"]')]
+        .find((i) => i.closest("label")?.textContent.includes("Stichtag"));
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(input, "2026-10-31");
+      input.dispatchEvent(new Event("input", { bubbles: true }));`);
+    await app.waitForText("Auswertung 01.01.2026 – 31.10.2026");
+    await app.waitForText(
+      "Der Export enthält abgerechnete Buchungen nach dem Stand des Exports (30.09.2026) – bis 30.10.2026.",
+    );
+    await app.tab("Prognose");
+    await app.waitForText("Prognose deshalb erst ab 31.10.2026");
+    // Oktober: abgerechnet, keine zusätzliche Prognose
+    const october = await app.execute(`return [...document.querySelectorAll("tr")]
+      .find((tr) => tr.querySelector("td")?.textContent.startsWith("Oktober 2026"))
+      .querySelectorAll("td")[2].textContent`);
+    assert.equal(october, "–");
   }));
 
 test("Budget-Zeitraum endet vor dem Stand der Daten: kein Absturz", () =>

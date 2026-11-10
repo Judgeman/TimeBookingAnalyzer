@@ -337,6 +337,9 @@ plus_krank = plus - sick_h_norm
   Programmstart = heute (Schnellwahl: Heute / Stand des Exports / Vortag des Exports /
   Ende Vormonat – der Export entsteht meist morgens, der Tag selbst ist dann unvollständig); ohne
   Vorgabe im Backend = Export-Datum. Liegt der Stichtag nach dem Export-Stand → Hinweis.
+  Stand des Exports: Datum im Dateinamen (bei mehreren, z. B. Zeitraum „von_bis“, das
+  späteste), sonst Änderungsdatum der Datei, sonst letzte Buchung. Abgerechnete Buchungen
+  nach dem Stand → Hinweis „Stimmt der Stand?“.
   Buchungen nach dem Stichtag werden ignoriert (Hinweis), aus Vorjahren still ignoriert.
 - **Personen**: nur Teammitglieder aus der Konfiguration (Namensabgleich ohne
   Groß-/Kleinschreibung). `gearb` zählt alle Elemente, nicht nur das Projekt.
@@ -371,7 +374,9 @@ plus_krank = plus - sick_h_norm
   `bill_eur` + `guest_bookings[].net`. UI: neutraler (blauer) Hinweis mit Liste (filterbar
   nach Person, Monat, abgerechnet ja/nein, mit Summen der Auswahl),
   eigene Spalte „darf buchen“ in der Rechnung, Kennzeichnung im Tab „Import“.
-- **Prognose** (`forecast.rs`): ab dem Tag nach min(Stichtag, Stand des Exports) bis
+- **Prognose** (`forecast.rs`): ab dem Tag nach min(Stichtag, Stand des Exports) – frühestens
+  nach der letzten abgerechneten Buchung (`Evaluation::last_invoiced`; sonst zählten Tage
+  doppelt, wenn der Stand zu früh erkannt wird: Hinweis oben + Prognose-Hinweis) – bis
   Jahresende bzw. Ende des spätesten Budget-Zeitraums (max. 3 Jahre). Faktoren je
   Person aus 1. Januar bis Ende des letzten abgeschlossenen Monats (sonst bis zum Stand):
   Krankheitsfaktor = krank ÷ (Soll brutto − Urlaub); Ablenkungsfaktor = 1 − abgerechnet

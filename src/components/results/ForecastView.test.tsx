@@ -44,6 +44,20 @@ describe("ForecastView", () => {
     expect(screen.getByText("So wird gerechnet")).toBeInTheDocument();
   });
 
+  it("Monatstabelle: Monat mit dem Stand der Daten zeigt, was abgerechnet und was prognostiziert ist", () => {
+    const { unmount } = render(<ForecastView forecast={sampleResult().forecast} plannedAbsences={[]} />);
+    // Stand 31.10. = Monatsende → kein Übergangsmonat
+    expect(screen.queryByText(/abgerechnet bis/)).not.toBeInTheDocument();
+    unmount();
+    const forecast = sampleResult().forecast;
+    forecast.from = "2026-11-10";
+    render(<ForecastView forecast={forecast} plannedAbsences={[]} />);
+    const label = screen.getByText(/abgerechnet bis/);
+    expect(label.textContent).toBe("abgerechnet bis 09.11.2026 · Prognose ab 10.11.2026");
+    expect(label.closest("tr")).toHaveTextContent(/^November 2026/);
+    expect(screen.getByText(/kein\s+Tag zählt doppelt/)).toBeInTheDocument();
+  });
+
   it("ohne Zeiterfassung: Auslastung statt Krankheits- und Ablenkungsfaktor", () => {
     const forecast = sampleResult().forecast;
     forecast.persons[1] = {

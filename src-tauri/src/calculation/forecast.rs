@@ -82,10 +82,23 @@ fn build_until(
     ev: &Evaluation,
     min_to: Option<NaiveDate>,
 ) -> Forecast {
-    let data_end = ev.missing_checked_until;
+    let mut notes = Vec::new();
+    // Abgerechnete Buchungen nach dem Stand der Daten (Stand zu früh erkannt oder
+    // im Voraus gebucht): Prognose erst danach – sonst zählen diese Tage doppelt.
+    let data_end = match ev.last_invoiced {
+        Some(last) if last > ev.missing_checked_until => {
+            notes.push(format!(
+                "Abgerechnete Buchungen reichen bis {} (Stand der Daten {}) – Prognose deshalb erst ab {}, damit nichts doppelt zählt.",
+                fmt_date(last),
+                fmt_date(ev.missing_checked_until),
+                fmt_date(last.succ_opt().unwrap_or(last))
+            ));
+            last
+        }
+        _ => ev.missing_checked_until,
+    };
     let from = data_end.succ_opt().unwrap_or(data_end);
     let year = ev.cutoff.year();
-    let mut notes = Vec::new();
 
     let budgets: Vec<_> = config
         .budgets

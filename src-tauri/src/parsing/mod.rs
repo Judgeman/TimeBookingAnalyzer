@@ -17,12 +17,13 @@ pub fn export_date(path: &Path) -> Option<(NaiveDate, ExportDateSource)> {
         .or_else(|| file_modified_date(path).map(|d| (d, ExportDateSource::Modified)))
 }
 
+/// Datum im Dateinamen; bei mehreren (z. B. Zeitraum „von_bis“) das späteste.
 pub fn date_from_file_name(name: &str) -> Option<NaiveDate> {
     let chars: Vec<char> = name.chars().collect();
 
     // 10 Zeichen: 2026-10-31, 2026_10_31, 31.10.2026
     const FORMATS_10: [&str; 3] = ["%Y-%m-%d", "%Y_%m_%d", "%d.%m.%Y"];
-    let found = chars.windows(10).find_map(|window| {
+    let found = chars.windows(10).filter_map(|window| {
         // chrono parst nachsichtig (führende Leerzeichen, 3-stellige Jahre) –
         // deshalb nur Fenster aus Ziffern/Trennern, die mit Ziffern beginnen und enden.
         let shape_ok = window[0].is_ascii_digit()
@@ -39,18 +40,16 @@ pub fn date_from_file_name(name: &str) -> Option<NaiveDate> {
             .find_map(|fmt| NaiveDate::parse_from_str(&candidate, fmt).ok())
             .filter(plausible)
     });
-    if found.is_some() {
-        return found;
-    }
-
     // 8 Ziffern am Stück: 20261031
-    name.split(|c: char| !c.is_ascii_digit())
+    let compact = name
+        .split(|c: char| !c.is_ascii_digit())
         .filter(|run| run.len() == 8)
-        .find_map(|run| {
+        .filter_map(|run| {
             NaiveDate::parse_from_str(run, "%Y%m%d")
                 .ok()
                 .filter(plausible)
-        })
+        });
+    found.chain(compact).max()
 }
 
 fn plausible(date: &NaiveDate) -> bool {
@@ -91,6 +90,19 @@ mod tests {
         assert_eq!(
             date_from_file_name("Auswertung-Ü-20261031"),
             date(2026, 10, 31)
+        );
+        // mehrere Daten (Zeitraum): das späteste
+        assert_eq!(
+            date_from_file_name("Zeitbericht_2026-01-01_2026-11-09"),
+            date(2026, 11, 9)
+        );
+        assert_eq!(
+            date_from_file_name("Export 01.01.2026-31.10.2026"),
+            date(2026, 10, 31)
+        );
+        assert_eq!(
+            date_from_file_name("20260101-20261109 Zeiten"),
+            date(2026, 11, 9)
         );
         assert_eq!(date_from_file_name("export"), None);
         assert_eq!(date_from_file_name("export-12345678"), None);

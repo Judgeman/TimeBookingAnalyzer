@@ -269,6 +269,77 @@ mod tests {
     }
 
     /// Hält die fiktiven Beispieldaten in `sample-data/` und den Parser synchron.
+    /// Regression: Wird der Stand des Exports zu früh erkannt (Dateiname/
+    /// Änderungsdatum älter als die Buchungen), zählten die Tage danach doppelt –
+    /// abgerechnet und noch einmal prognostiziert.
+    #[test]
+    fn forecast_starts_after_the_last_invoiced_booking() {
+        use crate::parsing::export::read_export;
+        let json = std::fs::read_to_string(sample("beispiel-projekt.json")).unwrap();
+        let config: ProjectConfig = serde_json::from_str(&json).unwrap();
+        let file = sample("Beispiel-Export_2026-10-31.xlsx");
+        let read = || read_export(&file, &config.export_format).unwrap();
+        let d = |m, day| NaiveDate::from_ymd_opt(2026, m, day).unwrap();
+        let correct = evaluate_export(
+            &config,
+            read(),
+            "Export.xlsx".into(),
+            Some((d(10, 31), ExportDateSource::FileName)),
+            Some(d(10, 31)),
+        )
+        .unwrap();
+        // Stand fälschlich 30.09. (z. B. altes Änderungsdatum), Buchungen bis 30.10.
+        let early = evaluate_export(
+            &config,
+            read(),
+            "Export.xlsx".into(),
+            Some((d(9, 30), ExportDateSource::Modified)),
+            Some(d(10, 31)),
+        )
+        .unwrap();
+        let month = |r: &AuswertungResult, key: &str| {
+            r.forecast
+                .months
+                .iter()
+                .find(|m| m.month == key)
+                .map(|m| (m.actual_net, m.forecast_net))
+                .unwrap()
+        };
+        // Oktober ist abgerechnet – keine zusätzliche Prognose
+        assert_eq!(month(&early, "2026-10"), (30_526.25, 0.0));
+        assert_eq!(month(&correct, "2026-10"), (30_526.25, 0.0));
+        assert_eq!(early.forecast.from, d(10, 31)); // nach der letzten Buchung (30.10.)
+        let budget = &early.forecast.budgets[0];
+        assert_eq!(budget.actual_net, 319_865.0);
+        let forecast_rest: f64 = early.forecast.months.iter().map(|m| m.forecast_net).sum();
+        assert!((budget.forecast_net - forecast_rest).abs() < 0.01);
+        assert!(
+            (budget.expected_net - correct.forecast.budgets[0].expected_net).abs() < 2_000.0,
+            "{} vs {}",
+            budget.expected_net,
+            correct.forecast.budgets[0].expected_net
+        );
+        // Hinweis: Stand des Exports prüfen
+        assert!(
+            early
+                .warnings
+                .iter()
+                .any(|w| w.contains("nach dem Stand des Exports")),
+            "{:?}",
+            early.warnings
+        );
+        assert!(
+            early
+                .forecast
+                .notes
+                .iter()
+                .any(|n| n.contains("Prognose deshalb erst ab 31.10.2026")),
+            "{:?}",
+            early.forecast.notes
+        );
+        assert!(correct.warnings.is_empty(), "{:?}", correct.warnings);
+    }
+
     /// Regression: Ein Budget-Zeitraum, der vor dem Stand der Daten endet
     /// (frühere Beauftragung), ließ die Prognose abstürzen.
     #[test]
