@@ -45,7 +45,8 @@ src/                        # React Frontend
       OutsideBookings.tsx   # roter Hinweis: Projektbuchungen außerhalb des Teams
       GuestBookings.tsx     # neutraler Hinweis: Buchungen der Rolle „darf buchen“
       BillableMismatches.tsx # Hinweis: Billable-Spalte ≠ Abrechnungsregel (filterbar)
-      ForecastView.tsx      # Prognose: laufender Monat, Budget-Status, Monate, Faktoren je Person
+      ForecastView.tsx      # Prognose: laufender Monat (+ Tag, an dem das Budget aufgebraucht ist),
+                            # Budget-Status (Prognose bis Ende = abgerechnet + Rest), Monate, Faktoren je Person
       BudgetChart.tsx       # SVG-Linien kumuliert: Ist, Prognose (gestrichelt), Richtwert, Budget
       forecast.ts           # Hilfen: kumulierte Kurven, aktives Budget, Stand der Daten
       InsightsView.tsx      # Insights: Hinweise, Rekord-Monate, Pace Team/Person

@@ -414,9 +414,17 @@ test("Prognose: Budget-Überziehung, Diagramm, Budget im Projekt ändern", () =>
       "Voraussichtliche Überziehung: 7.494,52 € über Budget zum Ende Dezember 2026",
       "Budget laut Prognose aufgebraucht am 17.12.2026.",
       "367.494,52 €",
+      // Kachel „Prognose bis Ende“ = abgerechnet + Prognose für den Rest
+      "Prognose bis Ende Dezember 2026",
+      "Abgerechnet 319.865,00 € + Prognose 47.629,52 €",
+      "Abweichung zum Budget",
     ]) {
       assert.ok(text.includes(expected), `fehlt: ${expected}`);
     }
+    // laufender Monat: wann das Budget aufgebraucht ist
+    const end = await app.execute(`return [...document.querySelectorAll("dt")]
+      .find((dt) => dt.textContent === "Budget aufgebraucht am").nextElementSibling.textContent`);
+    assert.equal(end, "17.12.2026");
     const chart = await app.execute(
       "return document.querySelector('svg[role=img]').getAttribute('aria-label')",
     );

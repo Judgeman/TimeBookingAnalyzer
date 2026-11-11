@@ -18,13 +18,27 @@ describe("ForecastView", () => {
     // laufender Monat
     const november = screen.getByText("Rechnung November 2026 (laufender Monat)").parentElement!;
     expect(november.textContent!.replace(/ /g, " ")).toContain("23.362,30 €");
+    // … mit dem Tag, an dem das Budget laut Prognose aufgebraucht ist
+    const end = within(november).getByText("Budget aufgebraucht am").closest("div")!;
+    expect(end.textContent!.replace(/\s/g, " ")).toBe(
+      "Budget aufgebraucht am17.12.2026laut Prognose · Budget Januar 2026 – Dezember 2026",
+    );
     // Budget
     const status = screen.getByRole("status");
     expect(status).toHaveTextContent("Voraussichtliche Überziehung");
     expect(status.textContent!.replace(/ /g, " ")).toContain("7.494,52 € über Budget zum Ende Dezember 2026");
     expect(status).toHaveTextContent("aufgebraucht am 17.12.2026");
     expect(text()).toContain("88,9 % des Budgets · +19.865,00 € zum Richtwert");
-    expect(text()).toContain("+7.494,52 € zum Budget");
+    // Prognose bis Ende = abgerechnet + Prognose für den Rest
+    const total = screen.getByText("Prognose bis Ende Dezember 2026").closest("div")!;
+    expect(total.textContent!.replace(/\s/g, " ")).toBe(
+      "Prognose bis Ende Dezember 2026367.494,52 €Abgerechnet 319.865,00 € + Prognose 47.629,52 €",
+    );
+    const deviation = screen.getByText("Abweichung zum Budget").closest("div")!;
+    expect(deviation.textContent!.replace(/\s/g, " ")).toBe(
+      "Abweichung zum Budget+7.494,52 €über Budget · Prognose = 102,1 % des Budgets",
+    );
+    expect(within(deviation).getByText(/\+7\.494,52/)).toHaveClass("text-red-700");
     // Monatstabelle mit Richtwert
     const december = screen.getByText("Dezember 2026").closest("tr")!;
     expect(december.textContent!.replace(/ /g, " ")).toContain("360.000,00 €");
@@ -93,6 +107,27 @@ describe("ForecastView", () => {
     };
     rerender(<ForecastView forecast={exceeded} />);
     expect(screen.getByRole("status")).toHaveTextContent("Budget bereits überschritten");
+  });
+
+  it("laufender Monat: Budget reicht, wird in diesem Monat aufgebraucht oder ist überschritten", () => {
+    const tile = (label: string) => screen.getByText(label).closest("div")!.textContent!.replace(/\s/g, " ");
+    const forecast = sampleResult().forecast;
+    const reaching = { ...forecast.budgets[0], amount: 400_000, deviation: -32_505.48, exhausted_on: null };
+    const { rerender } = render(<ForecastView forecast={{ ...forecast, budgets: [reaching] }} />);
+    expect(tile("Budget reicht laut Prognose")).toBe(
+      "Budget reicht laut Prognosebis Ende Dezember 2026Rest 32.505,48 € · Budget Januar 2026 – Dezember 2026",
+    );
+    const soon = { ...forecast.budgets[0], exhausted_on: "2026-11-20" };
+    rerender(<ForecastView forecast={{ ...forecast, budgets: [soon] }} />);
+    expect(tile("Budget aufgebraucht am")).toContain("20.11.2026laut Prognose – noch in diesem Monat");
+    expect(screen.getByText("20.11.2026")).toHaveClass("text-red-700");
+    const exceeded = { ...forecast.budgets[0], amount: 300_000, exceeded: true, exhausted_on: null };
+    rerender(<ForecastView forecast={{ ...forecast, budgets: [exceeded] }} />);
+    const over = screen.getByText("bereits überschritten").closest("div")!.textContent!.replace(/\s/g, " ");
+    expect(over).toBe("Budgetbereits überschritten19.865,00 € über Budget · Budget Januar 2026 – Dezember 2026");
+    // ohne Budget keine Kachel
+    rerender(<ForecastView forecast={{ ...forecast, budgets: [] }} />);
+    expect(screen.queryByText(/Budget aufgebraucht am|Budget reicht laut Prognose/)).not.toBeInTheDocument();
   });
 
   it("ohne Budget: Hinweis und Verlauf bis Jahresende; ohne Referenzdaten", () => {

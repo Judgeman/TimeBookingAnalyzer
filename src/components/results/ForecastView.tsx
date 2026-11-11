@@ -41,6 +41,8 @@ export function ForecastView({ forecast, plannedAbsences = [], accuracy = [] }: 
   const budget: BudgetStatus | null = forecast.budgets[budgetIndex] ?? null;
   const dataEnd = dataEndOf(forecast);
   const current = currentMonth(forecast);
+  // Budget, in dem der laufende Monat liegt (unabhängig von der Auswahl unten)
+  const activeBudget: BudgetStatus | null = forecast.budgets[activeBudgetIndex(forecast)] ?? null;
   const months = budget
     ? forecast.months.filter((m) => m.month >= budget.from && m.month <= budget.to)
     : forecast.months;
@@ -63,7 +65,7 @@ export function ForecastView({ forecast, plannedAbsences = [], accuracy = [] }: 
       {current && (
         <section>
           <h3 className={styles.heading}>Rechnung {formatMonth(current.month)} (laufender Monat)</h3>
-          <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <dl className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${activeBudget ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
             <Tile label={`Abgerechnet bis ${formatDate(dataEnd)}`}>{formatEuro(current.actual_net)}</Tile>
             <Tile label="Prognose für den Rest" note={`${formatHours(current.forecast_hours)} h`}>
               {formatEuro(current.forecast_net)}
@@ -71,6 +73,7 @@ export function ForecastView({ forecast, plannedAbsences = [], accuracy = [] }: 
             <Tile label="Erwartet netto" strong>
               {formatEuro(current.actual_net + current.forecast_net)}
             </Tile>
+            {activeBudget && <BudgetEndTile budget={activeBudget} month={current.month} />}
           </dl>
         </section>
       )}
@@ -271,12 +274,48 @@ function BudgetSummary({ budget, dataEnd }: { budget: BudgetStatus; dataEnd: str
         >
           {formatEuro(budget.actual_net)}
         </Tile>
-        <Tile label="Prognose bis Ende">{formatEuro(budget.forecast_net)}</Tile>
-        <Tile label="Erwartet zum Ende" note={`${signed(budget.deviation)} zum Budget`} strong>
+        <Tile
+          label={`Prognose bis Ende ${formatMonth(budget.to)}`}
+          note={`Abgerechnet ${formatEuro(budget.actual_net)} + Prognose ${formatEuro(budget.forecast_net)}`}
+          strong
+        >
           {formatEuro(budget.expected_net)}
+        </Tile>
+        <Tile
+          label="Abweichung zum Budget"
+          note={`${budget.deviation > 0 ? "über Budget" : "Rest"} · Prognose = ${formatPercent(
+            budget.amount > 0 ? (budget.expected_net / budget.amount) * 100 : 0,
+          )} des Budgets`}
+        >
+          <span className={budget.deviation > 0.005 ? "text-red-700" : "text-emerald-700"}>{signed(budget.deviation)}</span>
         </Tile>
       </dl>
     </>
+  );
+}
+
+/** Wann das Budget laut Prognose aufgebraucht ist (für den laufenden Monat). */
+function BudgetEndTile({ budget, month }: { budget: BudgetStatus; month: string }) {
+  const period = `Budget ${formatMonth(budget.from)} – ${formatMonth(budget.to)}`;
+  if (budget.exceeded) {
+    return (
+      <Tile label="Budget" note={`${formatEuro(budget.actual_net - budget.amount)} über Budget · ${period}`}>
+        <span className="text-red-700">bereits überschritten</span>
+      </Tile>
+    );
+  }
+  if (budget.exhausted_on) {
+    const thisMonth = budget.exhausted_on.startsWith(month);
+    return (
+      <Tile label="Budget aufgebraucht am" note={`laut Prognose${thisMonth ? " – noch in diesem Monat" : ""} · ${period}`}>
+        <span className={thisMonth ? "text-red-700" : ""}>{formatDate(budget.exhausted_on)}</span>
+      </Tile>
+    );
+  }
+  return (
+    <Tile label="Budget reicht laut Prognose" note={`Rest ${formatEuro(-budget.deviation)} · ${period}`}>
+      bis Ende {formatMonth(budget.to)}
+    </Tile>
   );
 }
 
