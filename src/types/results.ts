@@ -78,7 +78,7 @@ export interface SkippedRow {
 
 // --- Auswertung (Spiegel von AuswertungResult in models/results.rs) ---
 
-export type ExportDateSource = "file_name" | "modified";
+export type ExportDateSource = "file_name" | "modified" | "fetched";
 
 /** Ergebnis von `parse_export`. */
 export interface AuswertungResult {
@@ -454,4 +454,13 @@ export interface InvoiceTotals {
   vat_groups: VatGroup[];
   vat: number;
   gross: number;
+}
+
+/** Zugang zu ProjectForge (ohne den Schlüssel selbst). */
+export interface ProjectForgeSettings {
+  base_url: string;
+  /** Zahl aus `<Server>/rs/userStatus` („userId“), nicht der Login-Name. */
+  user_id: number | null;
+  /** Schlüssel in der Anmeldeinformationsverwaltung hinterlegt. */
+  has_token: boolean;
 }

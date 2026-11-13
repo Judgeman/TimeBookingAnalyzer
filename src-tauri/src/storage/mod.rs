@@ -1,6 +1,8 @@
 pub mod forecasts;
 pub mod imports;
+pub mod projectforge;
 pub mod projects;
+pub mod settings;
 
 use std::path::{Path, PathBuf};
 

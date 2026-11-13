@@ -3,6 +3,8 @@
 /** ISO-Datum "YYYY-MM-DD". */
 export type IsoDate = string;
 
+export type DataSource = "export" | "projectforge";
+
 export interface ProjectConfig {
   /** UUID; leer beim Anlegen, wird von `save_project` vergeben. */
   id: string;
@@ -24,6 +26,8 @@ export interface ProjectConfig {
   planned_absences: PlannedAbsence[];
   /** Budget-Zeiträume (ganze Monate) mit Betrag. */
   budgets: BudgetPeriod[];
+  /** Quelle der Buchungen: Export-Datei (Standard) oder Abruf aus ProjectForge. */
+  data_source?: DataSource;
 }
 
 export type PlannedAbsenceKind = "vacation" | "other";
@@ -243,5 +247,6 @@ export function newProject(): ProjectConfig {
     missing_threshold_percent: 50,
     planned_absences: [],
     budgets: [],
+    data_source: "export",
   };
 }

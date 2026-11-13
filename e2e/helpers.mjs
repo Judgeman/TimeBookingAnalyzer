@@ -8,6 +8,8 @@ export const env = {
   sampleProject: process.env.E2E_SAMPLE_PROJECT,
   dataDir: process.env.E2E_DATA_DIR,
   artifacts: process.env.E2E_ARTIFACTS,
+  /** Ablage des ProjectForge-Schlüssels in Tests (statt Anmeldeinformationsverwaltung). */
+  secretsDir: process.env.BILLING_TRACKER_SECRETS_DIR,
 };
 
 /** Projektordner der App: `projects` neben der Programmdatei. */
@@ -18,6 +20,12 @@ export const importDir = () => join(dirname(env.app), "Import");
 
 /** Gespeicherte Prognosen je Projekt: `Prognosen` neben der Programmdatei. */
 export const forecastDir = () => join(dirname(env.app), "Prognosen");
+
+/** Abgerufene ProjectForge-Daten je Projekt: `ProjectForge` neben der Programmdatei. */
+export const projectForgeDir = () => join(dirname(env.app), "ProjectForge");
+
+/** Einstellungen der Instanz (z. B. ProjectForge-Zugang): neben der Programmdatei. */
+export const settingsFile = () => join(dirname(env.app), "settings.json");
 
 /** Fensterposition und -größe des letzten Aufrufs: neben der Programmdatei. */
 export const windowStateFile = () => join(dirname(env.app), "window-state.json");
@@ -32,6 +40,9 @@ export const legacyDir = () => join(env.dataDir, "de.judgeman.billingtracker", "
 export function resetProjects({ withSample, legacySample = false }) {
   rmSync(importDir(), { recursive: true, force: true });
   rmSync(forecastDir(), { recursive: true, force: true });
+  rmSync(projectForgeDir(), { recursive: true, force: true });
+  rmSync(settingsFile(), { force: true });
+  if (env.secretsDir) rmSync(env.secretsDir, { recursive: true, force: true });
   rmSync(windowStateFile(), { force: true });
   for (const dir of [projectsDir(), legacyDir()]) {
     rmSync(dir, { recursive: true, force: true });

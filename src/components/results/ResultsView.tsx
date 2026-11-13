@@ -169,7 +169,10 @@ export function ResultsView({
             Auswertung {formatDate(result.period_start)} – {formatDate(result.cutoff_date)}
           </h2>
           <p className="mt-0.5 text-sm text-slate-500">
-            Stand des Exports: {formatDate(result.export_date)} ({sourceLabel}) · Feiertage{" "}
+            {result.export_date_source === "fetched"
+              ? `Stand: ${result.file_name}`
+              : `Stand des Exports: ${formatDate(result.export_date)} (${sourceLabel})`}{" "}
+            · Feiertage{" "}
             {result.holiday_region}: <HolidayList result={result} />
           </p>
         </div>

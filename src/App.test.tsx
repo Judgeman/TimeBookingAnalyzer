@@ -16,6 +16,10 @@ let legacy: ProjectConfig[] = [];
 const missingLegacy = () => legacy.filter((l) => !projects.some((p) => p.id === l.id));
 /** Gemerkte letzte Import-Dateien je Projekt (Ordner „Import“). */
 let imports: Record<string, LastImport> = {};
+/** ProjectForge: Zugang und Zeitpunkt des letzten Abrufs je Projekt. */
+let pfAccess = { base_url: "", user_id: null as number | null, has_token: false };
+let pfFetched: Record<string, string> = {};
+let pfFails = false;
 const invoke = vi.fn();
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -89,6 +93,33 @@ function backend(command: string, args: Record<string, unknown> = {}) {
     case "parse_export":
       if (String(args.filePath).includes("kaputt")) throw "Tabellenblatt „Details“ nicht gefunden.";
       return { ...sampleResult(), cutoff_date: (args.cutoffDate as string) ?? "2026-10-31" };
+    case "projectforge_settings":
+      return { ...pfAccess };
+    case "save_projectforge_settings":
+      pfAccess = {
+        base_url: String(args.baseUrl),
+        user_id: args.userId as number,
+        has_token: pfAccess.has_token || Boolean(args.token),
+      };
+      return { ...pfAccess };
+    case "test_projectforge":
+      return "Verbindung steht: 3 buchbare Tasks, 2 Kostenarten.";
+    case "fetch_projectforge": {
+      if (pfFails) throw "Keine Verbindung zu https://pf.example.com";
+      pfFetched[args.projectId as string] = args.full ? "01.11.2026, 09:30" : "01.11.2026, 09:00";
+      return backend("projectforge_cached", args);
+    }
+    case "projectforge_cached": {
+      const at = pfFetched[args.projectId as string];
+      if (!at) return null;
+      return {
+        ...sampleResult(),
+        file_name: `ProjectForge – Abruf ${at}`,
+        export_date: "2026-11-01",
+        export_date_source: "fetched",
+        cutoff_date: (args.cutoffDate as string) ?? "2026-11-01",
+      };
+    }
     default:
       throw new Error(`unbekannter Command ${command}`);
   }
@@ -110,6 +141,9 @@ describe("App (Integration mit nachgebildetem Backend)", () => {
     projects = [sampleConfig()];
     legacy = [];
     imports = {};
+    pfAccess = { base_url: "", user_id: null, has_token: false };
+    pfFetched = {};
+    pfFails = false;
     localStorage.clear();
     invoke.mockReset().mockImplementation(async (command: string, args?: Record<string, unknown>) =>
       backend(command, args),
@@ -302,5 +336,88 @@ describe("App (Integration mit nachgebildetem Backend)", () => {
     render(<App />);
     expect(screen.getByText(/Oberfläche läuft im Browser/)).toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it("Datenquelle ProjectForge: Zugang einrichten, abrufen, Stichtag ohne erneuten Abruf", async () => {
+    const user = userEvent.setup();
+    projects = [{ ...sampleConfig(), data_source: "projectforge" }];
+    render(<App />);
+    const panel = await screen.findByRole("region", { name: "Daten aus ProjectForge" });
+    expect(screen.getByText(/· Daten aus ProjectForge$/)).toBeInTheDocument(); // Kopfzeile
+    expect(panel).toHaveTextContent("Noch keine Daten abgerufen.");
+    expect(screen.getByRole("button", { name: "Aktualisieren" })).toBeDisabled();
+    expect(calls("fetch_projectforge")).toHaveLength(0); // ohne Zugang kein Abruf
+
+    // Zugang einrichten → speichern, testen, Abruf startet
+    await user.click(screen.getByRole("button", { name: "ProjectForge-Zugang einrichten" }));
+    await user.type(await screen.findByLabelText("Server-Adresse"), "https://pf.example.com");
+    await user.type(screen.getByLabelText("User-ID"), "42");
+    await user.type(screen.getByLabelText("Schlüssel"), "geheim");
+    await user.click(screen.getByRole("button", { name: "Speichern und Verbindung testen" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Verbindung steht: 3 buchbare Tasks");
+    expect(calls("save_projectforge_settings")[0][1]).toEqual({
+      baseUrl: "https://pf.example.com",
+      userId: 42,
+      token: "geheim",
+    });
+    await waitFor(() => expect(calls("fetch_projectforge")).toHaveLength(1));
+    expect(calls("fetch_projectforge")[0][1]).toEqual({
+      projectId: "beispiel-lager-app",
+      cutoffDate: "2026-11-01",
+      full: false,
+    });
+    await user.click(screen.getByRole("button", { name: "Schließen" }));
+    expect(await screen.findByText("Letzter Abruf 01.11.2026, 09:00")).toBeInTheDocument();
+    expect(screen.getByText(/Stand: ProjectForge – Abruf 01\.11\.2026, 09:00/)).toBeInTheDocument();
+
+    // neuer Stichtag → nur Auswertung der abgerufenen Daten
+    await user.click(screen.getByRole("button", { name: "Gestern" }));
+    await waitFor(() =>
+      expect(calls("projectforge_cached").at(-1)![1]).toMatchObject({ cutoffDate: "2026-10-31" }),
+    );
+    expect(calls("fetch_projectforge")).toHaveLength(1);
+
+    // alles neu laden
+    await user.click(screen.getByRole("button", { name: "Alles neu laden" }));
+    expect(await screen.findByText("Letzter Abruf 01.11.2026, 09:30")).toBeInTheDocument();
+    expect(calls("fetch_projectforge").at(-1)![1]).toMatchObject({ full: true, cutoffDate: "2026-10-31" });
+
+    // Abruf scheitert → Meldung, letzte Daten bleiben
+    pfFails = true;
+    await user.click(screen.getByRole("button", { name: "Aktualisieren" }));
+    expect(
+      await screen.findByText(
+        "Abruf aus ProjectForge fehlgeschlagen: Keine Verbindung zu https://pf.example.com",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Letzter Abruf 01.11.2026, 09:30")).toBeInTheDocument();
+  });
+
+  it("Datenquelle ProjectForge: zuletzt abgerufene Daten sofort, dann einmal automatisch aktualisieren", async () => {
+    projects = [{ ...sampleConfig(), data_source: "projectforge" }];
+    pfAccess = { base_url: "https://pf.example.com", user_id: 42, has_token: true };
+    pfFetched = { "beispiel-lager-app": "31.10.2026, 17:00" };
+    invoke.mockImplementation(async (command: string, args?: Record<string, unknown>) => {
+      // Abruf verzögert, damit der gespeicherte Stand zuerst erscheint
+      if (command === "fetch_projectforge") await new Promise((r) => setTimeout(r, 50));
+      return backend(command, args);
+    });
+    render(<App />);
+    expect(await screen.findByText(/^Letzter Abruf 31\.10\.2026, 17:00/)).toBeInTheDocument();
+    expect(await screen.findByText("Letzter Abruf 01.11.2026, 09:00")).toBeInTheDocument();
+    expect(calls("fetch_projectforge")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "ProjectForge-Zugang …" })).toBeInTheDocument();
+  });
+
+  it("Datenquelle im Projekt umstellen", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByRole("heading", { name: "Musterkunde GmbH / Lager-App" });
+    await user.click(screen.getByRole("button", { name: "Projekt bearbeiten" }));
+    await user.click(screen.getByRole("radio", { name: /Abruf aus ProjectForge/ }));
+    expect(screen.getByText(/Element = Task-Titel/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    expect(await screen.findByRole("region", { name: "Daten aus ProjectForge" })).toBeInTheDocument();
+    expect(projects[0].data_source).toBe("projectforge");
   });
 });

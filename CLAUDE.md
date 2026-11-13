@@ -3,6 +3,7 @@
 ## Projektziel
 Desktop-App zur Auswertung von ProjectForge-Exporten für Consulting-Abrechnung.
 Drag & Drop einer Export-Datei → sofortige Auswertung nach konfigurierbaren Projekt-Regeln.
+Alternativ je Projekt: Abruf der Buchungen direkt über die REST-API von ProjectForge.
 
 > **Vertraulichkeit:** Keine echten Kunden-, Projekt- oder Personendaten (Namen,
 > Element-Codes, Stundensätze, Arbeitszeiten, Exporte) ins Repository – auch nicht in
@@ -14,7 +15,9 @@ Drag & Drop einer Export-Datei → sofortige Auswertung nach konfigurierbaren Pr
 - **Tauri 2** (Rust Backend + React + TypeScript Frontend)
 - **Frontend**: React 18 + TypeScript + Vite
 - **UI**: Tailwind CSS 4 (`@tailwindcss/vite`)
-- **Backend**: Rust (calamine für Excel-Parsing, serde + serde_json für Config)
+- **Backend**: Rust (calamine für Excel-Parsing, serde + serde_json für Config;
+  reqwest mit rustls/ring, Zertifikate des Betriebssystems, System-Proxy für den
+  ProjectForge-Abruf; keyring für den Schlüssel in der Anmeldeinformationsverwaltung)
 - **Config**: JSON-Dateien pro Projekt (Ordner `projects` neben der Exe)
 
 ## App-Struktur
@@ -24,7 +27,9 @@ src/                        # React Frontend
   components/
     DropZone.tsx            # Drag-and-Drop Bereich (Tauri-Webview-Events) + Datei-Dialog
     ProjectSelector.tsx     # Projekt-Auswahl (Sidebar)
-    ProjectEditor.tsx       # Projekt-Konfiguration bearbeiten
+    ProjectEditor.tsx       # Projekt-Konfiguration bearbeiten (inkl. Datenquelle)
+    ProjectForgeAccess.tsx  # ProjectForge-Zugang: Adresse, User-ID, Schlüssel, Verbindung testen
+    ProjectForgeSource.tsx  # Datenquelle ProjectForge: letzter Abruf, Aktualisieren / Alles neu laden
     editor/
       TeamEditor.tsx        # Personen, Stundensätze, abw. Arbeitszeit, Einsatzzeitraum, Urlaubsanspruch
       GuestEditor.tsx       # Rolle „darf buchen“: Name + Stundensätze
@@ -78,12 +83,16 @@ src-tauri/
     commands/
       parse_export.rs       # Export einlesen + auswerten (evaluate_export ohne Dateizugriff)
       config.rs             # Projekte laden/speichern
+      projectforge.rs       # ProjectForge: Zugang (Einstellungen + Schlüssel), Abruf, Auswertung des Abrufs
       guard.rs              # interne Fehler (Panics) → Fehlermeldung mit Code-Stelle
       robustness_tests.rs   # Stresstest: Zufalls-Exporte/-Konfigurationen dürfen nie abstürzen
     models/
       config.rs             # Projektkonfiguration (Rust-Structs) + Validierung
       entry.rs              # TimeEntry (eine Export-Zeile)
       results.rs            # Command-Ergebnisse (ParsedExport, ProjectSummary, …)
+    projectforge/
+      mod.rs                # API-Antworten → TimeEntry (deutsche Zeit, Kostenart, Arbeitsanteil), Monate
+      client.rs             # HTTP: /rs/bookableTasks, /rs/timesheet/list (Zeitraum teilen), refresh()
     parsing/
       cells.rs              # Zellwerte → Text/Datum/Stunden/Mult
       export.rs             # calamine: Tabellenblatt → Vec<TimeEntry>
@@ -92,6 +101,8 @@ src-tauri/
       projects.rs           # ProjectStore: <Ordner der Exe>/projects/<id>.json, Übernahme alter Projekte
       imports.rs            # ImportStore: letzte Export-Datei je Projekt (<Ordner der Exe>/Import/<id>/)
       forecasts.rs          # ForecastStore: gespeicherte Prognosen (<Ordner der Exe>/Prognosen/<id>.json)
+      projectforge.rs       # FetchCacheStore: abgerufene Buchungen je Monat (<Ordner der Exe>/ProjectForge/<id>.json)
+      settings.rs           # SettingsStore: settings.json neben der Exe; Schlüssel per SecretStore (keyring)
     calculation/
       mod.rs                # evaluate(): Tageswerte → Jahr/Monat/KW/Monat×KW, Hinweise
       gearb.rs              # Arbeitszeit-Berechnung, Urlaub/Krank-Erkennung
@@ -151,7 +162,9 @@ npm version 1.0.0 --no-git-tag-version   # package.json + package-lock.json
 - **Frontend**: Vitest + Testing Library (jsdom); `App.test.tsx` testet die ganze App mit
   nachgebildetem Tauri-Backend. Mindestabdeckung 90 % Zeilen/Anweisungen, 85 % Zweige/Funktionen.
 - **E2E**: `e2e/` – echte App über `tauri-driver`, als Kopie in einem temporären Ordner
-  (Projekte daneben) mit isoliertem Datenverzeichnis.
+  (Projekte daneben) mit isoliertem Datenverzeichnis. ProjectForge-Abruf gegen einen im Test
+  gestarteten nachgebildeten Server (fiktive Buchungen); Schlüssel per
+  `BILLING_TRACKER_SECRETS_DIR` als Datei.
 - **Robustheit**: `commands/robustness_tests.rs` wertet reproduzierbar zufällige Exporte und
   gültige Konfigurationen aus (extreme Jahre, negative/riesige Werte, beendete Budgets, …) –
   kein Absturz erlaubt. Mehr Fälle: `ROBUSTNESS_CASES=5000 cargo test random_exports`;
@@ -243,9 +256,11 @@ Jedes Projekt wird als JSON-Datei gespeichert:
       "vacation": "(Vacation)"
     },
     "billable": { "column": 14, "yes": "", "no": "" }
-  }
+  },
+  "data_source": "export"
 }
 ```
+`data_source`: `"export"` (Standard, Export-Datei) oder `"projectforge"` (Abruf über die API).
 `export_format.billable` ist optional (`null`/fehlend = Billable-Spalte nicht verwenden);
 `yes`/`no` = optionale eigene Textwerte (leer = nur Wahrheitswerte).
 
@@ -463,6 +478,29 @@ plus_krank = plus - sick_h_norm
   2 Stellen. UI: Home-Office-Kennzahl für Orte mit „home“, „remote“ oder „mobil“.
   Torte: max. 6 Farben (feste Reihenfolge aus `chartColors.ts`, Zuordnung nach
   Team-Rang im Jahr), weitere Orte → „Sonstige“.
+- **Datenquelle ProjectForge** (`data_source = "projectforge"`, `projectforge/`, Command
+  `fetch_projectforge`): Zugang je Instanz in `settings.json` (`base_url`, `user_id` = Zahl aus
+  `<Server>/rs/userStatus`), Schlüssel für Rest-Clients in der Anmeldeinformationsverwaltung
+  (`keyring`, Dienst „Billing Tracker“; Tests/E2E: `BILLING_TRACKER_SECRETS_DIR` → Dateien).
+  Anmeldung `Authorization: Bearer <userId>:<token>`; abgelehnt = 302 zur Login-Seite (keine
+  Weiterleitung folgen) bzw. HTML statt JSON. Kostenarten: `GET /rs/bookableTasks` → je
+  Kostenart-Nummer Name + `workFraction`, je Kostenstelle `workFraction`. Buchungen:
+  `PUT /rs/timesheet/list?doNotStore=true` mit Filter `period` (`from`/`to` = Kalendertage,
+  einschließlich; ohne `user` → alle lesbaren Buchungen), `maxRows` 5000; gekürzt
+  (`resultSetTruncated` oder `totalSize` > Zeilen) → Zeitraum halbieren. Umrechnung je Zeile:
+  Person = `user.displayName`, Tag = `startTime` in deutscher Zeit (MEZ/MESZ nach EU-Regel),
+  Stunden = `durationMillis` (sonst Ende − Beginn), Element = Task-Titel, Kost2Art = Name der
+  Kostenart (`kost2.endziffer`, sonst aus `kost2.displayName`), Mult = Arbeitsanteil
+  (Kostenstelle, sonst Kostenart; unbekannt → 1 + Hinweis), Ort = `location`, keine
+  Billable-Spalte; gelöschte Buchungen fehlen. Abgerufen wird monatsweise ab 1. Januar des
+  Vorjahres (bzw. früherem Budget-Beginn, max. 5 Jahre) bis heute; ein Monat ist abgeschlossen,
+  wenn er ≥ 10 Tage nach Monatsende abgerufen wurde (sonst bei jedem Abruf neu; „Alles neu
+  laden“ = alle). Buchungen gehören zum Monat ihres Beginns (doppelte IDs entfernt).
+  Zwischenspeicher `ProjectForge/<id>.json` → Auswertung auch ohne Netz (`projectforge_cached`);
+  Stand der Daten = Abrufzeitpunkt (`export_date_source = "fetched"`, `file_name` =
+  „ProjectForge – Abruf TT.MM.JJJJ, HH:MM“). UI: beim Öffnen sofort der letzte Abruf, dann
+  einmal je Sitzung automatisch aktualisieren; neuer Stichtag wertet nur neu aus; Fehler beim
+  Abruf → Meldung, letzter Stand bleibt. Projekt löschen entfernt auch den Zwischenspeicher.
 - **Kalenderwochen** nach ISO 8601 (`2026-W53` kann im Januar des Folgejahres liegen).
   `month_weeks` enthält Teilwochen je Monat, damit aufgeklappte Wochen den Monat ergeben.
 - **Rechnung** (`invoice.rs`): eine Rechnung pro Monat, Positionen je Person × Regel ×
@@ -528,6 +566,16 @@ async fn last_import(project_id: String) -> Result<Option<LastImport>, String>
 #[tauri::command]
 async fn remember_import(project_id: String, file_path: String) -> Result<LastImport, String>
 // LastImport { path (Kopie), file_name, original_path, imported_at }
+
+// ProjectForge (Datenquelle „projectforge“)
+async fn projectforge_settings() -> Result<ProjectForgeSettings, String>  // { base_url, user_id, has_token }
+async fn save_projectforge_settings(base_url: String, user_id: i64, token: Option<String>)
+async fn delete_projectforge_token() -> Result<ProjectForgeSettings, String>
+async fn test_projectforge() -> Result<String, String>     // „Verbindung steht: …“
+async fn fetch_projectforge(project_id: String, cutoff_date: Option<NaiveDate>, full: bool)
+    -> Result<AuswertungResult, String>                   // abrufen (offene Monate bzw. alle) + auswerten
+async fn projectforge_cached(project_id: String, cutoff_date: Option<NaiveDate>)
+    -> Result<Option<AuswertungResult>, String>           // letzten Abruf auswerten (ohne Netz)
 ```
 
 ---
@@ -646,8 +694,10 @@ interface PeriodData {
    nach `Import/<id>/<Original-Dateiname>` neben der Exe (Dateiname + Änderungsdatum bleiben →
    „Stand“ des Exports), dazu `import.json` (Originalpfad, Zeitpunkt); ältere Kopie wird
    ersetzt. Beim Start/Projektwechsel wird die Kopie automatisch ausgewertet; Projekt ohne
-   gemerkte Datei → leere Drop-Zone. Projekt löschen entfernt auch `Import/<id>/` und
-   `Prognosen/<id>.json` (gespeicherte Prognosen, s. Prognosegüte).
+   gemerkte Datei → leere Drop-Zone. Projekt löschen entfernt auch `Import/<id>/`,
+   `Prognosen/<id>.json` (gespeicherte Prognosen, s. Prognosegüte) und
+   `ProjectForge/<id>.json` (abgerufene Daten). Zugang zu ProjectForge: `settings.json`
+   neben der Exe (ohne Schlüssel).
    **Fenster**: Position/Größe/maximiert über `tauri-plugin-window-state` in
    `window-state.json` neben der Exe (absoluter Dateiname ersetzt `app_config_dir`).
    Gespeichert wird 500 ms nach dem letzten Verschieben/Ändern der Größe (und beim

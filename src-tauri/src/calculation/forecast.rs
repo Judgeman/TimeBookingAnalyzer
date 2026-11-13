@@ -482,6 +482,7 @@ mod tests {
                 to: "2026-03".into(),
                 amount: 30_000.0,
             }],
+            data_source: Default::default(),
         }
     }
 

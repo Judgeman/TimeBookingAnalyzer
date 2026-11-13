@@ -4,6 +4,7 @@ import type {
   AuswertungResult,
   LastImport,
   ProjectFolder,
+  ProjectForgeSettings,
   ProjectSummary,
 } from "../types/results";
 
@@ -25,6 +26,20 @@ export const api = {
   /** `cutoffDate` = Stichtag (ISO-Datum); `null` → Stand des Exports. */
   parseExport: (filePath: string, projectId: string, cutoffDate: string | null) =>
     invoke<AuswertungResult>("parse_export", { filePath, projectId, cutoffDate }),
+  /** Zugang zu ProjectForge (Adresse, User-ID, Schlüssel vorhanden?). */
+  projectForgeSettings: () => invoke<ProjectForgeSettings>("projectforge_settings"),
+  /** `token` = `null` → gespeicherten Schlüssel behalten. */
+  saveProjectForgeSettings: (baseUrl: string, userId: number, token: string | null) =>
+    invoke<ProjectForgeSettings>("save_projectforge_settings", { baseUrl, userId, token }),
+  deleteProjectForgeToken: () => invoke<ProjectForgeSettings>("delete_projectforge_token"),
+  /** Prüft den Zugang; liefert eine Erfolgsmeldung. */
+  testProjectForge: () => invoke<string>("test_projectforge"),
+  /** Ruft fehlende/offene Monate ab (`full` = alle) und wertet aus. */
+  fetchProjectForge: (projectId: string, cutoffDate: string | null, full: boolean) =>
+    invoke<AuswertungResult>("fetch_projectforge", { projectId, cutoffDate, full }),
+  /** Wertet die zuletzt abgerufenen Daten aus; `null` = noch kein Abruf. */
+  projectForgeCached: (projectId: string, cutoffDate: string | null) =>
+    invoke<AuswertungResult | null>("projectforge_cached", { projectId, cutoffDate }),
 };
 
 /** Fehler aus `invoke` sind bei uns Strings (Result<_, String> im Backend). */

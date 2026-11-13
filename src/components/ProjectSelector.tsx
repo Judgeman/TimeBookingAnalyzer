@@ -12,6 +12,8 @@ interface Props {
   onCreate: () => void;
   /** Projekte aus dem früheren Ablageort übernehmen. */
   onImportLegacy?: () => void;
+  /** Zugang zu ProjectForge bearbeiten. */
+  onOpenAccess?: () => void;
 }
 
 export function ProjectSelector({
@@ -22,6 +24,7 @@ export function ProjectSelector({
   onSelect,
   onCreate,
   onImportLegacy,
+  onOpenAccess,
 }: Props) {
   const legacyCount = folder?.legacy_count ?? 0;
   return (
@@ -87,6 +90,15 @@ export function ProjectSelector({
           <p className="mb-2 truncate text-[11px] text-slate-400" title={folder.dir}>
             Projektordner: {shortPath(folder.dir)}
           </p>
+        )}
+        {onOpenAccess && (
+          <button
+            type="button"
+            onClick={onOpenAccess}
+            className="mb-2 block w-full text-left text-xs font-medium text-slate-500 hover:text-slate-800"
+          >
+            ProjectForge-Zugang …
+          </button>
         )}
         <button
           type="button"

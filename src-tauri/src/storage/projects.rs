@@ -235,6 +235,7 @@ mod tests {
             missing_threshold_percent: 50.0,
             planned_absences: vec![],
             budgets: vec![],
+            data_source: Default::default(),
         }
     }
 

@@ -2,6 +2,7 @@ mod calculation;
 mod commands;
 mod models;
 mod parsing;
+mod projectforge;
 mod storage;
 mod window;
 
@@ -15,7 +16,9 @@ use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 use storage::beside_exe;
 use storage::forecasts::ForecastStore;
 use storage::imports::ImportStore;
+use storage::projectforge::FetchCacheStore;
 use storage::projects::ProjectStore;
+use storage::settings::{FileSecrets, SecretStore, SettingsStore, SystemSecrets};
 
 /// Fensterposition und -größe des letzten Aufrufs – neben der Programmdatei,
 /// damit jede Instanz ihr eigenes Fenster behält.
@@ -77,6 +80,16 @@ pub fn run() {
             app.manage(ProjectStore::new(beside_exe(&exe, "projects")).with_legacy(legacy_dir));
             app.manage(ImportStore::new(beside_exe(&exe, "Import")));
             app.manage(ForecastStore::new(beside_exe(&exe, "Prognosen")));
+            app.manage(FetchCacheStore::new(beside_exe(&exe, "ProjectForge")));
+            // Token in der Anmeldeinformationsverwaltung; für Tests als Datei.
+            let secrets: Box<dyn SecretStore> = match std::env::var("BILLING_TRACKER_SECRETS_DIR") {
+                Ok(dir) if !dir.is_empty() => Box::new(FileSecrets::new(dir)),
+                _ => Box::new(SystemSecrets),
+            };
+            app.manage(SettingsStore::new(
+                beside_exe(&exe, "settings.json"),
+                secrets,
+            ));
             // Gespeichertes Fenster (bzw. Standardgröße) an den Bildschirm anpassen.
             // Sofort (Windows: Maße stimmen schon) und noch einmal, sobald das
             // Fenster angezeigt wird (GTK liefert vorher unsinnige Maße).
@@ -100,6 +113,12 @@ pub fn run() {
             commands::config::import_legacy_projects,
             commands::config::last_import,
             commands::config::remember_import,
+            commands::projectforge::projectforge_settings,
+            commands::projectforge::save_projectforge_settings,
+            commands::projectforge::delete_projectforge_token,
+            commands::projectforge::test_projectforge,
+            commands::projectforge::fetch_projectforge,
+            commands::projectforge::projectforge_cached,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

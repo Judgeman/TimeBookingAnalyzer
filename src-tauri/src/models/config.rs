@@ -47,6 +47,21 @@ pub struct ProjectConfig {
     /// Budget-Zeiträume (ganze Monate) mit Betrag.
     #[serde(default)]
     pub budgets: Vec<BudgetPeriod>,
+    /// Woher die Buchungen kommen: Export-Datei (Standard) oder Abruf aus ProjectForge.
+    #[serde(default)]
+    pub data_source: DataSource,
+}
+
+/// Quelle der Buchungen eines Projekts.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DataSource {
+    /// Export-Datei (Drag & Drop bzw. Datei-Dialog).
+    #[default]
+    Export,
+    /// Abruf über die REST-API von ProjectForge (Zugang in den Einstellungen).
+    #[serde(rename = "projectforge")]
+    ProjectForge,
 }
 
 fn default_vat_percent() -> f64 {

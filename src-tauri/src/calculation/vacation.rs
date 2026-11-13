@@ -140,6 +140,7 @@ mod tests {
                 absence(d(12, 24), d(12, 31), PlannedAbsenceKind::Vacation, false), // 25./26. Feiertag, 27. So
             ],
             budgets: vec![],
+            data_source: Default::default(),
         };
         let entry = |date, hours| TimeEntry {
             name: "Erika Mustermann".into(),

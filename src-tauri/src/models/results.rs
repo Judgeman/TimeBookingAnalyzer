@@ -96,6 +96,8 @@ pub struct SkippedRow {
 pub enum ExportDateSource {
     FileName,
     Modified,
+    /// Abruf aus ProjectForge (Zeitpunkt des Abrufs).
+    Fetched,
 }
 
 /// Ergebnis von `parse_export`.

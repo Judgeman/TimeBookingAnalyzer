@@ -23,10 +23,14 @@ calamine = { version = "0.37", features = ["chrono"] }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4"] }
 tauri-plugin-window-state = "2"
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "json", "system-proxy"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+keyring = { version = "3", features = ["windows-native", "linux-native", "apple-native"] }
 
 [dev-dependencies]
 rust_xlsxwriter = "0.102"
 tempfile = "3"
+tokio = { version = "1", features = ["rt", "macros"] }
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]

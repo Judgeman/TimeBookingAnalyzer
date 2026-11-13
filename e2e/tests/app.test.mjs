@@ -2,6 +2,7 @@
 // Start: npm run build:e2e && npm run test:e2e   (Details: e2e/README.md)
 import assert from "node:assert/strict";
 import { copyFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join, sep } from "node:path";
 import { test } from "node:test";
@@ -10,8 +11,10 @@ import {
   forecastDir,
   importDir,
   legacyDir,
+  projectForgeDir,
   projectsDir,
   resetProjects,
+  settingsFile,
   waitUntil,
   windowStateFile,
   withApp,
@@ -703,3 +706,124 @@ test("Fehlende Buchungen: Schwelle im Projekt einstellbar", () =>
     await app.waitForText("! 3 fehlende Buchungen");
     assert.ok((await app.text()).includes("nur 53,33 % gebucht"));
   }));
+
+/**
+ * Nachgebildeter ProjectForge-Server (REST-API) mit fiktiven Buchungen vom
+ * Vortag: Erika 8 h Delivery, Max 2 h Travel (billable, Arbeitsanteil 0).
+ */
+async function fakeProjectForge() {
+  const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+  const row = (id, person, hours, kost2, kind, name) => ({
+    timesheet: {
+      id,
+      task: { id: 1, title: "P100 Lager-App", displayName: "P100 Lager-App (#1)" },
+      user: { id: 40 + id, displayName: person },
+      kost2: { id: kost2, displayName: `5.100.00.0${kind}: ${name} - Lager-App`, endziffer: kind },
+      location: "Büro",
+      startTime: `${yesterday}T07:00:00.000Z`,
+      stopTime: `${yesterday}T${String(7 + hours).padStart(2, "0")}:00:00.000Z`,
+    },
+    id,
+    durationMillis: hours * 3_600_000,
+  });
+  const rows = [
+    row(1, "Erika Mustermann", 8, 501, 4, "Delivery (billable)"),
+    row(2, "Max Mustermann", 2, 502, 5, "Travel (billable)"),
+  ];
+  const bookable = [
+    {
+      id: 1,
+      name: "P100 Lager-App",
+      path: [],
+      kost2: [
+        { id: 501, workFraction: 1.0, kost2Art: { id: 4, name: "Delivery (billable)" } },
+        { id: 502, workFraction: 0.0, kost2Art: { id: 5, name: "Travel (billable)" } },
+      ],
+    },
+  ];
+  const requests = [];
+  const server = createServer((req, res) => {
+    let body = "";
+    req.on("data", (chunk) => (body += chunk));
+    req.on("end", () => {
+      requests.push({ method: req.method, url: req.url, auth: req.headers.authorization, body });
+      const json = (data) => {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(data));
+      };
+      if (req.headers.authorization !== "Bearer 42:geheim") {
+        res.writeHead(302, { Location: "/login" });
+        res.end();
+      } else if (req.url === "/rs/bookableTasks") {
+        json(bookable);
+      } else if (req.method === "PUT" && req.url === "/rs/timesheet/list?doNotStore=true") {
+        const { from, to } = JSON.parse(body).entries.find((e) => e.field === "period").value;
+        const found = yesterday >= from && yesterday <= to ? rows : [];
+        json({ resultSet: found, totalSize: found.length, resultSetTruncated: false });
+      } else {
+        res.writeHead(404);
+        res.end();
+      }
+    });
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  return {
+    url: `http://127.0.0.1:${server.address().port}`,
+    requests,
+    close: () => server.close(),
+  };
+}
+
+test("Datenquelle ProjectForge: Zugang einrichten, Buchungen abrufen, Neustart", async () => {
+  const pf = await fakeProjectForge();
+  try {
+    await withApp("projectforge", {}, async (app) => {
+      await app.waitForText("Musterkunde GmbH / Lager-App");
+      await app.click("button", "ProjectForge-Zugang …");
+      await app.waitForText("Schlüssel für Rest-Clients");
+      await app.setValue('input[aria-label="Server-Adresse"]', pf.url);
+      await app.setValue('input[aria-label="User-ID"]', "42");
+      await app.setValue('input[aria-label="Schlüssel"]', "falsch");
+      await app.click("button", "Speichern und Verbindung testen");
+      await app.waitForText("ProjectForge hat die Anmeldung abgelehnt");
+      await app.setValue('input[aria-label="Schlüssel"]', "geheim");
+      await app.click("button", "Speichern und Verbindung testen");
+      await app.waitForText("Verbindung steht: 1 buchbare Tasks, 2 Kostenarten.");
+      // Schlüssel liegt nicht in settings.json (Test: Datei im Ordner „secrets“)
+      assert.deepEqual(JSON.parse(readFileSync(settingsFile(), "utf8")), {
+        projectforge: { base_url: pf.url, user_id: 42 },
+      });
+      assert.ok(readdirSync(env.secretsDir).length === 1);
+      await app.click("button", "Schließen");
+
+      // Datenquelle des Projekts umstellen → Abruf startet
+      await app.click("button", "Projekt bearbeiten");
+      await app.waitForText("Datenquelle");
+      await app.execute(`document.querySelectorAll('input[name="data_source"]')[1].click()`);
+      await app.click("button", "Speichern");
+      await app.waitForText("Daten aus ProjectForge");
+      await app.waitForText("Stand: ProjectForge – Abruf");
+      const lists = pf.requests.filter((r) => r.url.startsWith("/rs/timesheet/list"));
+      assert.ok(lists.length >= 12, `nur ${lists.length} Monate abgerufen`); // ab 1. Januar des Vorjahres
+      assert.equal(lists[0].method, "PUT");
+      assert.equal(lists[0].auth, "Bearer 42:geheim");
+      const filter = JSON.parse(lists[0].body);
+      assert.equal(filter.entries[0].field, "period");
+      assert.match(filter.entries[0].value.from, /^\d{4}-01-01$/);
+      assert.ok(existsSync(join(projectForgeDir(), "beispiel-lager-app.json")));
+      await app.tab("Import");
+      await app.waitForText("Erste 2 von 2 Buchungen");
+    });
+
+    // Neustart: abgerufene Daten sofort, dann einmal automatisch aktualisieren
+    const before = pf.requests.length;
+    await withApp("projectforge-neustart", { keepData: true }, async (app) => {
+      await app.waitForText("Stand: ProjectForge – Abruf");
+      await waitUntil(() => pf.requests.length > before, "kein automatischer Abruf nach dem Neustart");
+      await app.waitForText("Letzter Abruf");
+    });
+  } finally {
+    pf.close();
+  }
+});
+

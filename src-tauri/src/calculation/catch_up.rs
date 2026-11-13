@@ -292,6 +292,7 @@ mod tests {
             guests: vec![],
             planned_absences,
             budgets: vec![],
+            data_source: Default::default(),
             working_hours: vec![WorkingHoursPeriod {
                 from: d(1, 1),
                 to: None,

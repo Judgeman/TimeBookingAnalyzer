@@ -258,6 +258,38 @@ export function ProjectEditor({ initial, onSave, onCancel, onDelete }: Props) {
       </fieldset>
 
       <fieldset className={ui.card}>
+        <legend className={ui.legend}>Datenquelle</legend>
+        <div className="flex flex-wrap gap-6 text-sm" role="radiogroup" aria-label="Datenquelle">
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="data_source"
+              checked={(draft.data_source ?? "export") === "export"}
+              onChange={() => patch({ data_source: "export" })}
+            />
+            Export-Datei (Drag &amp; Drop)
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="data_source"
+              checked={draft.data_source === "projectforge"}
+              onChange={() => patch({ data_source: "projectforge" })}
+            />
+            Abruf aus ProjectForge (Zugang links unten unter „ProjectForge-Zugang“)
+          </label>
+        </div>
+        {draft.data_source === "projectforge" && (
+          <p className={`mt-2 ${ui.hint}`}>
+            Die Buchungen kommen direkt aus ProjectForge: Element = Task-Titel (z. B. „P100
+            Lager-App“; Krank/Urlaub = Task „(Sick)“/„(Vacation)“), Kost2Art = Name der Kostenart,
+            Mult = Arbeitsanteil der Kostenart, Ort wie gebucht. Tabellenblatt, Spalten-Mapping und
+            Billable-Spalte gelten nur für Export-Dateien.
+          </p>
+        )}
+      </fieldset>
+
+      <fieldset className={ui.card}>
         <legend className={ui.legend}>Export-Format</legend>
         <div className="grid grid-cols-3 gap-4">
           <Field label="Tabellenblatt">

@@ -3,6 +3,8 @@ import { isTauri } from "@tauri-apps/api/core";
 import { DropZone } from "./components/DropZone";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ProjectEditor } from "./components/ProjectEditor";
+import { ProjectForgeAccess, isConfigured } from "./components/ProjectForgeAccess";
+import { ProjectForgeSource } from "./components/ProjectForgeSource";
 import { ProjectSelector } from "./components/ProjectSelector";
 import { ResultsView } from "./components/results/ResultsView";
 import { api, errorMessage } from "./lib/api";
@@ -13,6 +15,7 @@ import type {
   AuswertungResult,
   LastImport,
   ProjectFolder,
+  ProjectForgeSettings,
   ProjectSummary,
 } from "./types/results";
 
@@ -27,6 +30,16 @@ interface FileRequest {
   path: string;
   projectId: string;
   remember: boolean;
+  seq: number;
+}
+
+/**
+ * Auswertung aus ProjectForge: `cache` = zuletzt abgerufene Daten, `refresh` =
+ * fehlende/offene Monate abrufen, `full` = alles neu abrufen.
+ */
+interface ProjectForgeRequest {
+  projectId: string;
+  mode: "cache" | "refresh" | "full";
   seq: number;
 }
 
@@ -48,6 +61,20 @@ export default function App() {
   const [result, setResult] = useState<AuswertungResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Datenquelle ProjectForge
+  const [pfSettings, setPfSettings] = useState<ProjectForgeSettings | null>(null);
+  const [pfLoaded, setPfLoaded] = useState(false);
+  const [accessOpen, setAccessOpen] = useState(false);
+  const [pfRequest, setPfRequest] = useState<ProjectForgeRequest | null>(null);
+  const pfSeq = useRef(0);
+  /** Abrufe, die schon laufen/liefen – bei neuem Stichtag nur neu auswerten. */
+  const pfStarted = useRef(new Set<number>());
+  /** Projekte, die in dieser Sitzung schon automatisch aktualisiert wurden. */
+  const autoRefreshed = useRef(new Set<string>());
+  const pfConfigured = pfLoaded ? isConfigured(pfSettings) : null;
+  const pfConfiguredRef = useRef(pfConfigured);
+  pfConfiguredRef.current = pfConfigured;
+  const isProjectForge = activeProject?.data_source === "projectforge";
 
   const refreshProjects = useCallback(async () => {
     const [list, location] = await Promise.all([api.listProjects(), api.projectFolder()]);
@@ -74,7 +101,21 @@ export default function App() {
       })
       .catch((e) => setError(errorMessage(e)))
       .finally(() => setProjectsLoading(false));
+    api
+      .projectForgeSettings()
+      .then(setPfSettings)
+      .catch(() => setPfSettings(null))
+      .finally(() => setPfLoaded(true));
   }, [refreshProjects]);
+
+  // Datenquelle ProjectForge: zuerst die zuletzt abgerufenen Daten auswerten.
+  useEffect(() => {
+    if (activeProject?.data_source !== "projectforge") {
+      setPfRequest(null);
+      return;
+    }
+    setPfRequest({ projectId: activeProject.id, mode: "cache", seq: ++pfSeq.current });
+  }, [activeProject]);
 
   // Konfiguration des aktiven Projekts laden.
   useEffect(() => {
@@ -117,8 +158,66 @@ export default function App() {
   }, [activeId]);
 
   // Export auswerten – nach jedem Drop, beim Öffnen eines Projekts, nach dem
-  // Speichern der Konfiguration und bei neuem Stichtag.
+  // Speichern der Konfiguration und bei neuem Stichtag. Bei der Datenquelle
+  // ProjectForge: abgerufene Daten auswerten bzw. abrufen.
   useEffect(() => {
+    if (activeProject?.data_source === "projectforge") {
+      const request = pfRequest;
+      if (!request || request.projectId !== activeProject.id) {
+        setResult(null);
+        setBusy(false);
+        return;
+      }
+      let stale = false;
+      const fetchNow = request.mode !== "cache" && !pfStarted.current.has(request.seq);
+      if (fetchNow) {
+        pfStarted.current.add(request.seq);
+        autoRefreshed.current.add(request.projectId);
+        setError(null);
+      }
+      setBusy(true);
+      const call = fetchNow
+        ? api.fetchProjectForge(request.projectId, cutoff, request.mode === "full")
+        : api.projectForgeCached(request.projectId, cutoff);
+      call
+        .then((evaluated) => {
+          if (stale) {
+            // Stichtag während des Abrufs geändert → abgerufene Daten neu auswerten
+            if (fetchNow) {
+              setPfRequest((current) =>
+                current?.seq === request.seq
+                  ? { ...current, mode: "cache", seq: ++pfSeq.current }
+                  : current,
+              );
+            }
+            return;
+          }
+          setResult(evaluated);
+          // Einmal je Sitzung automatisch aktualisieren (fehlende/offene Monate)
+          if (
+            !fetchNow &&
+            pfConfiguredRef.current &&
+            !autoRefreshed.current.has(request.projectId)
+          ) {
+            autoRefreshed.current.add(request.projectId);
+            setPfRequest({ projectId: request.projectId, mode: "refresh", seq: ++pfSeq.current });
+          }
+        })
+        .catch((e) => {
+          if (stale) return;
+          if (fetchNow) {
+            // bisheriges Ergebnis (letzter Abruf) bleibt stehen
+            setError(`Abruf aus ProjectForge fehlgeschlagen: ${errorMessage(e)}`);
+          } else {
+            setResult(null);
+            setError(errorMessage(e));
+          }
+        })
+        .finally(() => !stale && setBusy(false));
+      return () => {
+        stale = true;
+      };
+    }
     if (!file || !activeProject || file.projectId !== activeProject.id) {
       setResult(null);
       setBusy(false);
@@ -147,7 +246,17 @@ export default function App() {
     return () => {
       stale = true;
     };
-  }, [file, activeProject, cutoff]);
+  }, [file, pfRequest, activeProject, cutoff]);
+
+  function requestProjectForge(mode: ProjectForgeRequest["mode"]) {
+    if (activeId) setPfRequest({ projectId: activeId, mode, seq: ++pfSeq.current });
+  }
+
+  function accessChanged(settings: ProjectForgeSettings) {
+    setPfSettings(settings);
+    setPfLoaded(true);
+    if (isConfigured(settings) && isProjectForge) requestProjectForge("refresh");
+  }
 
   /** Eingelesene Datei als letzten Import des Projekts merken. */
   function rememberImport(request: FileRequest) {
@@ -161,6 +270,7 @@ export default function App() {
 
   function selectProject(id: string) {
     setEditing(null);
+    setAccessOpen(false);
     setActiveId(id);
   }
 
@@ -205,6 +315,7 @@ export default function App() {
           onSelect={selectProject}
           onCreate={() => setEditing(newProject())}
           onImportLegacy={importLegacy}
+          onOpenAccess={() => setAccessOpen(true)}
         />
       </aside>
 
@@ -216,7 +327,11 @@ export default function App() {
             </h1>
             <p className="truncate text-sm text-slate-500">
               {activeProject
-                ? `Element-Filter: ${activeProject.element_filter || "–"} · Blatt „${activeProject.export_format.sheet_name}“`
+                ? `Element-Filter: ${activeProject.element_filter || "–"} · ${
+                    isProjectForge
+                      ? "Daten aus ProjectForge"
+                      : `Blatt „${activeProject.export_format.sheet_name}“`
+                  }`
                 : "Kein Projekt ausgewählt"}
             </p>
           </div>
@@ -255,7 +370,9 @@ export default function App() {
             </div>
           )}
 
-          {editing ? (
+          {accessOpen ? (
+            <ProjectForgeAccess onClose={() => setAccessOpen(false)} onChange={accessChanged} />
+          ) : editing ? (
             <ProjectEditor
               // Neu mounten, wenn ein anderes Projekt bearbeitet wird.
               key={editing.id || "new"}
@@ -266,19 +383,29 @@ export default function App() {
             />
           ) : (
             <>
-              <DropZone
-                disabled={!activeProject}
-                busy={busy}
-                current={
-                  result ? { fileName: result.file_name, exportDate: result.export_date } : null
-                }
-                lastImport={lastImport}
-                onFile={(path) =>
-                  activeId &&
-                  setFile({ path, projectId: activeId, remember: true, seq: ++fileSeq.current })
-                }
-                onError={setError}
-              />
+              {isProjectForge ? (
+                <ProjectForgeSource
+                  busy={busy}
+                  configured={pfConfigured}
+                  fetched={result?.export_date_source === "fetched" ? result.file_name : null}
+                  onRefresh={(full) => requestProjectForge(full ? "full" : "refresh")}
+                  onOpenAccess={() => setAccessOpen(true)}
+                />
+              ) : (
+                <DropZone
+                  disabled={!activeProject}
+                  busy={busy}
+                  current={
+                    result ? { fileName: result.file_name, exportDate: result.export_date } : null
+                  }
+                  lastImport={lastImport}
+                  onFile={(path) =>
+                    activeId &&
+                    setFile({ path, projectId: activeId, remember: true, seq: ++fileSeq.current })
+                  }
+                  onError={setError}
+                />
+              )}
               {result && activeProject && (
                 // neues Ergebnis → Fehleranzeige zurücksetzen (ohne Neuaufbau: Tab bleibt)
                 <ErrorBoundary resetKey={result} what="Die Auswertung">

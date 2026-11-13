@@ -43,6 +43,8 @@ const env = {
   E2E_SAMPLE_EXPORT: join(root, "sample-data", "Beispiel-Export_2026-10-31.xlsx"),
   E2E_SAMPLE_PROJECT: join(root, "sample-data", "beispiel-projekt.json"),
   E2E_ARTIFACTS: join(root, "e2e", "artifacts"),
+  // ProjectForge-Schlüssel als Datei statt in der Anmeldeinformationsverwaltung
+  BILLING_TRACKER_SECRETS_DIR: join(dataDir, "secrets"),
 };
 
 const driverArgs = process.env.E2E_NATIVE_DRIVER ? ["--native-driver", process.env.E2E_NATIVE_DRIVER] : [];
