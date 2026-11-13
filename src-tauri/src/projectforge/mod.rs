@@ -17,7 +17,7 @@ pub mod client;
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
-use chrono::{DateTime, Datelike, Days, Months, NaiveDate, NaiveDateTime, Utc, Weekday};
+use chrono::{DateTime, Datelike, Days, Months, NaiveDate, NaiveDateTime, NaiveTime, Utc, Weekday};
 use serde::{Deserialize, Serialize};
 
 use crate::models::entry::TimeEntry;
@@ -59,6 +59,7 @@ pub struct Timesheet {
     pub user: Option<Reference>,
     pub kost2: Option<Kost2Ref>,
     pub location: Option<String>,
+    pub description: Option<String>,
     pub start_time: Option<DateTime<Utc>>,
     pub stop_time: Option<DateTime<Utc>>,
     pub deleted: Option<bool>,
@@ -159,6 +160,13 @@ pub struct FetchedEntry {
     pub element: String,
     pub kost2art: String,
     pub location: String,
+    /// Beginn/Ende in deutscher Zeit (für den Wochenkalender).
+    #[serde(default)]
+    pub start: Option<NaiveTime>,
+    #[serde(default)]
+    pub end: Option<NaiveTime>,
+    #[serde(default)]
+    pub description: String,
 }
 
 impl FetchedEntry {
@@ -172,6 +180,9 @@ impl FetchedEntry {
             kost2art: self.kost2art,
             location: self.location,
             billable: None,
+            start: self.start,
+            end: self.end,
+            description: self.description,
         }
     }
 }
@@ -244,10 +255,19 @@ pub fn convert_row(
         }
     };
 
+    let local_start = local_time(start.naive_utc());
     Some(FetchedEntry {
         id,
         name,
-        date: german_date(start),
+        date: local_start.date(),
+        start: Some(local_start.time()),
+        end: ts.stop_time.map(|stop| local_time(stop.naive_utc()).time()),
+        description: ts
+            .description
+            .clone()
+            .unwrap_or_default()
+            .trim()
+            .to_string(),
         hours: millis as f64 / 3_600_000.0,
         mult,
         element: element.trim().to_string(),
@@ -272,12 +292,8 @@ fn kind_from_display_name(name: &str) -> Option<String> {
     (!kind.is_empty()).then(|| kind.to_string())
 }
 
-/// Kalendertag in deutscher Zeit: MEZ (UTC+1), Sommerzeit MESZ (UTC+2) vom
-/// letzten Sonntag im März bis zum letzten Sonntag im Oktober, jeweils 01:00 UTC.
-pub fn german_date(time: DateTime<Utc>) -> NaiveDate {
-    local_time(time.naive_utc()).date()
-}
-
+/// Ortszeit in Deutschland: MEZ (UTC+1), Sommerzeit MESZ (UTC+2) vom letzten
+/// Sonntag im März bis zum letzten Sonntag im Oktober, jeweils 01:00 UTC.
 fn local_time(utc: NaiveDateTime) -> NaiveDateTime {
     let year = utc.year();
     let switch = |month| {
@@ -383,6 +399,10 @@ mod tests {
         s.parse().unwrap()
     }
 
+    fn german_date(time: DateTime<Utc>) -> NaiveDate {
+        local_time(time.naive_utc()).date()
+    }
+
     #[test]
     fn german_date_follows_summer_time() {
         // Winter: UTC+1
@@ -428,7 +448,8 @@ mod tests {
             r#"{"timesheet":{"id":7,"task":{"id":1,"displayName":"P100 Lager-App (#1)","title":"P100 Lager-App"},
                 "user":{"id":42,"displayName":"Erika Mustermann"},
                 "kost2":{"id":501,"displayName":"5.100.00.04: Delivery (billable) - Lager-App","endziffer":4},
-                "location":"Home Office","startTime":"2026-11-13T08:30:00.000Z","stopTime":"2026-11-13T10:00:00.000Z"},
+                "location":"Home Office","description":" LAGER-12 ",
+                "startTime":"2026-11-13T08:30:00.000Z","stopTime":"2026-11-13T10:00:00.000Z"},
               "id":7,"durationMillis":5400000}"#,
         );
         assert_eq!(
@@ -442,6 +463,9 @@ mod tests {
                 element: "P100 Lager-App".into(),
                 kost2art: "Delivery (billable)".into(),
                 location: "Home Office".into(),
+                start: NaiveTime::from_hms_opt(9, 30, 0), // MEZ
+                end: NaiveTime::from_hms_opt(11, 0, 0),
+                description: "LAGER-12".into(),
             })
         );
         // Urlaub: Element = Task-Titel, Arbeitsanteil 0; Dauer aus Beginn/Ende
@@ -533,6 +557,9 @@ mod tests {
             element: String::new(),
             kost2art: String::new(),
             location: String::new(),
+            start: None,
+            end: None,
+            description: String::new(),
         };
         assert_eq!(dedupe([a(1), a(2), a(1)]).len(), 2);
         let mut types = CostTypes::default();

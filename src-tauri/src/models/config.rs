@@ -321,6 +321,29 @@ pub struct ExportFormat {
     /// Buchung aufs Projekt abgerechnet wird (Abweichungen zu den Regeln → Hinweis).
     #[serde(default)]
     pub billable: Option<BillableColumn>,
+    /// Optionale Spalten für den Wochenkalender (Beginn, Ende, Beschreibung).
+    #[serde(default)]
+    pub calendar: CalendarColumns,
+}
+
+/// Spalten für den Wochenkalender – optional (`None` = nicht verwenden). Beginn
+/// und Ende gelten nur, wenn sie zur Dauer passen (sonst falsche Spalten).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CalendarColumns {
+    pub start: Option<usize>,
+    pub stop: Option<usize>,
+    pub description: Option<usize>,
+}
+
+impl Default for CalendarColumns {
+    /// Aufbau des ProjectForge-Exports: Start (D), Stop (E), Description (M).
+    fn default() -> Self {
+        Self {
+            start: Some(3),
+            stop: Some(4),
+            description: Some(12),
+        }
+    }
 }
 
 impl Default for ExportFormat {
@@ -330,6 +353,7 @@ impl Default for ExportFormat {
             columns: ColumnMapping::default(),
             special_elements: SpecialElements::default(),
             billable: None,
+            calendar: CalendarColumns::default(),
         }
     }
 }

@@ -113,7 +113,8 @@
     "special_elements": {
       "sick": "(Sick)",
       "vacation": "(Vacation)"
-    }
+    },
+    "calendar": { "start": 3, "stop": 4, "description": 12 }
   },
   "vat_percent": 19.0,
   "missing_threshold_percent": 50.0,

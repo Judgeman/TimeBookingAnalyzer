@@ -116,6 +116,8 @@ export interface AuswertungResult {
   guest_bookings: GuestBooking[];
   /** Buchungen aufs Projekt, bei denen die Billable-Spalte von den Regeln abweicht (es gilt die Spalte). */
   billable_mismatches: BillableMismatch[];
+  /** Einzelne Buchungen der Teammitglieder (mit Zeiterfassung) – Wochenkalender. */
+  bookings: BookingDetail[];
   /** Prognose der Rechnung und Budget-Abgleich. */
   forecast: Forecast;
   /** Prognosegüte je abgeschlossenem Monat. */
@@ -463,4 +465,22 @@ export interface ProjectForgeSettings {
   user_id: number | null;
   /** Schlüssel in der Anmeldeinformationsverwaltung hinterlegt. */
   has_token: boolean;
+}
+
+/** Eine Buchung eines Teammitglieds (Wochenkalender). */
+export interface BookingDetail {
+  person: string;
+  date: IsoDate;
+  /** Beginn/Ende „HH:MM:SS“ (falls im Export bzw. Abruf vorhanden). */
+  start: string | null;
+  end: string | null;
+  hours: number;
+  mult: number;
+  element: string;
+  kost2art: string;
+  location: string;
+  description: string;
+  kind: "work" | "vacation" | "sick";
+  /** Nach Abrechnungsregel bzw. Billable-Spalte abgerechnet. */
+  invoiced: boolean;
 }

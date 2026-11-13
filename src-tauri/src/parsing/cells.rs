@@ -5,7 +5,7 @@
 //! (Stunden), als Excel-Zeitwert (Bruchteil eines Tages) oder als Text ("1:30").
 
 use calamine::{Data, ExcelDateTime, ExcelDateTimeType};
-use chrono::{Datelike, NaiveDate};
+use chrono::{Datelike, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 
 /// Größte gültige Excel-Seriennummer (9999-12-31).
 const MAX_EXCEL_SERIAL: f64 = 2_958_466.0;
@@ -166,6 +166,50 @@ fn parse_iso_duration(text: &str) -> Option<f64> {
     number.is_empty().then_some(hours)
 }
 
+/// Uhrzeit (Beginn/Ende einer Buchung): Excel-Zeit oder -Datum mit Uhrzeit
+/// bzw. Text wie „08:30“, „13.11.2026 08:30“, „2026-11-13T08:30:00“.
+/// `None` = leer oder nicht erkennbar (die Uhrzeit ist nur für den Kalender).
+pub fn cell_time(cell: Option<&Data>) -> Option<NaiveTime> {
+    match cell {
+        Some(Data::DateTime(dt)) => time_from_fraction(dt.as_f64()),
+        Some(Data::Float(f)) => time_from_fraction(*f),
+        Some(Data::String(s)) | Some(Data::DateTimeIso(s)) => parse_time_text(s),
+        _ => None,
+    }
+}
+
+/// Nachkommastellen eines Excel-Werts als Uhrzeit (auf die Minute gerundet).
+fn time_from_fraction(value: f64) -> Option<NaiveTime> {
+    if !value.is_finite() || value < 0.0 {
+        return None;
+    }
+    let minutes = (value.fract() * 1440.0).round() as u32 % 1440;
+    NaiveTime::from_hms_opt(minutes / 60, minutes % 60, 0)
+}
+
+fn parse_time_text(text: &str) -> Option<NaiveTime> {
+    let text = text.trim();
+    for format in ["%H:%M", "%H:%M:%S"] {
+        if let Ok(time) = NaiveTime::parse_from_str(text, format) {
+            return Some(time.with_second(0).unwrap_or(time));
+        }
+    }
+    for format in [
+        "%d.%m.%Y %H:%M",
+        "%d.%m.%Y %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%dT%H:%M",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S%.f",
+    ] {
+        if let Ok(datetime) = NaiveDateTime::parse_from_str(text, format) {
+            return datetime.time().with_second(0).or(Some(datetime.time()));
+        }
+    }
+    None
+}
+
 /// Multiplikator. Leere Zelle = 1.0.
 pub fn cell_mult(cell: Option<&Data>) -> Result<f64, String> {
     if is_blank(cell) {
@@ -211,6 +255,32 @@ pub fn column_letter(index: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reads_times_of_day() {
+        let t = |h, m| NaiveTime::from_hms_opt(h, m, 0);
+        let text = |v: &str| Data::String(v.into());
+        assert_eq!(cell_time(Some(&Data::Float(0.5))), t(12, 0));
+        assert_eq!(cell_time(Some(&Data::Float(46_339.354_166_667))), t(8, 30)); // Datum + 08:30
+        assert_eq!(cell_time(Some(&text(" 08:30 "))), t(8, 30));
+        assert_eq!(cell_time(Some(&text("08:30:59"))), t(8, 30));
+        assert_eq!(cell_time(Some(&text("13.11.2026 14:15"))), t(14, 15));
+        assert_eq!(
+            cell_time(Some(&Data::DateTimeIso("2026-11-13T09:45:00".into()))),
+            t(9, 45)
+        );
+        assert_eq!(cell_time(Some(&text("2026-11-13 23:59:30"))), t(23, 59));
+        assert_eq!(cell_time(Some(&Data::Float(0.999_999))), t(0, 0)); // 24:00 → 00:00
+        for cell in [
+            None,
+            Some(Data::Empty),
+            Some(text("morgens")),
+            Some(Data::Float(-1.0)),
+            Some(Data::Int(3)),
+        ] {
+            assert_eq!(cell_time(cell.as_ref()), None, "{cell:?}");
+        }
+    }
 
     fn s(text: &str) -> Data {
         Data::String(text.to_string())

@@ -151,6 +151,7 @@ mod tests {
             kost2art: String::new(),
             location: String::new(),
             billable: None,
+            ..Default::default()
         };
         // 02.01. ganzer Tag, 07.01. halber Tag (4 h)
         let entries = vec![entry(d(1, 2), 8.0), entry(d(1, 7), 4.0)];

@@ -97,6 +97,7 @@ fn entry(rng: &mut Rng) -> TimeEntry {
         billable: rng
             .pick(&[None, Some("WAHR"), Some("FALSCH"), Some(""), Some("ja")])
             .map(str::to_string),
+        ..Default::default()
     }
 }
 

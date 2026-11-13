@@ -7,6 +7,7 @@
 //! cd src-tauri && cargo run --example generate_sample_export
 //! ```
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use chrono::{Datelike, NaiveDate, Weekday};
@@ -444,6 +445,7 @@ fn main() -> Result<(), XlsxError> {
     let header_fmt = Format::new().set_bold();
     let date_fmt = Format::new().set_num_format("dd.mm.yyyy");
     let time_fmt = Format::new().set_num_format("[h]:mm");
+    let clock_fmt = Format::new().set_num_format("dd.mm.yyyy hh:mm");
     let hours_fmt = Format::new().set_num_format("0.00");
 
     let header = [
@@ -469,6 +471,8 @@ fn main() -> Result<(), XlsxError> {
     for (col, width) in [
         (0, 18),
         (2, 11),
+        (3, 16),
+        (4, 16),
         (7, 22),
         (9, 16),
         (11, 20),
@@ -478,8 +482,29 @@ fn main() -> Result<(), XlsxError> {
         ws.set_column_width(col, width)?;
     }
 
+    // Beginn/Ende: je Person und Tag ab 08:00 (Urlaub/Krank ab 09:00),
+    // nach 4 Stunden 30 Minuten Pause.
+    let mut clock: HashMap<(&str, NaiveDate), (u32, bool)> = HashMap::new();
     for (i, row) in rows.iter().enumerate() {
         let r = i as u32 + 1;
+        let absence = row.element.starts_with('(');
+        let (minutes, paused) = clock
+            .entry((row.user, row.date))
+            .or_insert((if absence { 9 * 60 } else { 8 * 60 }, false));
+        if !*paused && *minutes >= 12 * 60 {
+            *minutes += 30;
+            *paused = true;
+        }
+        let start = *minutes;
+        let end = start + (row.hours * 60.0).round() as u32;
+        *minutes = end;
+        for (col, at) in [(3, start), (4, end)] {
+            let day = row.date + chrono::Days::new(u64::from(at / 1440));
+            let moment =
+                ExcelDateTime::from_ymd(day.year() as u16, day.month() as u8, day.day() as u8)?
+                    .and_hms(((at % 1440) / 60) as u16, (at % 60) as u8, 0)?;
+            ws.write_datetime_with_format(r, col, &moment, &clock_fmt)?;
+        }
         let (kost2, project) = kost2_and_project(row.element);
         let excel_date = ExcelDateTime::from_ymd(
             row.date.year() as u16,

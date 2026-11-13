@@ -103,6 +103,7 @@ mod tests {
             kost2art: "Delivery (billable)".into(),
             location: String::new(),
             billable: None,
+            ..Default::default()
         }
     }
 

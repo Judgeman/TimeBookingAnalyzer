@@ -103,6 +103,20 @@ test("Tabs: Monate, Stundenkonto, Arbeitsort, Rechnung", () =>
     await app.waitForText("KW 43");
     assert.ok((await app.text()).includes("! 1 fehlende Buchung"));
 
+    // Wochen: Kalender der Stichtag-Woche (Mo–So), Buchungen als Blöcke mit Uhrzeit
+    await app.tab("Wochen");
+    await app.waitForText("KW 44 · 26.10.2026 – 01.11.2026");
+    const blocks = await app.execute(
+      `return [...document.querySelectorAll('[data-day="2026-10-30"] [role="note"]')].map((b) => b.firstChild.textContent)`,
+    );
+    assert.deepEqual(blocks, ["08:00 – 14:30", "15:00 – 16:30"]);
+    assert.ok((await app.text()).includes("So. 1.11."));
+    await app.click("button", "Team gesamt");
+    await app.waitForText("Team: ");
+    await app.click("button", "Erika Mustermann");
+    await app.click("button", "Tabelle");
+    await app.waitForText("Kalenderwoche");
+
     await app.tab("Stundenkonto");
     await app.waitForText("Krankheit als Fehlzeit");
     assert.ok((await app.text()).includes("Erika Mustermann hat Überstunden"));

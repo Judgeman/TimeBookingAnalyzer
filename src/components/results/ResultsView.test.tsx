@@ -75,6 +75,8 @@ describe("ResultsView", () => {
     expect(screen.getByText("⚑ 1")).toBeInTheDocument(); // Urlaub am Samstag im Juli
 
     await user.click(within(tabs).getByRole("tab", { name: "Wochen" }));
+    expect(screen.getByRole("region", { name: "Wochenkalender" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Tabelle" }));
     expect(screen.getAllByText("KW 43").length).toBeGreaterThan(0);
 
     await user.click(within(tabs).getByRole("tab", { name: "Stundenkonto" }));

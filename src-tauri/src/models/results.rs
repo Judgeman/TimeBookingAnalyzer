@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use serde::Serialize;
 
 use super::config::AssignmentPeriod;
@@ -143,6 +143,9 @@ pub struct AuswertungResult {
     /// Buchungen aufs Projekt, bei denen die Billable-Spalte von den
     /// Abrechnungsregeln abweicht (es gilt die Spalte).
     pub billable_mismatches: Vec<BillableMismatch>,
+    /// Einzelne Buchungen der Teammitglieder (mit Zeiterfassung) im
+    /// Auswertungszeitraum – für den Wochenkalender.
+    pub bookings: Vec<BookingDetail>,
     /// Prognose der Rechnung und Budget-Abgleich.
     pub forecast: Forecast,
     /// Prognosegüte je abgeschlossenem Monat.
@@ -252,6 +255,33 @@ pub struct CatchUpTeam {
     pub extra_per_workday: Option<f64>,
     /// Fehlbetrag ÷ Personen-Arbeitstage: was jede Person je Arbeitstag mehr leisten muss.
     pub extra_per_person_day: Option<f64>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BookingKind {
+    Work,
+    Vacation,
+    Sick,
+}
+
+/// Eine Buchung eines Teammitglieds (Wochenkalender).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct BookingDetail {
+    pub person: String,
+    pub date: NaiveDate,
+    /// Beginn/Ende (falls im Export bzw. Abruf vorhanden).
+    pub start: Option<NaiveTime>,
+    pub end: Option<NaiveTime>,
+    pub hours: f64,
+    pub mult: f64,
+    pub element: String,
+    pub kost2art: String,
+    pub location: String,
+    pub description: String,
+    pub kind: BookingKind,
+    /// Nach Abrechnungsregel bzw. Billable-Spalte abgerechnet.
+    pub invoiced: bool,
 }
 
 /// Prognose für einen abgeschlossenen Monat gegenüber dem tatsächlichen Ergebnis.

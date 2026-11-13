@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from "react";
 import {
   COLUMN_LABELS,
+  DEFAULT_CALENDAR_COLUMNS,
   REGIONS,
+  type CalendarColumns,
   type ColumnMapping,
   type ProjectConfig,
   type WorkingHoursPeriod,
@@ -25,6 +27,12 @@ interface Props {
 
 /** Spalten A … AZ zur Auswahl. */
 const COLUMN_OPTIONS = Array.from({ length: 52 }, (_, i) => i);
+
+const CALENDAR_LABELS: Record<keyof CalendarColumns, string> = {
+  start: "Beginn",
+  stop: "Ende",
+  description: "Beschreibung",
+};
 
 /**
  * Projekt-Editor. Zeiträume, Regeln und Werte prüft das Backend beim
@@ -339,6 +347,41 @@ export function ProjectEditor({ initial, onSave, onCancel, onDelete }: Props) {
               </select>
             </Field>
           ))}
+        </div>
+
+        <p className="mt-5 mb-1 text-sm font-medium text-slate-700">Wochenkalender (optional)</p>
+        <p className={`mb-2 ${ui.hint}`}>
+          Beginn, Ende und Beschreibung für den Kalender im Tab „Wochen“. Beginn und Ende gelten nur,
+          wenn sie zur Dauer passen; Buchungen ohne Uhrzeit stehen dort bei „ganztags“.
+        </p>
+        <div className="mb-2 grid grid-cols-3 gap-3 lg:w-2/3">
+          {(Object.keys(CALENDAR_LABELS) as (keyof CalendarColumns)[]).map((key) => {
+            const calendar = format.calendar ?? DEFAULT_CALENDAR_COLUMNS;
+            return (
+              <Field key={key} label={CALENDAR_LABELS[key]}>
+                <select
+                  aria-label={`Spalte ${CALENDAR_LABELS[key]}`}
+                  value={calendar[key] === null ? "" : String(calendar[key])}
+                  onChange={(e) =>
+                    setFormat({
+                      calendar: {
+                        ...calendar,
+                        [key]: e.target.value === "" ? null : Number(e.target.value),
+                      },
+                    })
+                  }
+                  className={ui.input}
+                >
+                  <option value="">– nicht verwenden –</option>
+                  {COLUMN_OPTIONS.map((i) => (
+                    <option key={i} value={i}>
+                      {columnLetter(i)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            );
+          })}
         </div>
 
         <p className="mt-5 mb-1 text-sm font-medium text-slate-700">Billable-Spalte (optional)</p>

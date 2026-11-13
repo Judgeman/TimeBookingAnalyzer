@@ -122,6 +122,9 @@ mod tests {
             element: "P100 Lager-App".into(),
             kost2art: "Delivery (billable)".into(),
             location: "Büro".into(),
+            start: None,
+            end: None,
+            description: String::new(),
         }
     }
 

@@ -36,6 +36,7 @@ import { InvoiceView } from "./InvoiceView";
 import { LocationView } from "./LocationView";
 import { OutsideBookings } from "./OutsideBookings";
 import { PeriodTable, type PeriodRow } from "./PeriodTable";
+import { WeekCalendar } from "./WeekCalendar";
 import { YearView } from "./YearView";
 
 type Tab =
@@ -84,6 +85,7 @@ export function ResultsView({
 }: Props) {
   const [tab, setTab] = useState<Tab>("year");
   const [personIndex, setPersonIndex] = useState(0);
+  const [weekView, setWeekView] = useState<"calendar" | "table">("calendar");
 
   const period: [string, string] = [result.period_start, result.cutoff_date];
   const selectedIndex = personIndex < result.persons.length ? personIndex : TEAM;
@@ -309,12 +311,50 @@ export function ResultsView({
             />
           )}
           {tab === "weeks" && (
-            <PeriodTable
-              rows={weekRows}
-              total={selected.ytd}
-              totalLabel="Jahr bis Stichtag"
-              periodLabel="Kalenderwoche"
-            />
+            <div className="space-y-3">
+              <div className="flex gap-1" role="group" aria-label="Ansicht der Wochen">
+                {(
+                  [
+                    ["calendar", "Kalender"],
+                    ["table", "Tabelle"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    aria-pressed={weekView === key}
+                    onClick={() => setWeekView(key)}
+                    className={`rounded px-3 py-1 text-sm ${
+                      weekView === key
+                        ? "bg-slate-800 text-white"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {weekView === "calendar" ? (
+                <WeekCalendar
+                  // neuer Stichtag → zurück zur Woche des Stichtags
+                  key={result.cutoff_date}
+                  bookings={result.bookings}
+                  persons={result.persons.map((p) => p.name)}
+                  person={selectedIndex === TEAM ? null : result.persons[selectedIndex].name}
+                  holidays={result.holidays}
+                  missing={result.missing}
+                  cutoff={result.cutoff_date}
+                  initialWeek={isoWeekKey(result.cutoff_date)}
+                />
+              ) : (
+                <PeriodTable
+                  rows={weekRows}
+                  total={selected.ytd}
+                  totalLabel="Jahr bis Stichtag"
+                  periodLabel="Kalenderwoche"
+                />
+              )}
+            </div>
           )}
           {tab === "account" && (
             <AccountView

@@ -138,7 +138,18 @@ export interface ExportFormat {
   special_elements: SpecialElements;
   /** Optionale Billable-Spalte: entscheidet, ob eine Buchung aufs Projekt abgerechnet wird. */
   billable?: BillableColumn | null;
+  /** Optionale Spalten für den Wochenkalender (Standard: D, E, M). */
+  calendar?: CalendarColumns;
 }
+
+/** Spalten für Beginn, Ende und Beschreibung (`null` = nicht verwenden). */
+export interface CalendarColumns {
+  start: number | null;
+  stop: number | null;
+  description: number | null;
+}
+
+export const DEFAULT_CALENDAR_COLUMNS: CalendarColumns = { start: 3, stop: 4, description: 12 };
 
 /** Billable-Spalte: Wahrheitswerte automatisch, eigene Textwerte optional (ohne Groß-/Kleinschreibung). */
 export interface BillableColumn {
@@ -181,6 +192,7 @@ export function defaultExportFormat(): ExportFormat {
     sheet_name: "Details",
     columns: { name: 0, date: 2, duration: 5, mult: 8, element: 9, kost2art: 11, location: 13 },
     special_elements: { sick: "(Sick)", vacation: "(Vacation)" },
+    calendar: { ...DEFAULT_CALENDAR_COLUMNS },
   };
 }
 

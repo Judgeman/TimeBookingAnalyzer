@@ -47,6 +47,7 @@ mod tests {
             kost2art: String::new(),
             location: String::new(),
             billable: None,
+            ..Default::default()
         }
     }
 

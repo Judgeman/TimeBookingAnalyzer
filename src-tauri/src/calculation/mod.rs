@@ -21,12 +21,13 @@ use std::ops::AddAssign;
 use chrono::{Datelike, NaiveDate, Weekday};
 
 use crate::models::config::{
-    BillableColumn, BillingRule, MatchMode, ProjectConfig, RatePeriod, TeamMember,
+    BillableColumn, BillingRule, MatchMode, ProjectConfig, RatePeriod, SpecialElements, TeamMember,
 };
 use crate::models::entry::TimeEntry;
 use crate::models::results::{
-    AbsenceKind, BillableMismatch, CurrentMissing, FlaggedBooking, GuestBooking, InvoiceSummary,
-    MissingBooking, OutsideBooking, OutsideReason, PeriodBreakdown, PeriodData, PersonResult,
+    AbsenceKind, BillableMismatch, BookingDetail, BookingKind, CurrentMissing, FlaggedBooking,
+    GuestBooking, InvoiceSummary, MissingBooking, OutsideBooking, OutsideReason, PeriodBreakdown,
+    PeriodData, PersonResult,
 };
 use crate::parsing::cells::column_letter;
 use gearb::Absence;
@@ -47,6 +48,8 @@ pub struct Evaluation {
     pub outside: Vec<OutsideBooking>,
     pub guest_bookings: Vec<GuestBooking>,
     pub billable_mismatches: Vec<BillableMismatch>,
+    /// Einzelne Buchungen der Teammitglieder mit Zeiterfassung (Wochenkalender).
+    pub bookings: Vec<BookingDetail>,
     // Für die Prognose (`forecast::build`):
     cutoff: NaiveDate,
     export_date: Option<NaiveDate>,
@@ -195,6 +198,7 @@ pub fn evaluate(
     let mut persons = Vec::with_capacity(config.team.len());
     let mut flagged = Vec::new();
     let mut missing = Vec::new();
+    let mut bookings: Vec<BookingDetail> = Vec::new();
 
     for (index, member) in config.team.iter().enumerate() {
         let mut breakdown = BreakdownAcc::default();
@@ -269,6 +273,8 @@ pub fn evaluate(
             let mut day_locations: BTreeMap<String, f64> = BTreeMap::new();
 
             for entry in by_person[index].get(&date).into_iter().flatten() {
+                let detail = bookings.len();
+                bookings.push(booking_detail(&member.name, entry, special));
                 if !assigned {
                     // Außerhalb des Einsatzzeitraums zählt die Person nicht mit –
                     // nur Buchungen aufs Projekt werden abgerechnet und markiert.
@@ -285,6 +291,7 @@ pub fn evaluate(
                         item.invoiced = true;
                         item.billed_hours = round2(billed);
                         item.net = round2(net);
+                        bookings[detail].invoiced = true;
                     }
                     outside.push(item);
                     continue;
@@ -302,6 +309,7 @@ pub fn evaluate(
                                 .or_default() += worked;
                         }
                         let rule = biller.decide(entry).0;
+                        bookings[detail].invoiced = rule.is_some_and(|(_, r)| r.invoice);
                         let in_bill_h = rule.is_some_and(|(_, r)| r.billable_hours);
                         if !in_bill_h && gearb::counts_as_work(entry.mult) {
                             day.nonbill_h += entry.hours;
@@ -438,6 +446,7 @@ pub fn evaluate(
             outside
         },
         guest_bookings,
+        bookings,
         billable_mismatches: {
             checks
                 .mismatches
@@ -922,6 +931,28 @@ impl Missing {
             fmt_date(first),
             fmt_date(last)
         ))
+    }
+}
+
+/// Buchung für den Wochenkalender (abgerechnet wird bei der Auswertung gesetzt).
+fn booking_detail(person: &str, entry: &TimeEntry, special: &SpecialElements) -> BookingDetail {
+    BookingDetail {
+        person: person.to_string(),
+        date: entry.date,
+        start: entry.start,
+        end: entry.end,
+        hours: round2(entry.hours),
+        mult: entry.mult,
+        element: entry.element.clone(),
+        kost2art: entry.kost2art.clone(),
+        location: entry.location.clone(),
+        description: entry.description.clone(),
+        kind: match gearb::absence(entry, special) {
+            Some(Absence::Vacation) => BookingKind::Vacation,
+            Some(Absence::Sick) => BookingKind::Sick,
+            None => BookingKind::Work,
+        },
+        invoiced: false,
     }
 }
 

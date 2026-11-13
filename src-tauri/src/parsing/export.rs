@@ -3,10 +3,11 @@
 use std::path::Path;
 
 use calamine::{Data, Range, Reader, open_workbook_auto};
+use chrono::NaiveTime;
 
 use super::cells::{
-    cell_billable_text, cell_date, cell_hours, cell_mult, cell_text, column_letter, describe,
-    is_blank,
+    cell_billable_text, cell_date, cell_hours, cell_mult, cell_text, cell_time, column_letter,
+    describe, is_blank,
 };
 use crate::models::config::ExportFormat;
 use crate::models::entry::TimeEntry;
@@ -140,6 +141,12 @@ pub fn parse_range(
             }
         };
 
+        let calendar = &format.calendar;
+        let (start, end) = matching_times(
+            calendar.start.and_then(|c| cell_time(cell(c))),
+            calendar.stop.and_then(|c| cell_time(cell(c))),
+            hours,
+        );
         entries.push(TimeEntry {
             name,
             date,
@@ -152,6 +159,12 @@ pub fn parse_range(
                 .billable
                 .as_ref()
                 .map(|b| cell_billable_text(cell(b.column))),
+            start,
+            end,
+            description: calendar
+                .description
+                .map(|c| cell_text(cell(c)))
+                .unwrap_or_default(),
         });
     }
 
@@ -169,6 +182,27 @@ pub fn parse_range(
     }
 
     Ok((entries, skipped))
+}
+
+/// Beginn/Ende nur, wenn beide da sind und zur Dauer passen (± 1 Minute,
+/// auch über Mitternacht) – sonst sind es vermutlich andere Spalten.
+pub fn matching_times(
+    start: Option<NaiveTime>,
+    end: Option<NaiveTime>,
+    hours: f64,
+) -> (Option<NaiveTime>, Option<NaiveTime>) {
+    let (Some(start), Some(end)) = (start, end) else {
+        return (None, None);
+    };
+    let mut minutes = (end - start).num_minutes();
+    if minutes <= 0 {
+        minutes += 24 * 60;
+    }
+    if (minutes as f64 - hours * 60.0).abs() <= 1.0 {
+        (Some(start), Some(end))
+    } else {
+        (None, None)
+    }
 }
 
 #[cfg(test)]
@@ -353,6 +387,68 @@ mod tests {
         assert!(
             err.contains("Zeile 1, Spalte J (Datum) steht „Element“"),
             "{err}"
+        );
+    }
+
+    #[test]
+    fn reads_start_stop_and_description_only_if_they_match_the_duration() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("zeiten.xlsx");
+        let mut workbook = Workbook::new();
+        let ws = workbook.add_worksheet();
+        ws.set_name("Details").unwrap();
+        // A Name, C Datum, D Start, E Stop, F Dauer, M Beschreibung
+        let rows: [(&str, &str, &str, f64); 4] = [
+            ("08:00", "09:30", "Ticket 1", 1.5),
+            (
+                "13.11.2026 22:00",
+                "13.11.2026 01:00",
+                "über Mitternacht",
+                3.0,
+            ),
+            ("08:00", "12:00", "passt nicht zur Dauer", 2.0),
+            ("", "", "", 1.0),
+        ];
+        for (i, (start, stop, text, hours)) in rows.iter().enumerate() {
+            let r = i as u32;
+            ws.write_string(r, 0, "Erika Mustermann").unwrap();
+            ws.write_string(r, 2, "2026-11-13").unwrap();
+            ws.write_string(r, 3, *start).unwrap();
+            ws.write_string(r, 4, *stop).unwrap();
+            ws.write_number(r, 5, *hours).unwrap();
+            ws.write_string(r, 12, *text).unwrap();
+        }
+        workbook.save(&path).unwrap();
+        let entries = read_export(&path, &ExportFormat::default())
+            .unwrap()
+            .entries;
+        let t = |h, m| NaiveTime::from_hms_opt(h, m, 0);
+        let times: Vec<_> = entries.iter().map(|e| (e.start, e.end)).collect();
+        assert_eq!(
+            times,
+            vec![
+                (t(8, 0), t(9, 30)),
+                (t(22, 0), t(1, 0)),
+                (None, None),
+                (None, None)
+            ]
+        );
+        assert_eq!(entries[0].description, "Ticket 1");
+
+        // Spalten abgeschaltet → keine Zeiten, keine Beschreibung
+        let format = ExportFormat {
+            calendar: crate::models::config::CalendarColumns {
+                start: None,
+                stop: None,
+                description: None,
+            },
+            ..ExportFormat::default()
+        };
+        let entries = read_export(&path, &format).unwrap().entries;
+        assert!(
+            entries
+                .iter()
+                .all(|e| e.start.is_none() && e.description.is_empty())
         );
     }
 

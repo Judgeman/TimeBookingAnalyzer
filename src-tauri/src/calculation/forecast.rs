@@ -430,6 +430,7 @@ mod tests {
             kost2art: kost2art.into(),
             location: String::new(),
             billable: None,
+            ..Default::default()
         }
     }
 

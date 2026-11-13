@@ -42,6 +42,8 @@ src/                        # React Frontend
       ResultsView.tsx       # Kopf (Zeitraum, Stichtag, Hinweise) + Tabs
       YearView.tsx          # Jahr: Kennzahlen × Personen
       PeriodTable.tsx       # Monate (aufklappbar auf KW) / Wochen, ⚑-Markierungen
+      WeekCalendar.tsx      # Tab „Wochen“ → Kalender Mo–So: Person = Zeitraster mit Blöcken, Team = Personen × Tage
+      calendar.ts           # Kalender-Hilfen: Uhrzeiten, überlappende Blöcke nebeneinander, Wochen
       AccountView.tsx       # Stundenkonto: Vertragsabgleich (2 Varianten), kumuliert
       CatchUpView.tsx       # Aufholen bis 31.12. (Krank = Fehlzeit): je Person, Team verteilt, Budget
       LocationView.tsx      # Arbeitsort: Torte + Tabelle, Home-Office-Anteil, Monatsverlauf
@@ -120,6 +122,7 @@ src-tauri/
 
 sample-data/                # Fiktive Testdaten (Export + passende Projektkonfiguration);
                             # Export mit Billable-Spalte O (2 Abweichungen, im Projekt nicht gesetzt)
+                            # und Start/Stop (D/E: je Person und Tag ab 08:00, Urlaub/Krank ab 09:00)
 e2e/                        # E2E-Tests der Desktop-App (tauri-driver, node:test), s. e2e/README.md
 .github/workflows/ci.yml    # CI: Rust (fmt/clippy/Tests/Abdeckung), Frontend, E2E
 ```
@@ -251,6 +254,7 @@ Jedes Projekt wird als JSON-Datei gespeichert:
       "kost2art": 11,
       "location": 13
     },
+    "calendar": { "start": 3, "stop": 4, "description": 12 },
     "special_elements": {
       "sick": "(Sick)",
       "vacation": "(Vacation)"
@@ -261,6 +265,8 @@ Jedes Projekt wird als JSON-Datei gespeichert:
 }
 ```
 `data_source`: `"export"` (Standard, Export-Datei) oder `"projectforge"` (Abruf über die API).
+`export_format.calendar` = optionale Spalten für den Wochenkalender (Beginn, Ende,
+Beschreibung; `null` = nicht verwenden; Standard D/E/M wie im ProjectForge-Export).
 `export_format.billable` ist optional (`null`/fehlend = Billable-Spalte nicht verwenden);
 `yes`/`no` = optionale eigene Textwerte (leer = nur Wahrheitswerte).
 
@@ -279,6 +285,9 @@ struct TimeEntry {
     kost2art: String,
     location: String,
     billable: Option<String>, // Billable-Spalte wie angezeigt (Wahrheitswert → „WAHR“/„FALSCH“), None = nicht gesetzt
+    start: Option<NaiveTime>, // Beginn/Ende (nur Wochenkalender); aus dem Export nur, wenn sie
+    end: Option<NaiveTime>,   // zur Dauer passen (± 1 min, auch über Mitternacht)
+    description: String,      // Beschreibung (Wochenkalender)
 }
 ```
 
@@ -489,7 +498,8 @@ plus_krank = plus - sick_h_norm
   einschließlich; ohne `user` → alle lesbaren Buchungen), `maxRows` 5000; gekürzt
   (`resultSetTruncated` oder `totalSize` > Zeilen) → Zeitraum halbieren. Umrechnung je Zeile:
   Person = `user.displayName`, Tag = `startTime` in deutscher Zeit (MEZ/MESZ nach EU-Regel),
-  Stunden = `durationMillis` (sonst Ende − Beginn), Element = Task-Titel, Kost2Art = Name der
+  Stunden = `durationMillis` (sonst Ende − Beginn), Beginn/Ende in deutscher Zeit,
+  Beschreibung = `description`, Element = Task-Titel, Kost2Art = Name der
   Kostenart (`kost2.endziffer`, sonst aus `kost2.displayName`), Mult = Arbeitsanteil
   (Kostenstelle, sonst Kostenart; unbekannt → 1 + Hinweis), Ort = `location`, keine
   Billable-Spalte; gelöschte Buchungen fehlen. Abgerufen wird monatsweise ab 1. Januar des
@@ -501,6 +511,16 @@ plus_krank = plus - sick_h_norm
   „ProjectForge – Abruf TT.MM.JJJJ, HH:MM“). UI: beim Öffnen sofort der letzte Abruf, dann
   einmal je Sitzung automatisch aktualisieren; neuer Stichtag wertet nur neu aus; Fehler beim
   Abruf → Meldung, letzter Stand bleibt. Projekt löschen entfernt auch den Zwischenspeicher.
+- **Wochenkalender** (`bookings` im Ergebnis, `calculation::booking_detail`): jede Buchung
+  der Teammitglieder mit Zeiterfassung im Auswertungszeitraum (auch außerhalb des Einsatzes)
+  mit Person, Tag, Beginn/Ende, Stunden, Mult, Element, Kost2Art, Ort, Beschreibung, Art
+  (Arbeit/Urlaub/Krank) und `invoiced` (Regel bzw. Billable-Spalte rechnet ab). UI im Tab
+  „Wochen“ (Umschalter Kalender/Tabelle, Start = Woche des Stichtags, ‹ ›): Person =
+  Zeitraster (mind. 07–18 Uhr) mit Blöcken (Uhrzeit, Element, Ort, Beschreibung; Tooltip mit
+  Kostenart/Stunden/abgerechnet), überlappende nebeneinander, über Mitternacht bis 24 Uhr;
+  „ganztags“: Urlaub/Krank, Summe, fehlende Buchung, Buchungen ohne Uhrzeit. Team = Zeilen je
+  Person, Zellen mit kompakten Blöcken. Wochenende/Feiertag/nach dem Stichtag hinterlegt;
+  Farben: abgerechnet indigo, sonst grau, Mult 0 gestrichelt.
 - **Kalenderwochen** nach ISO 8601 (`2026-W53` kann im Januar des Folgejahres liegen).
   `month_weeks` enthält Teilwochen je Monat, damit aufgeklappte Wochen den Monat ergeben.
 - **Rechnung** (`invoice.rs`): eine Rechnung pro Monat, Positionen je Person × Regel ×
@@ -603,6 +623,9 @@ interface AuswertungResult {
   untracked: string[];            // Teammitglieder ohne Zeiterfassung (nicht in persons)
   guest_bookings: GuestBooking[]; // deren Projektbuchungen (rule: string | null, invoiced, net)
   billable_mismatches: BillableMismatch[]; // Billable-Spalte ≠ Regel (es gilt die Spalte)
+  bookings: BookingDetail[];      // Einzelbuchungen (Wochenkalender): person, date, start/end
+                                  //   („HH:MM:SS“ | null), hours, mult, element, kost2art, location,
+                                  //   description, kind ("work"|"vacation"|"sick"), invoiced
   forecast: Forecast;             // { from, to, reference_*, persons (Faktoren, Prognose h/€),
                                   //   months (Ist/Prognose je Monat), budgets (BudgetStatus), notes }
   forecast_accuracy: AccuracyMonth[]; // { month, actual_net, backtest_net, recorded_net?, recorded_on? }

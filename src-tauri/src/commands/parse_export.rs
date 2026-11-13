@@ -134,6 +134,7 @@ pub fn evaluate_export(
             .collect(),
         guest_bookings: evaluation.guest_bookings,
         billable_mismatches: evaluation.billable_mismatches,
+        bookings: evaluation.bookings,
         forecast,
         forecast_accuracy,
         vacation,
@@ -609,6 +610,58 @@ mod tests {
             auswertung.cutoff_date,
             NaiveDate::from_ymd_opt(2026, 10, 31).unwrap()
         );
+
+        // Einzelbuchungen für den Wochenkalender (Beginn/Ende aus Spalten D/E)
+        use crate::models::results::BookingKind;
+        let time = |h, m| chrono::NaiveTime::from_hms_opt(h, m, 0);
+        let day = |m, d| NaiveDate::from_ymd_opt(2026, m, d).unwrap();
+        assert!(
+            auswertung
+                .bookings
+                .iter()
+                .all(|b| b.start.is_some() && b.end.is_some())
+        );
+        assert!(
+            auswertung
+                .bookings
+                .iter()
+                .all(|b| b.person != "Karl Beispiel")
+        ); // darf buchen
+        let of = |person: &str, date| -> Vec<_> {
+            auswertung
+                .bookings
+                .iter()
+                .filter(|b| b.person == person && b.date == date)
+                .map(|b| (b.start, b.end, b.element.as_str(), b.kind, b.invoiced))
+                .collect()
+        };
+        assert_eq!(
+            of("Max Mustermann", day(10, 20)),
+            vec![(
+                time(8, 0),
+                time(16, 0),
+                "P100 Lager-App",
+                BookingKind::Work,
+                true
+            )]
+        );
+        // Lena außerhalb ihres Einsatzes auf einem anderen Projekt: nicht abgerechnet
+        assert_eq!(
+            of("Lena Beispiel", day(10, 20)),
+            vec![(
+                time(8, 0),
+                time(16, 0),
+                "P200 Intranet",
+                BookingKind::Work,
+                false
+            )]
+        );
+        let vacations = auswertung
+            .bookings
+            .iter()
+            .filter(|b| b.kind == BookingKind::Vacation && b.person == "Erika Mustermann")
+            .count();
+        assert!(vacations > 0);
         assert_eq!(
             auswertung.export_date_source,
             Some(ExportDateSource::FileName)

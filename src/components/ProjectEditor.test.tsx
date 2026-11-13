@@ -108,6 +108,8 @@ describe("ProjectEditor – Export-Format, Arbeitszeit, USt.", () => {
     await user.clear(vacation);
     await user.type(vacation, "(Urlaub)");
     await user.selectOptions(screen.getByLabelText("Ort"), "14"); // Spalte O
+    await user.selectOptions(screen.getByLabelText("Spalte Beschreibung"), ""); // nicht verwenden
+    await user.selectOptions(screen.getByLabelText("Spalte Beginn"), "6"); // Spalte G
     const vat = screen.getByLabelText(/Umsatzsteuer/);
     await user.clear(vat);
     await user.type(vat, "7");
@@ -125,6 +127,7 @@ describe("ProjectEditor – Export-Format, Arbeitszeit, USt.", () => {
       sheet_name: "Buchungen",
       columns: { name: 0, date: 2, duration: 5, mult: 8, element: 9, kost2art: 11, location: 14 },
       special_elements: { sick: "(Krank)", vacation: "(Urlaub)" },
+      calendar: { start: 6, stop: 4, description: null },
     });
     expect(saved.vat_percent).toBe(7);
     expect(saved.working_hours[1]).toEqual({ from: "2026-07-01", to: "2026-12-31", hours_per_day: 7.5 });
