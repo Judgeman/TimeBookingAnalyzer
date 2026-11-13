@@ -99,7 +99,7 @@ pub fn evaluate_export(
     let forecast = calculation::forecast::build(config, &outcome.entries, &evaluation);
     let forecast_accuracy = calculation::forecast::backtest(config, &outcome.entries, &evaluation);
     let vacation = calculation::vacation::vacation_status(config, &evaluation);
-    let catch_up = calculation::catch_up::catch_up(config, &evaluation);
+    let catch_up = calculation::catch_up::catch_up(config, &evaluation, &forecast.budgets);
     let missing_current =
         calculation::current_missing(config, &outcome.entries, &evaluation, default_cutoff);
     let overview = summarize(config, file_name.clone(), export.map(|(d, _)| d), outcome);
@@ -538,6 +538,57 @@ mod tests {
             (-19.5, 19.5, 206.5, Some(0.15), Some(0.09)) // 19,5 ÷ 131 bzw. ÷ 206,5
         );
 
+        // Budget 2026 laut Prognose um 10.932,99 € überzogen → im Budget nichts aufholbar
+        let budget = catch_up.budget.as_ref().expect("Budget 2026");
+        assert_eq!(
+            (budget.from.as_str(), budget.to.as_str(), budget.until),
+            ("2026-01", "2026-12", d(12, 31))
+        );
+        assert_eq!(result.forecast.budgets[0].deviation, 10932.99);
+        assert_eq!(budget.remaining, -10932.99);
+        assert_eq!(
+            (
+                budget.affordable_hours,
+                budget.covered_hours,
+                budget.uncovered_hours
+            ),
+            (Some(0.0), 0.0, 19.5)
+        );
+
+        // Budget nur bis November mit 1.000 € Rest laut Prognose
+        let file = sample("Beispiel-Export_2026-10-31.xlsx");
+        let mut november = config.clone();
+        november.budgets = vec![crate::models::config::BudgetPeriod {
+            from: "2026-01".into(),
+            to: "2026-11".into(),
+            amount: 0.0,
+        }];
+        let june =
+            |config: &ProjectConfig| parse_export_file(&file, config, Some(d(6, 30))).unwrap();
+        november.budgets[0].amount = june(&november).forecast.budgets[0].expected_net + 1000.0;
+        let budget = june(&november)
+            .catch_up
+            .budget
+            .expect("Budget bis November");
+        assert_eq!((budget.until, budget.workdays), (d(11, 30), 109)); // Juli–November
+        assert_eq!(budget.remaining, 1000.0);
+        // Arbeitstage bis 30.11., offener Urlaub anteilig: Erika 109 − 5 geplant = 104
+        // (× 104 ÷ 126), Max 109 − ½ = 108,5 (× 102,5 ÷ 122,5)
+        let (erika, max) = (104.0 * 104.0 / 126.0, 108.5 * 102.5 / 122.5);
+        let round = |v: f64| (v * 100.0).round() / 100.0;
+        assert_eq!(budget.available_days, round(erika + max));
+        let rate = (erika * 105.0 + max * 95.0) / (erika + max);
+        assert_eq!(budget.average_rate, Some(round(rate)));
+        let hours = 1000.0 / rate; // ≈ 10 h von 19,5 h
+        assert_eq!(budget.affordable_hours, Some(round(hours)));
+        assert_eq!(budget.covered_hours, round(hours));
+        assert_eq!(budget.uncovered_hours, round(19.5 - hours));
+        assert_eq!(budget.covered_net, 1000.0);
+        assert_eq!(budget.extra_per_workday, Some(round(hours / 109.0)));
+        assert_eq!(
+            budget.extra_per_person_day,
+            Some(round(hours / (erika + max)))
+        );
         // Ende Oktober: alle über 100 % → nichts aufzuholen
         let october =
             parse_export_file(&sample("Beispiel-Export_2026-10-31.xlsx"), &config, None).unwrap();

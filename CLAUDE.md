@@ -38,7 +38,7 @@ src/                        # React Frontend
       YearView.tsx          # Jahr: Kennzahlen × Personen
       PeriodTable.tsx       # Monate (aufklappbar auf KW) / Wochen, ⚑-Markierungen
       AccountView.tsx       # Stundenkonto: Vertragsabgleich (2 Varianten), kumuliert
-      CatchUpView.tsx       # Aufholen bis 31.12. (Krank = Fehlzeit): je Person, Team verteilt
+      CatchUpView.tsx       # Aufholen bis 31.12. (Krank = Fehlzeit): je Person, Team verteilt, Budget
       LocationView.tsx      # Arbeitsort: Torte + Tabelle, Home-Office-Anteil, Monatsverlauf
       PieChart.tsx          # SVG-Tortendiagramm (ohne Bibliothek), Hover-Tooltip
       chartColors.ts        # validierte kategorische Palette, Farbe folgt dem Ort
@@ -101,7 +101,7 @@ src-tauri/
       invoice.rs            # Rechnung je Monat (Cent-genau), USt., Brutto
       forecast.rs           # Prognose: Faktoren je Person, Tagesprognose, Budget-Status, Nachrechnung
       vacation.rs           # Resturlaub je Person (Anspruch + Übertrag − genommen − geplant)
-      catch_up.rs           # Aufholen bis 31.12.: Mehrstunden je Arbeitstag (Person, Team)
+      catch_up.rs           # Aufholen bis 31.12.: Mehrstunden je Arbeitstag (Person, Team, Budget)
       location.rs           # Stunden/Anteile/Tage je Arbeitsort (Spalte „Ort“)
       tests.rs              # Szenario-Test mit handgerechneten Werten
   examples/
@@ -442,7 +442,14 @@ plus_krank = plus - sick_h_norm
   möglich), Anzeige mit Ø h/Tag → neue h/Tag. Team: Fehlbetrag = −Σ `plus_krank` (Überstunden
   gleichen aus); gesamt je Werktag = Fehlbetrag ÷ Werktage; je Person und Arbeitstag =
   Fehlbetrag ÷ Σ Arbeitstage aller Personen (gleichmäßig), Anteil = das × eigene Arbeitstage.
-  UI: Stundenkonto – Person nur bei Saldo < 0; „Team gesamt“ mit Tabelle aller Personen.
+  **Mit Budget** (`catch_up.budget`, Budget, in dem der Tag nach dem Stichtag liegt): Rest =
+  Budget − `expected_net` (abgerechnet + Prognose bis Budgetende); aufgeholt bis min(Budgetende,
+  31.12.); Personen-Arbeitstage bis dahin (offener Urlaub anteilig: × Arbeitstage ÷ anwesende
+  Tage im ganzen Zeitraum), Ø Satz = voller Stundensatz gewichtet je Arbeitstag; aufholbar =
+  min(Fehlbetrag, max(Rest, 0) ÷ Ø Satz) (ohne Satz: alles), Rest ohne Budget = Fehlbetrag −
+  aufholbar; je Werktag bzw. je Person und Arbeitstag bis Budgetende.
+  UI: Stundenkonto – Person nur bei Saldo < 0; „Team gesamt“ mit Tabelle aller Personen und
+  Abschnitt „Mit dem restlichen Budget“ (nur bei Team-Fehlbetrag).
 - **Fehlende Buchung**: Werktag (Mo–Fr ohne Feiertag) mit h/Tag > 0, an dem
   gebucht = Arbeitszeit **ohne** Mult (alle Nicht-Abwesenheits-Buchungen, auch Mult 0)
   + angerechneter Urlaub/Krank < `missing_threshold_percent` (Standard 50 %) der
@@ -553,7 +560,8 @@ interface AuswertungResult {
   forecast_accuracy: AccuracyMonth[]; // { month, actual_net, backtest_net, recorded_net?, recorded_on? }
   vacation: VacationStatus[];     // { person, year, entitlement, carry_over, taken, planned, remaining }
   catch_up: CatchUp;              // { from, to, workdays, persons (Saldo, Arbeitstage, extra_per_day,
-                                  //   team_share), team (deficit, extra_per_workday, extra_per_person_day) }
+                                  //   team_share), team (deficit, extra_per_workday, extra_per_person_day),
+                                  //   budget (remaining, until, covered_hours, uncovered_hours, …) | null }
   overview: ParsedExport;         // Rohdaten-Übersicht (Tab „Import“)
 }
 

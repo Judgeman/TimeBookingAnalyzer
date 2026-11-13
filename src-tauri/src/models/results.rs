@@ -178,6 +178,41 @@ pub struct CatchUp {
     pub workdays: u32,
     pub persons: Vec<CatchUpPerson>,
     pub team: CatchUpTeam,
+    /// Aufholen mit dem restlichen Budget (Budget, in dem `from` liegt).
+    pub budget: Option<CatchUpBudget>,
+}
+
+/// Was das Team mit dem restlichen Budget aufholen kann.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct CatchUpBudget {
+    /// Budget-Zeitraum, z. B. "2026-01" bis "2026-11".
+    pub from: String,
+    pub to: String,
+    pub amount: f64,
+    /// Abgerechnet + Prognose bis zum Ende des Budgets.
+    pub expected_net: f64,
+    /// Budget − erwartet (negativ = schon ohne Aufholen überzogen).
+    pub remaining: f64,
+    /// Letzter Tag zum Aufholen im Budget: min(Budgetende, 31.12.).
+    pub until: NaiveDate,
+    /// Werktage bis dahin.
+    pub workdays: u32,
+    /// Personen-Arbeitstage bis dahin (offener Urlaub anteilig).
+    pub available_days: f64,
+    /// Ø Stundensatz je Personen-Arbeitstag; `None` ohne Arbeitstage.
+    pub average_rate: Option<f64>,
+    /// Mit dem Rest bezahlbare Stunden; `None` = ohne Stundensatz (kostet nichts).
+    pub affordable_hours: Option<f64>,
+    /// Davon aufzuholen: min(Fehlbetrag, bezahlbar).
+    pub covered_hours: f64,
+    /// Netto dafür (aufgeholt × Ø Satz).
+    pub covered_net: f64,
+    /// Fehlbetrag, der nicht im Budget aufgeholt werden kann.
+    pub uncovered_hours: f64,
+    /// Aufgeholt ÷ Werktage bis dahin.
+    pub extra_per_workday: Option<f64>,
+    /// Aufgeholt ÷ Personen-Arbeitstage bis dahin.
+    pub extra_per_person_day: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]

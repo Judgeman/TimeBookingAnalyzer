@@ -597,6 +597,35 @@ test("Stundenkonto: Aufholen bis 31.12. je Person und im Team", () =>
       "Team gesamt je Werktag+0,15 h19,50 h ÷ 131 Werktage",
       "Je Person und Arbeitstag+0,09 h19,50 h ÷ 206,5 Personen-Arbeitstage",
       "Max Mustermann−5,00102,56,50+0,05 h/Tag9,68 h6,50 → 6,59",
+      // Budget 2026 ist laut Prognose schon überzogen
+      "Mit dem restlichen Budget (Januar 2026 – Dezember 2026)",
+      "schon ohne Aufholen ausgeschöpft (10.932,99 € über Budget)",
+    ]) {
+      assert.ok(text.includes(expected), `fehlt: ${expected}`);
+    }
+
+    // Budget nur bis November, laut Prognose 1.000 € Rest (erwartet 346.673,43 €)
+    await app.click("button", "Projekt bearbeiten");
+    await app.waitForText("Planung (Budget & Prognose)");
+    await app.execute(`const set = (label, value) => {
+        const el = document.querySelector('input[aria-label="' + label + '"]');
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, value);
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      };
+      set("Budget bis", "2026-11");
+      set("Budget netto", "347673.43");`);
+    await app.click("button", "Speichern");
+    await app.waitForText("Auswertung 01.01.2026 – 30.06.2026");
+    await app.tab("Stundenkonto");
+    await app.click("button", "Team gesamt");
+    await app.waitForText("Mit dem restlichen Budget (Januar 2026 – November 2026)");
+    text = await section();
+    for (const expected of [
+      "Rest laut Prognose1.000,00 €Budget 347.673,43 € − abgerechnet + Prognose 346.673,43 €",
+      "Damit aufholbar10,01 hvon 19,50 h · Ø Satz 99,86 €",
+      "Je Person und Arbeitstag bis 30.11.2026+0,06 h10,01 h ÷ 176,63 Personen-Arbeitstage",
+      "Team gesamt je Werktag bis 30.11.2026+0,09 h10,01 h ÷ 109 Werktage",
+      "Ohne Budget bleiben 9,49 h",
     ]) {
       assert.ok(text.includes(expected), `fehlt: ${expected}`);
     }

@@ -135,6 +135,31 @@ export interface CatchUp {
   workdays: number;
   persons: CatchUpPerson[];
   team: CatchUpTeam;
+  /** Aufholen mit dem restlichen Budget, in dem `from` liegt. */
+  budget: CatchUpBudget | null;
+}
+
+export interface CatchUpBudget {
+  /** "2026-01" */
+  from: string;
+  to: string;
+  amount: number;
+  /** Abgerechnet + Prognose bis Budgetende. */
+  expected_net: number;
+  /** Budget − erwartet (negativ = überzogen). */
+  remaining: number;
+  /** min(Budgetende, 31.12.) */
+  until: string;
+  workdays: number;
+  available_days: number;
+  average_rate: number | null;
+  /** null = ohne Stundensatz (kostet kein Budget). */
+  affordable_hours: number | null;
+  covered_hours: number;
+  covered_net: number;
+  uncovered_hours: number;
+  extra_per_workday: number | null;
+  extra_per_person_day: number | null;
 }
 
 export interface CatchUpPerson {

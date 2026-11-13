@@ -1,6 +1,13 @@
 import type { ReactNode } from "react";
-import type { CatchUp, CatchUpPerson } from "../../types/results";
-import { formatDate, formatHours, formatNumber, formatSignedHours } from "../../lib/format";
+import type { CatchUp, CatchUpBudget, CatchUpPerson } from "../../types/results";
+import {
+  formatDate,
+  formatEuro,
+  formatHours,
+  formatMonth,
+  formatNumber,
+  formatSignedHours,
+} from "../../lib/format";
 import { styles } from "./styles";
 
 /** Kleine Werte zusätzlich in Minuten, z. B. "≈ 8 Min.". */
@@ -24,11 +31,21 @@ function Title({ catchUp, suffix }: { catchUp: CatchUp; suffix?: string }) {
   );
 }
 
-function Figure({ label, note, children }: { label: string; note?: string; children: ReactNode }) {
+function Figure({
+  label,
+  note,
+  tone = "text-red-700",
+  children,
+}: {
+  label: string;
+  note?: string;
+  tone?: string;
+  children: ReactNode;
+}) {
   return (
     <div>
       <dt className="text-xs text-slate-500">{label}</dt>
-      <dd className="text-2xl font-semibold tabular-nums text-red-700">{children}</dd>
+      <dd className={`text-2xl font-semibold tabular-nums ${tone}`}>{children}</dd>
       {note && <dd className="text-xs text-slate-500">{note}</dd>}
     </div>
   );
@@ -182,12 +199,91 @@ export function TeamCatchUp({ catchUp }: { catchUp: CatchUp }) {
             </tbody>
           </table>
         </div>
+        {shared && catchUp.budget && (
+          <BudgetCatchUp budget={catchUp.budget} deficit={team.deficit} />
+        )}
         <p className="text-xs text-slate-500">
           Arbeitstage = Werktage im Einsatz bis {formatDate(catchUp.to)} − geplante Abwesenheiten −
           offener Urlaub (Anspruch + Übertrag − genommen − eingeplant). „Allein aufholen“ = eigene
           Fehlstunden ÷ eigene Arbeitstage.
         </p>
       </div>
+    </section>
+  );
+}
+
+/** Was das Team mit dem restlichen Budget aufholen kann. */
+function BudgetCatchUp({ budget, deficit }: { budget: CatchUpBudget; deficit: number }) {
+  const period = `${formatMonth(budget.from)} – ${formatMonth(budget.to)}`;
+  const until = formatDate(budget.until);
+  return (
+    <section aria-label="Aufholen im Budget" className="space-y-3 border-t border-slate-100 pt-4">
+      <h4 className="text-sm font-semibold">Mit dem restlichen Budget ({period})</h4>
+      {budget.remaining <= 0 ? (
+        <p className="text-red-800">
+          Das Budget ist laut Prognose schon ohne Aufholen ausgeschöpft (
+          {formatEuro(-budget.remaining)} über Budget) – die fehlenden {formatHours(deficit)} h
+          lassen sich nur ohne Abrechnung aufholen.
+        </p>
+      ) : budget.extra_per_person_day === null || budget.available_days <= 0 ? (
+        <p className="text-red-800">
+          Bis zum Budgetende ({until}) bleiben keine Arbeitstage – die fehlenden{" "}
+          {formatHours(deficit)} h lassen sich nur ohne Abrechnung aufholen.
+        </p>
+      ) : (
+        <>
+          <dl className="flex flex-wrap gap-x-10 gap-y-3">
+            <Figure
+              label="Rest laut Prognose"
+              note={`Budget ${formatEuro(budget.amount)} − abgerechnet + Prognose ${formatEuro(budget.expected_net)}`}
+              tone="text-slate-900"
+            >
+              {formatEuro(budget.remaining)}
+            </Figure>
+            <Figure
+              label="Damit aufholbar"
+              note={
+                budget.affordable_hours === null
+                  ? "ohne Stundensatz – kostet kein Budget"
+                  : `von ${formatHours(deficit)} h · Ø Satz ${formatEuro(budget.average_rate ?? 0)} · ${formatEuro(budget.covered_net)} netto`
+              }
+              tone="text-slate-900"
+            >
+              {formatHours(budget.covered_hours)} h
+            </Figure>
+            <Figure
+              label={`Je Person und Arbeitstag bis ${until}`}
+              note={`${formatHours(budget.covered_hours)} h ÷ ${formatNumber(budget.available_days)} Personen-Arbeitstage · ${minutes(budget.extra_per_person_day)}`}
+            >
+              {formatSignedHours(budget.extra_per_person_day)} h
+            </Figure>
+            {budget.extra_per_workday !== null && (
+              <Figure
+                label={`Team gesamt je Werktag bis ${until}`}
+                note={`${formatHours(budget.covered_hours)} h ÷ ${budget.workdays} Werktage`}
+              >
+                {formatSignedHours(budget.extra_per_workday)} h
+              </Figure>
+            )}
+          </dl>
+          {budget.uncovered_hours > 0 ? (
+            <p className="text-red-800">
+              Ohne Budget bleiben {formatHours(budget.uncovered_hours)} h – diese lassen sich
+              nur ohne Abrechnung aufholen (z. B. intern
+              {budget.until < `${budget.until.slice(0, 4)}-12-31` ? " oder nach dem Budgetende" : ""}).
+            </p>
+          ) : (
+            <p className="text-emerald-800">
+              Der Rest reicht für die ganzen {formatHours(deficit)} h.
+            </p>
+          )}
+        </>
+      )}
+      <p className="text-xs text-slate-500">
+        Rest = Budget − (abgerechnet + Prognose bis zum Budgetende). Aufgeholt wird bis {until}{" "}
+        (Budgetende, spätestens 31.12.); nachgeholte Stunden kosten den vollen Stundensatz, offener
+        Urlaub zählt anteilig.
+      </p>
     </section>
   );
 }

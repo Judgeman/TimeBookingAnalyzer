@@ -23,8 +23,15 @@ function june(): CatchUp {
     ],
     team: { balance: -19.5, deficit: 19.5, available_days: 206.5, extra_per_workday: 0.15,
       extra_per_person_day: 0.09 },
+    // Budget nur bis November, laut Prognose 1.000 € Rest
+    budget: { from: "2026-01", to: "2026-11", amount: 347673.43, expected_net: 346673.43,
+      remaining: 1000, until: "2026-11-30", workdays: 109, available_days: 176.63,
+      average_rate: 99.86, affordable_hours: 10.01, covered_hours: 10.01, covered_net: 1000,
+      uncovered_hours: 9.49, extra_per_workday: 0.09, extra_per_person_day: 0.06 },
   };
 }
+
+const budgetSection = () => screen.getByRole("region", { name: "Aufholen im Budget" });
 
 describe("PersonCatchUp", () => {
   it("zeigt die Mehrstunden je Arbeitstag bis 31.12. mit Urlaub und Team-Anteil", () => {
@@ -72,7 +79,7 @@ describe("TeamCatchUp", () => {
   it("verteilt den Fehlbetrag aufs Team: gesamt je Werktag und je Person", () => {
     render(<TeamCatchUp catchUp={june()} />);
     const section = screen.getByRole("region", { name: "Aufholen" });
-    expect(within(section).getByRole("heading")).toHaveTextContent(
+    expect(within(section).getByRole("heading", { level: 3 })).toHaveTextContent(
       "Aufholen bis 31.12.2026 – Team – Krankheit als Fehlzeit",
     );
     expect(text(section)).toContain("Team gesamt je Werktag+0,15 h19,50 h ÷ 131 Werktage");
@@ -115,5 +122,65 @@ describe("TeamCatchUp", () => {
       "bleiben keine Arbeitstage – die fehlenden 19,50 h lassen sich in diesem Jahr nicht mehr aufholen.",
     );
     expect(text(screen.getAllByRole("row")[1])).toMatch(/9,82 h–$/); // keine neue h/Tag
+  });
+
+  it("mit dem restlichen Budget: aufholbare Stunden bis Budgetende, Rest ohne Budget", () => {
+    render(<TeamCatchUp catchUp={june()} />);
+    const section = budgetSection();
+    expect(within(section).getByRole("heading")).toHaveTextContent(
+      "Mit dem restlichen Budget (Januar 2026 – November 2026)",
+    );
+    const t = text(section);
+    expect(t).toContain(
+      "Rest laut Prognose1.000,00 €Budget 347.673,43 € − abgerechnet + Prognose 346.673,43 €",
+    );
+    expect(t).toContain("Damit aufholbar10,01 hvon 19,50 h · Ø Satz 99,86 € · 1.000,00 € netto");
+    expect(t).toContain(
+      "Je Person und Arbeitstag bis 30.11.2026+0,06 h10,01 h ÷ 176,63 Personen-Arbeitstage · ≈ 4 Min.",
+    );
+    expect(t).toContain("Team gesamt je Werktag bis 30.11.2026+0,09 h10,01 h ÷ 109 Werktage");
+    expect(t).toContain(
+      "Ohne Budget bleiben 9,49 h – diese lassen sich nur ohne Abrechnung aufholen (z. B. intern oder nach dem Budgetende).",
+    );
+    expect(t).toContain("Aufgeholt wird bis 30.11.2026 (Budgetende, spätestens 31.12.)");
+  });
+
+  it("Budget reicht für alles bzw. kostet ohne Stundensatz nichts", () => {
+    const catchUp = june();
+    catchUp.budget = { ...catchUp.budget!, to: "2026-12", until: "2026-12-31", remaining: 29067.01,
+      affordable_hours: 290.67, covered_hours: 19.5, uncovered_hours: 0 };
+    const { unmount } = render(<TeamCatchUp catchUp={catchUp} />);
+    expect(text(budgetSection())).toContain("Der Rest reicht für die ganzen 19,50 h.");
+    unmount();
+    catchUp.budget = { ...catchUp.budget, average_rate: 0, affordable_hours: null, covered_net: 0 };
+    render(<TeamCatchUp catchUp={catchUp} />);
+    expect(text(budgetSection())).toContain("Damit aufholbar19,50 hohne Stundensatz – kostet kein Budget");
+  });
+
+  it("Budget schon ausgeschöpft oder keine Arbeitstage bis Budgetende", () => {
+    const catchUp = june();
+    catchUp.budget = { ...catchUp.budget!, remaining: -6673.43, covered_hours: 0, uncovered_hours: 19.5 };
+    const { unmount } = render(<TeamCatchUp catchUp={catchUp} />);
+    expect(text(budgetSection())).toContain(
+      "Das Budget ist laut Prognose schon ohne Aufholen ausgeschöpft (6.673,43 € über Budget) – die fehlenden 19,50 h lassen sich nur ohne Abrechnung aufholen.",
+    );
+    unmount();
+    catchUp.budget = { ...catchUp.budget, remaining: 500, available_days: 0, extra_per_person_day: null };
+    render(<TeamCatchUp catchUp={catchUp} />);
+    expect(text(budgetSection())).toContain(
+      "Bis zum Budgetende (30.11.2026) bleiben keine Arbeitstage",
+    );
+  });
+
+  it("ohne Budget bzw. ohne Team-Fehlbetrag kein Budget-Abschnitt", () => {
+    const catchUp = june();
+    catchUp.budget = null;
+    const { unmount } = render(<TeamCatchUp catchUp={catchUp} />);
+    expect(screen.queryByRole("region", { name: "Aufholen im Budget" })).not.toBeInTheDocument();
+    unmount();
+    const positive = june();
+    positive.team = { ...positive.team, balance: 6, deficit: 0 };
+    render(<TeamCatchUp catchUp={positive} />);
+    expect(screen.queryByRole("region", { name: "Aufholen im Budget" })).not.toBeInTheDocument();
   });
 });

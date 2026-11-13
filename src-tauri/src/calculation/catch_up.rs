@@ -11,19 +11,35 @@
 //!
 //! Team: Saldo = Summe aller Personen (Überstunden gleichen Fehlstunden aus);
 //! der Fehlbetrag wird gleichmäßig auf alle Personen-Arbeitstage verteilt.
+//!
+//! Budget: Was lässt sich mit dem Budget aufholen, in dem der erste Tag liegt?
+//! Rest = Budget − (abgerechnet + Prognose bis Budgetende). Aufgeholt werden
+//! kann bis min(Budgetende, 31.12.); nachgeholte Stunden kosten den vollen
+//! Stundensatz (Ø je Personen-Arbeitstag). Offener Urlaub wird anteilig auf die
+//! Arbeitstage vor und nach dem Budgetende verteilt.
 
 use std::collections::{HashMap, HashSet};
 
 use chrono::{Datelike, NaiveDate};
 
-use super::{Evaluation, round2, soll};
-use crate::models::config::{PlannedAbsenceKind, ProjectConfig, TeamMember};
-use crate::models::results::{CatchUp, CatchUpPerson, CatchUpTeam};
+use super::{Evaluation, billing, round2, soll};
+use crate::models::config::{BudgetPeriod, PlannedAbsenceKind, ProjectConfig, TeamMember};
+use crate::models::results::{BudgetStatus, CatchUp, CatchUpBudget, CatchUpPerson, CatchUpTeam};
 
 /// Unterhalb davon gilt ein Saldo als ausgeglichen (Rundung auf Cent-Stunden).
 const EPSILON: f64 = 0.005;
 
-pub fn catch_up(config: &ProjectConfig, ev: &Evaluation) -> CatchUp {
+/// Arbeitstage einer Person bis zum Budgetende (für [`CatchUpBudget`]).
+#[derive(Default)]
+struct BudgetDays {
+    /// Arbeitstage bis zum Budgetende (offener Urlaub anteilig abgezogen).
+    available: f64,
+    /// Σ Stundensatz × Arbeitstag bis zum Budgetende (ebenso anteilig).
+    rate_days: f64,
+}
+
+/// `budgets` = Budget-Status der Prognose (Ist + Prognose je Budget).
+pub fn catch_up(config: &ProjectConfig, ev: &Evaluation, budgets: &[BudgetStatus]) -> CatchUp {
     let year = ev.cutoff.year();
     let to = NaiveDate::from_ymd_opt(year, 12, 31).unwrap_or(ev.cutoff);
     let from = ev.cutoff.succ_opt().unwrap_or(ev.cutoff);
@@ -37,7 +53,23 @@ pub fn catch_up(config: &ProjectConfig, ev: &Evaluation) -> CatchUp {
         Vec::new()
     };
 
-    let mut persons: Vec<CatchUpPerson> = ev
+    // Budget, in dem der erste Tag liegt
+    let budget = (!workdays.is_empty())
+        .then(|| {
+            budgets.iter().find_map(|status| {
+                let period = BudgetPeriod {
+                    from: status.from.clone(),
+                    to: status.to.clone(),
+                    amount: status.amount,
+                };
+                let (start, end) = period.range()?;
+                (start <= from && from <= end).then_some((status, end.min(to)))
+            })
+        })
+        .flatten();
+    let until = budget.map(|(_, until)| until);
+
+    let (mut persons, budget_days): (Vec<CatchUpPerson>, Vec<BudgetDays>) = ev
         .persons
         .iter()
         .filter_map(|person| {
@@ -48,9 +80,10 @@ pub fn catch_up(config: &ProjectConfig, ev: &Evaluation) -> CatchUp {
                 person.periods.ytd.plus_krank,
                 person.periods.ytd.vac_days,
                 &workdays,
+                until,
             ))
         })
-        .collect();
+        .unzip();
 
     // Team: Fehlbetrag (netto) gleichmäßig je Personen-Arbeitstag verteilen
     let balance = ev.team.ytd.plus_krank;
@@ -68,12 +101,47 @@ pub fn catch_up(config: &ProjectConfig, ev: &Evaluation) -> CatchUp {
         extra_per_person_day: per_person_day.map(round2),
     };
 
+    let budget = budget.map(|(status, until)| {
+        let workdays = workdays.iter().filter(|d| **d <= until).count();
+        let available: f64 = budget_days.iter().map(|b| b.available).sum();
+        let rate_days: f64 = budget_days.iter().map(|b| b.rate_days).sum();
+        let average_rate = (available > 0.0).then(|| rate_days / available);
+        let remaining = status.amount - status.expected_net;
+        // ohne Stundensatz kostet Aufholen kein Budget
+        let affordable = average_rate
+            .filter(|rate| *rate > 0.0)
+            .map(|rate| remaining.max(0.0) / rate);
+        let covered = if available > 0.0 {
+            affordable.map_or(deficit, |hours| hours.min(deficit))
+        } else {
+            0.0
+        };
+        CatchUpBudget {
+            from: status.from.clone(),
+            to: status.to.clone(),
+            amount: status.amount,
+            expected_net: status.expected_net,
+            remaining: round2(remaining),
+            until,
+            workdays: workdays as u32,
+            available_days: round2(available),
+            average_rate: average_rate.map(round2),
+            affordable_hours: affordable.map(round2),
+            covered_hours: round2(covered),
+            covered_net: round2(covered * average_rate.unwrap_or(0.0)),
+            uncovered_hours: round2(deficit - covered),
+            extra_per_workday: (workdays > 0).then(|| round2(covered / workdays as f64)),
+            extra_per_person_day: (available > 0.0).then(|| round2(covered / available)),
+        }
+    });
+
     CatchUp {
         from,
         to,
         workdays: workdays.len() as u32,
         persons,
         team,
+        budget,
     }
 }
 
@@ -83,7 +151,8 @@ fn person_catch_up(
     balance: f64,
     vacation_taken: f64,
     workdays: &[NaiveDate],
-) -> CatchUpPerson {
+    budget_until: Option<NaiveDate>,
+) -> (CatchUpPerson, BudgetDays) {
     // Geplante Abwesenheiten je Tag (je Person ohne Überschneidung; sicherheitshalber max.)
     let mut planned: HashMap<NaiveDate, (f64, bool)> = HashMap::new();
     for absence in config
@@ -105,6 +174,8 @@ fn person_catch_up(
     let mut contract_hours = 0.0;
     let mut planned_days = 0.0;
     let mut planned_vacation = 0.0;
+    // bis zum Budgetende: Tage ohne geplante Abwesenheit, gewichtet mit dem Satz
+    let mut window = BudgetDays::default();
     for day in workdays {
         let (absent, vacation) = planned.get(day).copied().unwrap_or((0.0, false));
         // geplanter Urlaub zählt wie im Resturlaub an jedem Werktag
@@ -121,6 +192,11 @@ fn person_catch_up(
         days += 1.0;
         contract_hours += hpd;
         planned_days += absent;
+        if budget_until.is_some_and(|until| *day <= until) {
+            let present = 1.0 - absent;
+            window.available += present;
+            window.rate_days += present * billing::rate_for(&member.rates, *day).unwrap_or(0.0);
+        }
     }
 
     let year = workdays.first().map(|d| d.year());
@@ -131,8 +207,17 @@ fn person_catch_up(
         .min((days - planned_days).max(0.0));
     let available_days = (days - planned_days - open_vacation).max(0.0);
     let deficit = if balance < -EPSILON { -balance } else { 0.0 };
+    // offenen Urlaub anteilig auf die Tage vor und nach dem Budgetende verteilen
+    let present = days - planned_days;
+    let factor = if present > 0.0 {
+        available_days / present
+    } else {
+        0.0
+    };
+    window.available *= factor;
+    window.rate_days *= factor;
 
-    CatchUpPerson {
+    let person = CatchUpPerson {
         person: member.name.clone(),
         balance: round2(balance),
         deficit: round2(deficit),
@@ -148,7 +233,8 @@ fn person_catch_up(
         available_days: round2(available_days),
         extra_per_day: (available_days > 0.0).then(|| round2(deficit / available_days)),
         team_share: 0.0,
-    }
+    };
+    (person, window)
 }
 
 #[cfg(test)]
@@ -156,8 +242,8 @@ mod tests {
     use super::*;
     use crate::calculation::evaluate;
     use crate::models::config::{
-        AssignmentPeriod, ExportFormat, HolidayConfig, PlannedAbsence, VacationEntitlement,
-        WorkingHoursPeriod, default_billing_rules,
+        AssignmentPeriod, ExportFormat, HolidayConfig, PlannedAbsence, RatePeriod,
+        VacationEntitlement, WorkingHoursPeriod, default_billing_rules,
     };
     use crate::models::entry::TimeEntry;
 
@@ -293,7 +379,7 @@ mod tests {
         entries.extend(december("Lena Beispiel", 11, &[]));
 
         let ev = evaluate(&config, &entries, d(12, 11), Some(d(12, 11)));
-        let result = catch_up(&config, &ev);
+        let result = catch_up(&config, &ev, &[]);
         assert_eq!(result.from, d(12, 12)); // Samstag nach dem Stichtag
         assert_eq!(result.to, d(12, 31));
         assert_eq!(result.workdays, 13); // 14.–18., 21.–24., 28.–31.
@@ -371,7 +457,7 @@ mod tests {
         entries.push(work("Max Mustermann", d(12, 7), 4.0));
 
         let ev = evaluate(&config, &entries, d(12, 11), Some(d(12, 11)));
-        let result = catch_up(&config, &ev);
+        let result = catch_up(&config, &ev, &[]);
         assert_eq!(result.workdays, 13);
         let workdays = 13.0;
         let [erika, max] = &result.persons[..] else {
@@ -407,12 +493,163 @@ mod tests {
         let config = config(vec![member("Erika Mustermann")], vec![]);
         let entries = vec![sick("Erika Mustermann", d(12, 30))];
         let ev = evaluate(&config, &entries, d(12, 31), None);
-        let result = catch_up(&config, &ev);
+        let result = catch_up(&config, &ev, &[]);
         assert_eq!(result.workdays, 0);
         assert_eq!(result.persons[0].available_days, 0.0);
         assert_eq!(result.persons[0].extra_per_day, None);
         assert!(result.persons[0].deficit > 0.0);
         assert_eq!(result.team.extra_per_workday, None);
         assert_eq!(result.team.extra_per_person_day, None);
+    }
+
+    fn status(from: &str, to: &str, amount: f64, expected_net: f64) -> BudgetStatus {
+        BudgetStatus {
+            from: from.into(),
+            to: to.into(),
+            amount,
+            monthly_target: 0.0,
+            month_count: 0,
+            target_to_date: 0.0,
+            actual_net: expected_net,
+            forecast_net: 0.0,
+            expected_net,
+            deviation: expected_net - amount,
+            exhausted_on: None,
+            exceeded: false,
+        }
+    }
+
+    /// Ab 02.11. im Einsatz, Stichtag Fr 20.11.; Erika −20 h (2 Tage krank, 4 h zu
+    /// wenig), Max genau Soll. Restliche Werktage: 23.–30.11. (6) + Dezember (22).
+    fn november() -> (ProjectConfig, Evaluation) {
+        let rate = |rate| {
+            vec![RatePeriod {
+                from: d(1, 1),
+                to: None,
+                rate,
+            }]
+        };
+        let assigned = vec![AssignmentPeriod {
+            from: d(11, 2),
+            to: None,
+        }];
+        let mut erika = member("Erika Mustermann");
+        erika.rates = rate(100.0);
+        erika.assignments = assigned.clone();
+        // 7 offene Urlaubstage → Arbeitstage 28 − 7 = 21, bis Budgetende anteilig 6 × ¾
+        erika.vacation = vec![VacationEntitlement {
+            year: 2026,
+            days: 7.0,
+            carry_over: 0.0,
+        }];
+        let mut max = member("Max Mustermann");
+        max.rates = rate(80.0);
+        max.assignments = assigned;
+        let config = config(
+            vec![erika, max],
+            vec![PlannedAbsence {
+                person: "Max Mustermann".into(),
+                from: d(11, 30),
+                to: d(11, 30),
+                kind: PlannedAbsenceKind::Other,
+                half_day: false,
+            }],
+        );
+        let entries: Vec<TimeEntry> = d(11, 2)
+            .iter_days()
+            .take_while(|day| *day <= d(11, 20))
+            .filter(|day| day.weekday().num_days_from_monday() < 5)
+            .flat_map(|day| {
+                let erika = match day.day() {
+                    2 | 3 => sick("Erika Mustermann", day),
+                    4 => work("Erika Mustermann", day, 4.0),
+                    _ => work("Erika Mustermann", day, 8.0),
+                };
+                [erika, work("Max Mustermann", day, 8.0)]
+            })
+            .collect();
+        let ev = evaluate(&config, &entries, d(11, 20), Some(d(11, 20)));
+        (config, ev)
+    }
+
+    #[test]
+    fn remaining_budget_limits_what_can_be_caught_up() {
+        let (config, ev) = november();
+        // Budget bis November, laut Prognose bleiben 850 € übrig
+        let budgets = [
+            status("2025-01", "2025-12", 1.0, 0.0),
+            status("2026-01", "2026-11", 100_000.0, 99_150.0),
+        ];
+        let result = catch_up(&config, &ev, &budgets);
+        assert_eq!(result.workdays, 28);
+        assert_eq!(result.team.deficit, 20.0);
+        assert_eq!(result.persons[0].available_days, 21.0);
+        assert_eq!(result.persons[1].available_days, 27.0);
+
+        let budget = result.budget.expect("Budget bis November");
+        assert_eq!(
+            (budget.from.as_str(), budget.to.as_str()),
+            ("2026-01", "2026-11")
+        );
+        assert_eq!(budget.until, d(11, 30));
+        assert_eq!(budget.remaining, 850.0);
+        assert_eq!(budget.workdays, 6);
+        // Erika 6 × ¾ = 4,5 Tage à 100 €, Max 5 Tage à 80 € (30.11. abwesend)
+        assert_eq!(budget.available_days, 9.5);
+        assert_eq!(budget.average_rate, Some(round2(850.0 / 9.5)));
+        // 850 € ÷ Ø 89,47 € = 9,5 h – von 20 h fehlenden
+        assert_eq!(budget.affordable_hours, Some(9.5));
+        assert_eq!(budget.covered_hours, 9.5);
+        assert_eq!(budget.covered_net, 850.0);
+        assert_eq!(budget.uncovered_hours, 10.5);
+        assert_eq!(budget.extra_per_workday, Some(round2(9.5 / 6.0)));
+        assert_eq!(budget.extra_per_person_day, Some(1.0));
+    }
+
+    #[test]
+    fn budget_left_over_or_already_used_up() {
+        let (config, ev) = november();
+        // genug Budget bis Jahresende: alles aufholbar, Zeitraum bis 31.12.
+        let plenty = catch_up(
+            &config,
+            &ev,
+            &[status("2026-11", "2027-03", 50_000.0, 10_000.0)],
+        );
+        let budget = plenty.budget.unwrap();
+        assert_eq!(budget.until, d(12, 31));
+        assert_eq!(budget.workdays, 28);
+        assert_eq!(budget.available_days, 48.0);
+        assert_eq!(budget.covered_hours, 20.0);
+        assert_eq!(budget.uncovered_hours, 0.0);
+        assert_eq!(budget.extra_per_person_day, Some(round2(20.0 / 48.0)));
+        // Ø Satz (21 × 100 + 27 × 80) ÷ 48
+        assert_eq!(budget.average_rate, Some(round2(4260.0 / 48.0)));
+        assert_eq!(budget.covered_net, round2(20.0 * 4260.0 / 48.0));
+
+        // laut Prognose schon überzogen: nichts im Budget aufholbar
+        let used = catch_up(
+            &config,
+            &ev,
+            &[status("2026-01", "2026-12", 1000.0, 1200.0)],
+        );
+        let budget = used.budget.unwrap();
+        assert_eq!(budget.remaining, -200.0);
+        assert_eq!(budget.affordable_hours, Some(0.0));
+        assert_eq!(budget.covered_hours, 0.0);
+        assert_eq!(budget.uncovered_hours, 20.0);
+
+        // kein Budget, in dem der 21.11. liegt
+        let none = catch_up(&config, &ev, &[status("2026-01", "2026-10", 1000.0, 0.0)]);
+        assert_eq!(none.budget, None);
+
+        // ohne Stundensätze kostet Aufholen nichts
+        let mut free = config.clone();
+        free.team.iter_mut().for_each(|m| m.rates.clear());
+        let ev = evaluate(&free, &[], d(11, 20), None);
+        let result = catch_up(&free, &ev, &[status("2026-01", "2026-11", 0.0, 0.0)]);
+        let budget = result.budget.unwrap();
+        assert_eq!(budget.average_rate, Some(0.0));
+        assert_eq!(budget.affordable_hours, None);
+        assert_eq!(budget.covered_hours, result.team.deficit);
     }
 }

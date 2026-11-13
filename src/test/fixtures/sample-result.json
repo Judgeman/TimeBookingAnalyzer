@@ -8275,6 +8275,23 @@
       "available_days": 51.5,
       "extra_per_workday": 0.0,
       "extra_per_person_day": 0.0
+    },
+    "budget": {
+      "from": "2026-01",
+      "to": "2026-12",
+      "amount": 360000.0,
+      "expected_net": 367494.52,
+      "remaining": -7494.52,
+      "until": "2026-12-31",
+      "workdays": 43,
+      "available_days": 51.5,
+      "average_rate": 100.05,
+      "affordable_hours": 0.0,
+      "covered_hours": 0.0,
+      "covered_net": 0.0,
+      "uncovered_hours": 0.0,
+      "extra_per_workday": 0.0,
+      "extra_per_person_day": 0.0
     }
   },
   "overview": {
