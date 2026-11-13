@@ -146,7 +146,7 @@ cd src-tauri && UPDATE_FIXTURES=1 cargo test frontend_fixture  # Vertrags-Fixtur
 ### Versionsnummer
 Einzige Quelle ist `package.json` (`tauri.conf.json` verweist mit `"version": "../package.json"`
 darauf; das Frontend bekommt sie über Vite `define` als `__APP_VERSION__`). Angezeigt unten in
-der Seitenleiste und im Fenstertitel („Billing Tracker 0.1.0“), Datei-Version der Exe ebenso.
+der Seitenleiste und im Fenstertitel („Billing Tracker 1.0.0“), Datei-Version der Exe ebenso.
 `src-tauri/Cargo.toml` muss dieselbe Version haben – der Test `version_is_the_same_everywhere`
 prüft package.json, package-lock.json, Cargo.toml und die von Tauri gelesene Version. Erhöhen:
 
