@@ -237,6 +237,7 @@ fn random_exports_never_crash_the_evaluation() {
             sheet_name: "Details".into(),
             entries: entries.clone(),
             skipped: vec![],
+            notes: vec![],
         };
         let run = catch_unwind(AssertUnwindSafe(|| {
             evaluate_export(&config, outcome, "Export.xlsx".into(), export, cutoff).map(|result| {

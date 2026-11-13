@@ -145,6 +145,7 @@ mod tests {
         };
         let outcome = ParseOutcome {
             sheet_name: "Details".into(),
+            notes: vec![],
             entries: vec![
                 entry("Erika Mustermann", 5, 7.5, "P100 Lager-App"),
                 entry("Zoe Extern", 6, 3.0, "Anderes Projekt"),

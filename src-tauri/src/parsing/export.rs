@@ -19,6 +19,8 @@ pub struct ParseOutcome {
     pub sheet_name: String,
     pub entries: Vec<TimeEntry>,
     pub skipped: Vec<SkippedRow>,
+    /// Hinweise zum Einlesen (z. B. Beginn/Ende nicht verwendbar) → Warnungen.
+    pub notes: Vec<String>,
 }
 
 /// Öffnet die Datei und liest das konfigurierte Tabellenblatt ein.
@@ -52,13 +54,17 @@ pub fn read_export(path: &Path, format: &ExportFormat) -> Result<ParseOutcome, S
         .worksheet_range(&sheet_name)
         .map_err(|e| format!("Tabellenblatt „{sheet_name}“ konnte nicht gelesen werden: {e}"))?;
 
-    let (entries, skipped) = parse_range(&range, format, &sheet_name)?;
+    let (entries, skipped, notes) = parse_range(&range, format, &sheet_name)?;
     Ok(ParseOutcome {
         sheet_name,
         entries,
         skipped,
+        notes,
     })
 }
+
+/// Buchungen, übersprungene Zeilen und Hinweise eines Tabellenblatts.
+type ParsedRows = (Vec<TimeEntry>, Vec<SkippedRow>, Vec<String>);
 
 /// Wandelt die Zeilen eines Tabellenblatts in `TimeEntry`s um.
 ///
@@ -71,7 +77,7 @@ pub fn parse_range(
     range: &Range<Data>,
     format: &ExportFormat,
     sheet_name: &str,
-) -> Result<(Vec<TimeEntry>, Vec<SkippedRow>), String> {
+) -> Result<ParsedRows, String> {
     let (Some((start_row, _)), Some((end_row, _))) = (range.start(), range.end()) else {
         return Err(format!("Tabellenblatt „{sheet_name}“ ist leer."));
     };
@@ -81,6 +87,9 @@ pub fn parse_range(
     let mut skipped = Vec::new();
     // Erste nicht leere Zeile, die nicht als Buchung erkannt wurde – für die Fehlermeldung.
     let mut first_rejected: Option<(usize, String)> = None;
+    // Beginn/Ende vorhanden, aber nicht verwendbar: Anzahl und erstes Beispiel.
+    let mut unusable_times = 0usize;
+    let mut first_unusable: Option<String> = None;
 
     for row in start_row..=end_row {
         let cell = |col: usize| {
@@ -147,6 +156,22 @@ pub fn parse_range(
             calendar.stop.and_then(|c| cell_time(cell(c))),
             hours,
         );
+        if let (Some(start_col), Some(stop_col)) = (calendar.start, calendar.stop)
+            && start.is_none()
+            && !(is_blank(cell(start_col)) && is_blank(cell(stop_col)))
+        {
+            unusable_times += 1;
+            first_unusable.get_or_insert_with(|| {
+                format!(
+                    "Zeile {excel_row}: Spalte {} {}, Spalte {} {}, Dauer {} h",
+                    column_letter(start_col),
+                    describe(cell(start_col)),
+                    column_letter(stop_col),
+                    describe(cell(stop_col)),
+                    format_hours(hours)
+                )
+            });
+        }
         entries.push(TimeEntry {
             name,
             date,
@@ -181,7 +206,19 @@ pub fn parse_range(
         ));
     }
 
-    Ok((entries, skipped))
+    let mut notes = Vec::new();
+    if let Some(example) = first_unusable {
+        notes.push(format!(
+            "Beginn/Ende für den Wochenkalender bei {unusable_times} Buchung(en) nicht verwendet (Uhrzeit nicht erkannt oder passt nicht zur Dauer) – z. B. {example}. Spalten unter „Projekt bearbeiten“ → Export-Format → „Wochenkalender“ prüfen."
+        ));
+    }
+    Ok((entries, skipped, notes))
+}
+
+/// 1.5 → „1,5“.
+fn format_hours(hours: f64) -> String {
+    let rounded = (hours * 100.0).round() / 100.0;
+    rounded.to_string().replace('.', ",")
 }
 
 /// Beginn/Ende nur, wenn beide da sind und zur Dauer passen (± 1 Minute,
@@ -419,9 +456,23 @@ mod tests {
             ws.write_string(r, 12, *text).unwrap();
         }
         workbook.save(&path).unwrap();
-        let entries = read_export(&path, &ExportFormat::default())
-            .unwrap()
-            .entries;
+        let outcome = read_export(&path, &ExportFormat::default()).unwrap();
+        // nicht verwendbare Zeiten → Hinweis mit Beispiel (leere Zellen zählen nicht)
+        assert_eq!(outcome.notes.len(), 1);
+        assert!(
+            outcome.notes[0].starts_with(
+                "Beginn/Ende für den Wochenkalender bei 1 Buchung(en) nicht verwendet"
+            ),
+            "{:?}",
+            outcome.notes
+        );
+        assert!(
+            outcome.notes[0]
+                .contains("z. B. Zeile 3: Spalte D „08:00“, Spalte E „12:00“, Dauer 2 h"),
+            "{:?}",
+            outcome.notes
+        );
+        let entries = outcome.entries;
         let t = |h, m| NaiveTime::from_hms_opt(h, m, 0);
         let times: Vec<_> = entries.iter().map(|e| (e.start, e.end)).collect();
         assert_eq!(
@@ -444,7 +495,9 @@ mod tests {
             },
             ..ExportFormat::default()
         };
-        let entries = read_export(&path, &format).unwrap().entries;
+        let outcome = read_export(&path, &format).unwrap();
+        assert!(outcome.notes.is_empty());
+        let entries = outcome.entries;
         assert!(
             entries
                 .iter()

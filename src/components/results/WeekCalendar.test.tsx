@@ -26,6 +26,7 @@ describe("WeekCalendar", () => {
   it("Person: Tage Mo–So, Blöcke mit Uhrzeit, Summe, fehlende Buchung, nach dem Stichtag", () => {
     render(<WeekCalendar {...props("Erika Mustermann")} />);
     const calendar = screen.getByRole("region", { name: "Wochenkalender" });
+    expect(screen.queryByRole("status")).not.toBeInTheDocument(); // alle mit Uhrzeit
     expect(within(calendar).getByRole("heading")).toHaveTextContent(
       "KW 43 · 19.10.2026 – 25.10.2026",
     );
@@ -111,6 +112,9 @@ describe("WeekCalendar", () => {
     expect(text(day("2026-12-21")[0])).toBe("Gebucht 4,00 h2,00 h Z900 Intern");
     expect(day("2026-12-21")[0].querySelector(".border-dashed")).not.toBeNull();
     expect(text(day("2026-12-22")[0])).toBe("Urlaub 8,00 h");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "1 Buchung dieser Woche ohne Beginn/Ende – sie stehen bei „ganztags“.",
+    );
     expect(text(day("2026-12-23")[0])).toBe("Krank 4,00 h");
     expect(screen.getByText("1. Weihnachtstag")).toBeInTheDocument();
     // Raster bis 23 Uhr wegen der Buchung um 21–23 Uhr (letzte Zeile 22:00)

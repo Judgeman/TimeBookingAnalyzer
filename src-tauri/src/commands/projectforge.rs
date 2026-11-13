@@ -208,6 +208,7 @@ pub fn evaluate_cache(
         sheet_name: "ProjectForge".into(),
         entries: cache.entries(),
         skipped: vec![],
+        notes: vec![],
     };
     let file_name = format!(
         "ProjectForge – Abruf {}",

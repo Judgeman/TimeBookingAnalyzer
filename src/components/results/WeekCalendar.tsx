@@ -73,6 +73,7 @@ export function WeekCalendar({
   const inWeek = bookings.filter(
     (b) => b.date >= days[0] && b.date <= days[6] && (person === null || b.person === person),
   );
+  const untimed = inWeek.filter((b) => isWork(b) && !timed(b)).length;
   const shade = (day: string, index: number) =>
     day > cutoff ? "bg-slate-100" : index >= 5 || holidayNames.has(day) ? "bg-slate-50" : "bg-white";
   const isMissing = (who: string, day: string) =>
@@ -115,6 +116,14 @@ export function WeekCalendar({
           {person ?? "Team"}: {formatHours(sumHours(inWeek.filter(isWork)))} h gebucht
         </span>
       </div>
+
+      {untimed > 0 && (
+        <p role="status" className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          {untimed} Buchung{untimed === 1 ? "" : "en"} dieser Woche ohne Beginn/Ende – sie stehen bei
+          „ganztags“. Abruf aus ProjectForge: einmal „Alles neu laden“. Export-Datei: Spalten für
+          Beginn/Ende unter „Projekt bearbeiten“ → Export-Format → „Wochenkalender“ prüfen.
+        </p>
+      )}
 
       {person === null ? (
         <TeamWeek

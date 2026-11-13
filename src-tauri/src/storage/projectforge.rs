@@ -14,8 +14,15 @@ use super::projects::validate_id;
 use crate::models::entry::TimeEntry;
 use crate::projectforge::{CostTypes, FetchedEntry, dedupe};
 
+/// Format des Zwischenspeichers; ältere werden beim nächsten Abruf komplett
+/// neu geholt (1 = ohne Beginn/Ende/Beschreibung, 2 = mit).
+pub const CACHE_VERSION: u32 = 2;
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct FetchCache {
+    /// Format des Zwischenspeichers (fehlt bei Version 1 → 0).
+    #[serde(default)]
+    pub version: u32,
     /// Zeitpunkt des letzten erfolgreichen Abrufs (Ortszeit).
     pub fetched_at: Option<NaiveDateTime>,
     /// Monat („2026-11“) → abgerufene Buchungen.

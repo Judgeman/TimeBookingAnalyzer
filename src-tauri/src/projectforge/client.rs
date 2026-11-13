@@ -11,7 +11,7 @@ use super::{
     BookableTask, CostTypes, ListResponse, Row, convert_row, month_bounds, month_key,
     months_to_fetch,
 };
-use crate::storage::projectforge::{CachedMonth, FetchCache};
+use crate::storage::projectforge::{CACHE_VERSION, CachedMonth, FetchCache};
 
 /// Höchstzahl Zeilen je Anfrage; liefert ProjectForge weniger als vorhanden,
 /// wird der Zeitraum geteilt.
@@ -199,6 +199,8 @@ pub async fn refresh(
     let today = now.date();
     let mut types = CostTypes::from_bookable(&client.bookable_tasks().await?);
     types.merge_missing(&cache.cost_types);
+    // älteres Format (z. B. ohne Uhrzeiten) → alle Monate neu
+    let full = full || cache.version < CACHE_VERSION;
     for month in months_to_fetch(from, today, &cache.fetched_months(), full) {
         let (first, last) = month_bounds(month);
         let rows = client.timesheets(first, last.min(today)).await?;
@@ -220,6 +222,7 @@ pub async fn refresh(
     }
     cache.cost_types = types;
     cache.fetched_at = Some(now);
+    cache.version = CACHE_VERSION;
     Ok(cache)
 }
 
@@ -530,10 +533,45 @@ pub(crate) mod tests {
         let cache = rt
             .block_on(refresh(&client(&url), old, d(10, 1), later, false))
             .unwrap();
+        assert_eq!(cache.version, CACHE_VERSION);
         let periods: Vec<_> = log.lock().unwrap().iter().skip(1).map(period).collect();
         assert_eq!(periods.len(), 2);
         assert_eq!(periods[0].0, "2026-11-01");
         assert_eq!(cache.months["2026-10"].entries.len(), 1);
         assert_eq!(cache.cost_types.kinds.len(), 2);
+    }
+
+    #[test]
+    fn cache_of_an_older_format_is_fetched_completely() {
+        let (url, log) = serve(|request| {
+            if request.path == "/rs/bookableTasks" {
+                return (200, BOOKABLE.into());
+            }
+            (200, r#"{"resultSet":[]}"#.into())
+        });
+        let now = d(11, 13).and_hms_opt(9, 0, 0).unwrap();
+        // Oktober gilt als abgeschlossen – aber im alten Format (Version 0, ohne Uhrzeiten)
+        let mut old = FetchCache::default();
+        old.months.insert(
+            "2026-10".into(),
+            CachedMonth {
+                fetched_at: now,
+                entries: vec![],
+                unknown_kinds: Default::default(),
+            },
+        );
+        let rt = runtime();
+        let cache = rt
+            .block_on(refresh(&client(&url), old, d(10, 1), now, false))
+            .unwrap();
+        let periods: Vec<_> = log.lock().unwrap().iter().skip(1).map(period).collect();
+        assert_eq!(periods.len(), 2, "Oktober und November neu abgerufen");
+        assert_eq!(cache.version, CACHE_VERSION);
+        // aktuelles Format: abgeschlossener Oktober bleibt
+        log.lock().unwrap().clear();
+        rt.block_on(refresh(&client(&url), cache, d(10, 1), now, false))
+            .unwrap();
+        let periods: Vec<_> = log.lock().unwrap().iter().skip(1).map(period).collect();
+        assert_eq!(periods.len(), 1);
     }
 }

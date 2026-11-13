@@ -507,6 +507,8 @@ plus_krank = plus - sick_h_norm
   wenn er ≥ 10 Tage nach Monatsende abgerufen wurde (sonst bei jedem Abruf neu; „Alles neu
   laden“ = alle). Buchungen gehören zum Monat ihres Beginns (doppelte IDs entfernt).
   Zwischenspeicher `ProjectForge/<id>.json` → Auswertung auch ohne Netz (`projectforge_cached`);
+  mit Formatversion (`CACHE_VERSION`, 2 = mit Beginn/Ende/Beschreibung) – ältere werden beim
+  nächsten Abruf komplett neu geholt (auch abgeschlossene Monate);
   Stand der Daten = Abrufzeitpunkt (`export_date_source = "fetched"`, `file_name` =
   „ProjectForge – Abruf TT.MM.JJJJ, HH:MM“). UI: beim Öffnen sofort der letzte Abruf, dann
   einmal je Sitzung automatisch aktualisieren; neuer Stichtag wertet nur neu aus; Fehler beim
@@ -520,7 +522,9 @@ plus_krank = plus - sick_h_norm
   Kostenart/Stunden/abgerechnet), überlappende nebeneinander, über Mitternacht bis 24 Uhr;
   „ganztags“: Urlaub/Krank, Summe, fehlende Buchung, Buchungen ohne Uhrzeit. Team = Zeilen je
   Person, Zellen mit kompakten Blöcken. Wochenende/Feiertag/nach dem Stichtag hinterlegt;
-  Farben: abgerechnet indigo, sonst grau, Mult 0 gestrichelt.
+  Farben: abgerechnet indigo, sonst grau, Mult 0 gestrichelt. Buchungen der Woche ohne
+  Uhrzeit → Hinweis über dem Kalender. Export: Beginn/Ende vorhanden, aber nicht erkannt bzw.
+  nicht passend zur Dauer → Warnung mit Anzahl und erstem Beispiel (`ParseOutcome::notes`).
 - **Kalenderwochen** nach ISO 8601 (`2026-W53` kann im Januar des Folgejahres liegen).
   `month_weeks` enthält Teilwochen je Monat, damit aufgeklappte Wochen den Monat ergeben.
 - **Rechnung** (`invoice.rs`): eine Rechnung pro Monat, Positionen je Person × Regel ×

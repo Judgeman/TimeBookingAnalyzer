@@ -78,7 +78,7 @@ pub fn parse_export_file(
 /// Auswertung eines eingelesenen Exports (ohne Dateizugriff).
 pub fn evaluate_export(
     config: &ProjectConfig,
-    outcome: ParseOutcome,
+    mut outcome: ParseOutcome,
     file_name: String,
     export: Option<(NaiveDate, ExportDateSource)>,
     cutoff: Option<NaiveDate>,
@@ -96,6 +96,7 @@ pub fn evaluate_export(
         cutoff_date,
         export.map(|(d, _)| d),
     );
+    let notes = std::mem::take(&mut outcome.notes);
     let forecast = calculation::forecast::build(config, &outcome.entries, &evaluation);
     let forecast_accuracy = calculation::forecast::backtest(config, &outcome.entries, &evaluation);
     let vacation = calculation::vacation::vacation_status(config, &evaluation);
@@ -118,7 +119,7 @@ pub fn evaluate_export(
         invoice: evaluation.invoice,
         holiday_region: config.holidays.region.clone(),
         holidays: evaluation.holidays,
-        warnings: evaluation.warnings,
+        warnings: evaluation.warnings.into_iter().chain(notes).collect(),
         flagged: evaluation.flagged,
         missing: evaluation.missing,
         missing_checked_until: evaluation.missing_checked_until,
