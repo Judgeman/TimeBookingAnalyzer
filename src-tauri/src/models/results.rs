@@ -147,6 +147,8 @@ pub struct AuswertungResult {
     pub forecast_accuracy: Vec<AccuracyMonth>,
     /// Resturlaub je Person mit Urlaubsanspruch im Stichtag-Jahr.
     pub vacation: Vec<VacationStatus>,
+    /// Aufholen bis Jahresende im Stundenkonto „Krankheit als Fehlzeit“.
+    pub catch_up: CatchUp,
     pub overview: ParsedExport,
 }
 
@@ -162,6 +164,57 @@ pub struct VacationStatus {
     /// Geplante Urlaube nach dem Stand der Daten bis Jahresende (Werktage).
     pub planned: f64,
     pub remaining: f64,
+}
+
+/// Aufholen bis Jahresende (Saldo „Krankheit als Fehlzeit“ = `plus_krank`):
+/// zusätzliche Stunden je Arbeitstag vom Tag nach dem Stichtag bis 31.12.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct CatchUp {
+    /// Tag nach dem Stichtag.
+    pub from: NaiveDate,
+    /// 31.12. des Stichtag-Jahres.
+    pub to: NaiveDate,
+    /// Werktage (Mo–Fr ohne Feiertag) im Zeitraum.
+    pub workdays: u32,
+    pub persons: Vec<CatchUpPerson>,
+    pub team: CatchUpTeam,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct CatchUpPerson {
+    pub person: String,
+    /// Saldo bis Stichtag (`plus_krank`), negativ = fehlende Stunden.
+    pub balance: f64,
+    /// Fehlende Stunden bis 100 % (0 bei Saldo ≥ 0).
+    pub deficit: f64,
+    /// Werktage im Zeitraum im Einsatz mit h/Tag > 0.
+    pub workdays: f64,
+    /// Ø vertragliche h/Tag an diesen Werktagen.
+    pub hours_per_day: f64,
+    /// Geplante Abwesenheiten (alle Arten, ½ Tag = 0,5) an diesen Werktagen.
+    pub planned_days: f64,
+    /// Offener, noch nicht eingeplanter Urlaub (ohne Anspruch fürs Jahr: 0).
+    pub open_vacation_days: f64,
+    pub has_entitlement: bool,
+    /// Arbeitstage = Werktage − geplant − offener Urlaub.
+    pub available_days: f64,
+    /// Fehlende Stunden ÷ Arbeitstage; `None` = keine Arbeitstage mehr.
+    pub extra_per_day: Option<f64>,
+    /// Anteil am Fehlbetrag des Teams (h), gleichmäßig je Arbeitstag.
+    pub team_share: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct CatchUpTeam {
+    /// Summe der Salden (Überstunden gleichen Fehlstunden aus).
+    pub balance: f64,
+    pub deficit: f64,
+    /// Summe der Arbeitstage aller Personen.
+    pub available_days: f64,
+    /// Fehlbetrag ÷ Werktage: was das ganze Team je Werktag mehr leisten muss.
+    pub extra_per_workday: Option<f64>,
+    /// Fehlbetrag ÷ Personen-Arbeitstage: was jede Person je Arbeitstag mehr leisten muss.
+    pub extra_per_person_day: Option<f64>,
 }
 
 /// Prognose für einen abgeschlossenen Monat gegenüber dem tatsächlichen Ergebnis.

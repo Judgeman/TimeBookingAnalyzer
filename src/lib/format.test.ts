@@ -3,6 +3,7 @@ import {
   clampRange,
   columnLetter,
   endOfPreviousMonth,
+  endOfPreviousWeek,
   previousDay,
   fileNameOf,
   formatDate,
@@ -92,6 +93,13 @@ describe("Datum", () => {
     expect(previousDay("2026-10-31")).toBe("2026-10-30");
     expect(previousDay("2026-03-01")).toBe("2026-02-28");
     expect(previousDay("2026-01-01")).toBe("2025-12-31");
+  });
+
+  it("bestimmt das Ende der Vorwoche (Sonntag)", () => {
+    expect(endOfPreviousWeek("2026-11-02")).toBe("2026-11-01"); // Montag
+    expect(endOfPreviousWeek("2026-11-04")).toBe("2026-11-01"); // Mittwoch
+    expect(endOfPreviousWeek("2026-11-08")).toBe("2026-11-01"); // Sonntag: Woche läuft noch
+    expect(endOfPreviousWeek("2026-01-01")).toBe("2025-12-28"); // über den Jahreswechsel
   });
 });
 

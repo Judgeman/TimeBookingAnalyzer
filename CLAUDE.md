@@ -38,6 +38,7 @@ src/                        # React Frontend
       YearView.tsx          # Jahr: Kennzahlen × Personen
       PeriodTable.tsx       # Monate (aufklappbar auf KW) / Wochen, ⚑-Markierungen
       AccountView.tsx       # Stundenkonto: Vertragsabgleich (2 Varianten), kumuliert
+      CatchUpView.tsx       # Aufholen bis 31.12. (Krank = Fehlzeit): je Person, Team verteilt
       LocationView.tsx      # Arbeitsort: Torte + Tabelle, Home-Office-Anteil, Monatsverlauf
       PieChart.tsx          # SVG-Tortendiagramm (ohne Bibliothek), Hover-Tooltip
       chartColors.ts        # validierte kategorische Palette, Farbe folgt dem Ort
@@ -100,6 +101,7 @@ src-tauri/
       invoice.rs            # Rechnung je Monat (Cent-genau), USt., Brutto
       forecast.rs           # Prognose: Faktoren je Person, Tagesprognose, Budget-Status, Nachrechnung
       vacation.rs           # Resturlaub je Person (Anspruch + Übertrag − genommen − geplant)
+      catch_up.rs           # Aufholen bis 31.12.: Mehrstunden je Arbeitstag (Person, Team)
       location.rs           # Stunden/Anteile/Tage je Arbeitsort (Spalte „Ort“)
       tests.rs              # Szenario-Test mit handgerechneten Werten
   examples/
@@ -335,8 +337,8 @@ plus_krank = plus - sick_h_norm
 
 ### Festlegungen (umgesetzt in `calculation/`)
 - **Zeitraum**: 1. Januar des Stichtag-Jahres bis Stichtag. Stichtag in der UI beim
-  Programmstart = heute (Schnellwahl: Heute / Stand des Exports / Vortag des Exports /
-  Ende Vormonat – der Export entsteht meist morgens, der Tag selbst ist dann unvollständig); ohne
+  Programmstart = heute (Schnellwahl: Heute / Gestern / Ende letzter Woche = Sonntag der
+  Vorwoche / Ende Vormonat; beliebiger Tag über das Datumsfeld); ohne
   Vorgabe im Backend = Export-Datum. Liegt der Stichtag nach dem Export-Stand → Hinweis.
   Stand des Exports: Datum im Dateinamen (bei mehreren, z. B. Zeitraum „von_bis“, das
   späteste), sonst Änderungsdatum der Datei, sonst letzte Buchung. Abgerechnete Buchungen
@@ -432,6 +434,15 @@ plus_krank = plus - sick_h_norm
 - **Stundenkonto** (UI, aus PeriodData): zu leisten = Soll netto, Saldo = `plus`
   (negativ = Person schuldet Stunden); Variante „Krankheit als Fehlzeit“: zu leisten =
   Soll brutto − Urlaub, Saldo = `plus_krank`; Erfüllung = gearb ÷ zu leisten.
+- **Aufholen bis 31.12.** (`catch_up.rs`, Variante „Krankheit als Fehlzeit“, Annahme: keine
+  weitere Krankheit): Zeitraum Tag nach Stichtag bis 31.12. Arbeitstage je Person = Werktage
+  im Einsatz mit h/Tag > 0 − geplante Abwesenheiten (alle Arten, ½ Tag = 0,5) − offener
+  Urlaub (Anspruch + Übertrag − genommen bis Stichtag − im Zeitraum geplant; ohne Anspruch 0).
+  Person: Mehr je Arbeitstag = −`plus_krank` ÷ Arbeitstage (ohne Arbeitstage: nicht mehr
+  möglich), Anzeige mit Ø h/Tag → neue h/Tag. Team: Fehlbetrag = −Σ `plus_krank` (Überstunden
+  gleichen aus); gesamt je Werktag = Fehlbetrag ÷ Werktage; je Person und Arbeitstag =
+  Fehlbetrag ÷ Σ Arbeitstage aller Personen (gleichmäßig), Anteil = das × eigene Arbeitstage.
+  UI: Stundenkonto – Person nur bei Saldo < 0; „Team gesamt“ mit Tabelle aller Personen.
 - **Fehlende Buchung**: Werktag (Mo–Fr ohne Feiertag) mit h/Tag > 0, an dem
   gebucht = Arbeitszeit **ohne** Mult (alle Nicht-Abwesenheits-Buchungen, auch Mult 0)
   + angerechneter Urlaub/Krank < `missing_threshold_percent` (Standard 50 %) der
@@ -541,6 +552,8 @@ interface AuswertungResult {
                                   //   months (Ist/Prognose je Monat), budgets (BudgetStatus), notes }
   forecast_accuracy: AccuracyMonth[]; // { month, actual_net, backtest_net, recorded_net?, recorded_on? }
   vacation: VacationStatus[];     // { person, year, entitlement, carry_over, taken, planned, remaining }
+  catch_up: CatchUp;              // { from, to, workdays, persons (Saldo, Arbeitstage, extra_per_day,
+                                  //   team_share), team (deficit, extra_per_workday, extra_per_person_day) }
   overview: ParsedExport;         // Rohdaten-Übersicht (Tab „Import“)
 }
 

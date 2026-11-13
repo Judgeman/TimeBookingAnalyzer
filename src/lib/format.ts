@@ -124,6 +124,15 @@ export function previousDay(iso: string): string {
   return new Date(Date.UTC(year, month - 1, day - 1)).toISOString().slice(0, 10);
 }
 
+/** Sonntag der Vorwoche relativ zu `iso` (ISO-Woche Mo–So; "2026-11-04" → "2026-11-01"). */
+export function endOfPreviousWeek(iso: string): string {
+  const [year, month, day] = iso.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  // Montag dieser Woche minus ein Tag
+  date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7) - 1);
+  return date.toISOString().slice(0, 10);
+}
+
 /** ISO-Kalenderwoche eines Datums, z. B. "2026-W43" (wie im Backend). */
 export function isoWeekKey(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);

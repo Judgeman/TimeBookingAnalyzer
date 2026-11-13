@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { PeriodBreakdown, PeriodData } from "../../types/results";
+import type { CatchUp, PeriodBreakdown, PeriodData } from "../../types/results";
 import {
   formatHours,
   formatMonth,
@@ -7,11 +7,15 @@ import {
   formatPercent,
   formatSignedHours,
 } from "../../lib/format";
+import { PersonCatchUp, TeamCatchUp } from "./CatchUpView";
 import { styles } from "./styles";
 
 interface Props {
   name: string;
   data: PeriodBreakdown;
+  catchUp: CatchUp;
+  /** Name der Person; `null` = Team. */
+  person: string | null;
 }
 
 /** Zu leisten, wenn Krankheit als Fehlzeit zählt (nur Urlaub wird angerechnet). */
@@ -28,7 +32,7 @@ const fulfilment = (worked: number, due: number) =>
  * Urlaub/Krank werden als ganzer oder halber Standard-Tag (h/Tag der Person)
  * angerechnet. Variante 2 zählt Krankheit als Fehlzeit (z. B. für Bonus-Kalkulation).
  */
-export function AccountView({ name, data }: Props) {
+export function AccountView({ name, data, catchUp, person }: Props) {
   const ytd = data.ytd;
   const months = Object.entries(data.by_month);
   let cumulative = 0;
@@ -69,6 +73,12 @@ export function AccountView({ name, data }: Props) {
           name={name}
         />
       </div>
+
+      {person === null ? (
+        <TeamCatchUp catchUp={catchUp} />
+      ) : (
+        <PersonCatchUp catchUp={catchUp} person={person} />
+      )}
 
       <section>
         <h3 className={styles.heading}>Monatsverlauf</h3>

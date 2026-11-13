@@ -17,11 +17,19 @@ import {
   withApp,
 } from "../helpers.mjs";
 
+/** Stichtag über das Datumsfeld setzen (Schnellwahl hängt vom heutigen Tag ab). */
+async function setCutoff(app, iso) {
+  await app.execute(`const input = [...document.querySelectorAll('input[type="date"]')]
+      .find((i) => i.closest("label")?.textContent.includes("Stichtag"));
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(input, "${iso}");
+    input.dispatchEvent(new Event("input", { bubbles: true }));`);
+}
+
 async function loadSample(app) {
   await app.waitForText("Musterkunde GmbH / Lager-App");
   await app.dropFile(env.sample);
   await app.waitForText("Auswertung 01.01.");
-  await app.click("button", "Stand des Exports");
+  await setCutoff(app, "2026-10-31");
   await app.waitForText("Auswertung 01.01.2026 – 31.10.2026");
 }
 
@@ -329,7 +337,7 @@ test("Letzte Import-Datei: Kopie im Ordner „Import“, beim Neustart automatis
   await withApp("import-neustart", { keepData: true }, async (app) => {
     await app.waitForText("Auswertung 01.01.");
     await app.waitForText("Als letzter Import gemerkt");
-    await app.click("button", "Stand des Exports");
+    await setCutoff(app, "2026-10-31");
     await app.waitForText("Auswertung 01.01.2026 – 31.10.2026");
     assert.ok((await app.text()).includes("Stand des Exports: 31.10.2026 (aus Dateiname)"));
     // Projekt löschen entfernt auch die Kopie
@@ -452,10 +460,7 @@ test("Stand des Exports zu früh: Prognose zählt abgerechnete Tage nicht doppel
     copyFileSync(env.sample, file);
     await app.dropFile(file);
     await app.waitForText("Auswertung 01.01.");
-    await app.execute(`const input = [...document.querySelectorAll('input[type="date"]')]
-        .find((i) => i.closest("label")?.textContent.includes("Stichtag"));
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(input, "2026-10-31");
-      input.dispatchEvent(new Event("input", { bubbles: true }));`);
+    await setCutoff(app, "2026-10-31");
     await app.waitForText("Auswertung 01.01.2026 – 31.10.2026");
     await app.waitForText(
       "Der Export enthält abgerechnete Buchungen nach dem Stand des Exports (30.09.2026) – bis 30.10.2026.",
@@ -550,9 +555,9 @@ test("Insights: Rekord-Monate, Pace und Hinweise", () =>
     await app.waitForText("3 Monate (März 2026 – Mai 2026): 84.955,00 € abgerufen, Richtwert 90.000,00 €");
     assert.equal(await bars(), 3);
 
-    // Schnellwahl „Vortag des Exports“: Oktober ist dann noch nicht abgeschlossen,
+    // Stichtag am Vortag des Exports: Oktober ist dann noch nicht abgeschlossen,
     // die aktuell fehlenden Buchungen bleiben dieselben
-    await app.click("button", "Vortag des Exports");
+    await setCutoff(app, "2026-10-30");
     await app.waitForText("Auswertung 01.01.2026 – 30.10.2026");
     await app.tab("Insights");
     await app.waitForText("abgeschlossene Monate Januar 2026 – September 2026");
@@ -560,6 +565,41 @@ test("Insights: Rekord-Monate, Pace und Hinweise", () =>
       .find((h) => h.textContent === "Fehlende Buchungen aktuell")
       .closest("section").querySelectorAll("tbody tr").length`);
     assert.equal(current, 2); // Erika 20.10., Max 22.10.
+  }));
+
+test("Stundenkonto: Aufholen bis 31.12. je Person und im Team", () =>
+  withApp("aufholen", {}, async (app) => {
+    await loadSample(app);
+    // Ende Oktober liegen alle über 100 % → kein Hinweis
+    await app.tab("Stundenkonto");
+    await app.waitForText("Krankheit als Fehlzeit");
+    assert.ok(!(await app.text()).includes("Aufholen bis"));
+    // Ende Juni: Erika −14,50 h, Max −5,00 h (Krankheit als Fehlzeit)
+    await setCutoff(app, "2026-06-30");
+    await app.waitForText("Auswertung 01.01.2026 – 30.06.2026");
+    await app.waitForText("Aufholen bis 31.12.2026 – Krankheit als Fehlzeit");
+    const section = () =>
+      app.execute(`return document.querySelector('section[aria-label="Aufholen"]').textContent
+        .replace(/\\s/g, " ")`);
+    let text = await section();
+    for (const expected of [
+      "Mehr je Arbeitstag+0,14 h≈ 8 Min.",
+      "7,50 → 7,64 h",
+      "Es fehlen 14,50 h bis 100 % · 104 Arbeitstage bis 31.12.2026 (131 Werktage im Einsatz − 5 geplant abwesend − 22 offener Urlaub).",
+      "+0,09 h je Arbeitstag, Anteil 9,82 h",
+    ]) {
+      assert.ok(text.includes(expected), `fehlt: ${expected}`);
+    }
+    await app.click("button", "Team gesamt");
+    await app.waitForText("Aufholen bis 31.12.2026 – Team – Krankheit als Fehlzeit");
+    text = await section();
+    for (const expected of [
+      "Team gesamt je Werktag+0,15 h19,50 h ÷ 131 Werktage",
+      "Je Person und Arbeitstag+0,09 h19,50 h ÷ 206,5 Personen-Arbeitstage",
+      "Max Mustermann−5,00102,56,50+0,05 h/Tag9,68 h6,50 → 6,59",
+    ]) {
+      assert.ok(text.includes(expected), `fehlt: ${expected}`);
+    }
   }));
 
 test("Resturlaub: Anspruch im Projekt, Rest und Hinweis in Insights", () =>
@@ -612,7 +652,7 @@ test("Prognosegüte: nachgerechnet, gespeichert und beim nächsten Start verglic
   writeFileSync(saved, JSON.stringify(snapshots));
   await withApp("prognoseguete-neustart", { keepData: true }, async (app) => {
     await app.waitForText("Auswertung 01.01.");
-    await app.click("button", "Stand des Exports");
+    await setCutoff(app, "2026-10-31");
     await app.waitForText("Auswertung 01.01.2026 – 31.10.2026");
     await app.tab("Prognose");
     await app.waitForText("Stand 31.08.2026");

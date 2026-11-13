@@ -122,7 +122,47 @@ export interface AuswertungResult {
   forecast_accuracy: AccuracyMonth[];
   /** Resturlaub je Person mit Urlaubsanspruch im Stichtag-Jahr. */
   vacation: VacationStatus[];
+  /** Aufholen bis 31.12. im Stundenkonto „Krankheit als Fehlzeit“. */
+  catch_up: CatchUp;
   overview: ParsedExport;
+}
+
+/** Zusätzliche Stunden je Arbeitstag vom Tag nach dem Stichtag bis 31.12. */
+export interface CatchUp {
+  from: string;
+  to: string;
+  /** Werktage (Mo–Fr ohne Feiertag) im Zeitraum. */
+  workdays: number;
+  persons: CatchUpPerson[];
+  team: CatchUpTeam;
+}
+
+export interface CatchUpPerson {
+  person: string;
+  /** Saldo bis Stichtag (plus_krank). */
+  balance: number;
+  /** Fehlende Stunden bis 100 % (0 bei Saldo ≥ 0). */
+  deficit: number;
+  /** Werktage im Einsatz mit h/Tag > 0. */
+  workdays: number;
+  hours_per_day: number;
+  planned_days: number;
+  open_vacation_days: number;
+  has_entitlement: boolean;
+  /** Werktage − geplant − offener Urlaub. */
+  available_days: number;
+  /** null = keine Arbeitstage mehr. */
+  extra_per_day: number | null;
+  /** Anteil am Fehlbetrag des Teams (h). */
+  team_share: number;
+}
+
+export interface CatchUpTeam {
+  balance: number;
+  deficit: number;
+  available_days: number;
+  extra_per_workday: number | null;
+  extra_per_person_day: number | null;
 }
 
 /** Resturlaub = Anspruch + Übertrag − genommen − geplant (Tage). */

@@ -8224,6 +8224,59 @@
       "remaining": 9.0
     }
   ],
+  "catch_up": {
+    "from": "2026-11-01",
+    "to": "2026-12-31",
+    "workdays": 43,
+    "persons": [
+      {
+        "person": "Erika Mustermann",
+        "balance": 21.0,
+        "deficit": 0.0,
+        "workdays": 43.0,
+        "hours_per_day": 7.5,
+        "planned_days": 5.0,
+        "open_vacation_days": 12.0,
+        "has_entitlement": true,
+        "available_days": 26.0,
+        "extra_per_day": 0.0,
+        "team_share": 0.0
+      },
+      {
+        "person": "Max Mustermann",
+        "balance": 73.5,
+        "deficit": 0.0,
+        "workdays": 43.0,
+        "hours_per_day": 6.0,
+        "planned_days": 8.5,
+        "open_vacation_days": 9.0,
+        "has_entitlement": true,
+        "available_days": 25.5,
+        "extra_per_day": 0.0,
+        "team_share": 0.0
+      },
+      {
+        "person": "Lena Beispiel",
+        "balance": 0.0,
+        "deficit": 0.0,
+        "workdays": 0.0,
+        "hours_per_day": 0.0,
+        "planned_days": 0.0,
+        "open_vacation_days": 0.0,
+        "has_entitlement": false,
+        "available_days": 0.0,
+        "extra_per_day": null,
+        "team_share": 0.0
+      }
+    ],
+    "team": {
+      "balance": 94.5,
+      "deficit": 0.0,
+      "available_days": 51.5,
+      "extra_per_workday": 0.0,
+      "extra_per_person_day": 0.0
+    }
+  },
   "overview": {
     "project_id": "beispiel-lager-app",
     "project_name": "Musterkunde GmbH / Lager-App",

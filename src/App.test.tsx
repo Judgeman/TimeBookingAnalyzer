@@ -135,7 +135,7 @@ describe("App (Integration mit nachgebildetem Backend)", () => {
 
     // gewählter Tab bleibt beim Wechsel des Stichtags erhalten
     await user.click(screen.getByRole("tab", { name: "Prognose" }));
-    await user.click(screen.getByRole("button", { name: "Stand des Exports" }));
+    await user.click(screen.getByRole("button", { name: "Gestern" })); // heute = 01.11.
     expect(await screen.findByText("Auswertung 01.01.2026 – 31.10.2026")).toBeInTheDocument();
     expect(calls("parse_export").at(-1)![1]).toMatchObject({ cutoffDate: "2026-10-31" });
     expect(screen.getByRole("tab", { name: "Prognose" })).toHaveAttribute("aria-selected", "true");
@@ -233,7 +233,7 @@ describe("App (Integration mit nachgebildetem Backend)", () => {
       filePath: "/daten/Beispiel-Export_2026-10-31.xlsx",
     });
     // neuer Stichtag: erneut auswerten, aber nicht erneut kopieren
-    await user.click(screen.getByRole("button", { name: "Stand des Exports" }));
+    await user.click(screen.getByRole("button", { name: "Gestern" })); // heute = 01.11.
     await screen.findByText("Auswertung 01.01.2026 – 31.10.2026");
     expect(calls("remember_import")).toHaveLength(1);
     unmount();

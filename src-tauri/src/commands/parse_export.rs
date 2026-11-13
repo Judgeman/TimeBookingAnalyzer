@@ -99,6 +99,7 @@ pub fn evaluate_export(
     let forecast = calculation::forecast::build(config, &outcome.entries, &evaluation);
     let forecast_accuracy = calculation::forecast::backtest(config, &outcome.entries, &evaluation);
     let vacation = calculation::vacation::vacation_status(config, &evaluation);
+    let catch_up = calculation::catch_up::catch_up(config, &evaluation);
     let missing_current =
         calculation::current_missing(config, &outcome.entries, &evaluation, default_cutoff);
     let overview = summarize(config, file_name.clone(), export.map(|(d, _)| d), outcome);
@@ -136,6 +137,7 @@ pub fn evaluate_export(
         forecast,
         forecast_accuracy,
         vacation,
+        catch_up,
         overview,
     })
 }
@@ -460,6 +462,88 @@ mod tests {
             .unwrap();
         assert!(warning.contains("gelten als nicht billable"), "{warning}");
         assert!(warning.contains(", …;"), "{warning}"); // mehr als 5 verschiedene Werte
+    }
+
+    #[test]
+    fn sample_export_catch_up_until_new_year() {
+        let json = std::fs::read_to_string(sample("beispiel-projekt.json")).unwrap();
+        let config: ProjectConfig = serde_json::from_str(&json).unwrap();
+        // Ende Juni: Erika und Max liegen mit „Krankheit als Fehlzeit“ unter 100 %
+        let result = parse_export_file(
+            &sample("Beispiel-Export_2026-10-31.xlsx"),
+            &config,
+            NaiveDate::from_ymd_opt(2026, 6, 30),
+        )
+        .unwrap();
+        let catch_up = &result.catch_up;
+        let d = |m, day| NaiveDate::from_ymd_opt(2026, m, day).unwrap();
+        // Werktage 01.07.–31.12. (HE): 23 + 21 + 22 + 22 + 21 + 22 (25.12. = Freitag)
+        assert_eq!(
+            (catch_up.from, catch_up.to, catch_up.workdays),
+            (d(7, 1), d(12, 31), 131)
+        );
+        let row = |p: &crate::models::results::CatchUpPerson| {
+            (
+                p.person.clone(),
+                p.balance,
+                p.hours_per_day,
+                p.planned_days,
+                p.open_vacation_days,
+                p.available_days,
+                p.extra_per_day,
+                p.team_share,
+            )
+        };
+        let rows: Vec<_> = catch_up.persons.iter().map(row).collect();
+        assert_eq!(
+            rows,
+            vec![
+                // Urlaub 30 + 2 − 5 genommen − 5 geplant = 22 offen; 131 − 5 − 22 = 104;
+                // 14,5 h ÷ 104 = 0,14 h/Tag; Team-Anteil 19,5 ÷ 206,5 × 104
+                (
+                    "Erika Mustermann".into(),
+                    -14.5,
+                    7.5,
+                    5.0,
+                    22.0,
+                    104.0,
+                    Some(0.14),
+                    9.82
+                ),
+                // h/Tag Ø (44 × 7,5 + 87 × 6) ÷ 131; geplant ½ (13.11.) + 8 (Dez.);
+                // Urlaub 28 − 0 − 8 = 20; 131 − 8,5 − 20 = 102,5; 5 h ÷ 102,5
+                (
+                    "Max Mustermann".into(),
+                    -5.0,
+                    6.5,
+                    8.5,
+                    20.0,
+                    102.5,
+                    Some(0.05),
+                    9.68
+                ),
+                // Einsatz Januar–Februar: keine Arbeitstage mehr
+                ("Lena Beispiel".into(), 0.0, 0.0, 0.0, 0.0, 0.0, None, 0.0),
+            ]
+        );
+        let team = &catch_up.team;
+        assert_eq!(
+            (
+                team.balance,
+                team.deficit,
+                team.available_days,
+                team.extra_per_workday,
+                team.extra_per_person_day
+            ),
+            (-19.5, 19.5, 206.5, Some(0.15), Some(0.09)) // 19,5 ÷ 131 bzw. ÷ 206,5
+        );
+
+        // Ende Oktober: alle über 100 % → nichts aufzuholen
+        let october =
+            parse_export_file(&sample("Beispiel-Export_2026-10-31.xlsx"), &config, None).unwrap();
+        assert_eq!(october.catch_up.workdays, 43);
+        assert_eq!(october.catch_up.team.balance, 94.5);
+        assert!(october.catch_up.persons.iter().all(|p| p.deficit == 0.0));
     }
 
     #[test]

@@ -56,12 +56,13 @@ describe("ResultsView", () => {
     expect(onCutoffChange).toHaveBeenLastCalledWith("2026-11-01");
     await user.click(screen.getByRole("button", { name: "Ende Vormonat" }));
     expect(onCutoffChange).toHaveBeenLastCalledWith("2026-10-31");
-    await user.click(screen.getByRole("button", { name: "Stand des Exports" }));
+    await user.click(screen.getByRole("button", { name: "Gestern" }));
     expect(onCutoffChange).toHaveBeenLastCalledWith("2026-10-31");
-    const dayBefore = screen.getByRole("button", { name: "Vortag des Exports" });
-    expect(dayBefore.title).toMatch(/^30\.10\.2026 – der Export entsteht meist morgens/);
-    await user.click(dayBefore);
-    expect(onCutoffChange).toHaveBeenLastCalledWith("2026-10-30");
+    const lastWeek = screen.getByRole("button", { name: "Ende letzter Woche" });
+    expect(lastWeek.title).toBe("25.10.2026 (Sonntag)"); // heute = Sonntag 01.11. → Vorwoche
+    await user.click(lastWeek);
+    expect(onCutoffChange).toHaveBeenLastCalledWith("2026-10-25");
+    expect(screen.queryByRole("button", { name: "Stand des Exports" })).not.toBeInTheDocument();
   });
 
   it("wechselt Tabs und Personen", async () => {

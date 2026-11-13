@@ -11,6 +11,7 @@ import { describeAssignments, overlapsAssignments } from "../../lib/assignments"
 import {
   clampRange,
   endOfPreviousMonth,
+  endOfPreviousWeek,
   formatDate,
   formatDateWithWeekday,
   formatHours,
@@ -155,12 +156,8 @@ export function ResultsView({
   // [Beschriftung, Datum, Erklärung]
   const quickCutoffs: [string, string, string][] = [
     ["Heute", today, ""],
-    ["Stand des Exports", result.default_cutoff_date, ""],
-    [
-      "Vortag des Exports",
-      previousDay(result.default_cutoff_date),
-      " – der Export entsteht meist morgens, der Tag selbst ist dann noch nicht gebucht",
-    ],
+    ["Gestern", previousDay(today), ""],
+    ["Ende letzter Woche", endOfPreviousWeek(today), " (Sonntag)"],
     ["Ende Vormonat", endOfPreviousMonth(today), ""],
   ];
 
@@ -316,7 +313,14 @@ export function ResultsView({
               periodLabel="Kalenderwoche"
             />
           )}
-          {tab === "account" && <AccountView name={selectedName} data={selected} />}
+          {tab === "account" && (
+            <AccountView
+              name={selectedName}
+              data={selected}
+              catchUp={result.catch_up}
+              person={selectedIndex === TEAM ? null : result.persons[selectedIndex].name}
+            />
+          )}
           {tab === "locations" && (
             <LocationView
               name={selectedIndex === TEAM ? "Team" : selectedName}
